@@ -59,16 +59,20 @@ if __name__ == '__main__':
     fft_data = np.zeros((n_time_bins, n_freq_bins))
     # Set up the plot with updated extent
     img = plt.imshow(fft_data, aspect='auto', origin='lower', cmap='inferno', extent=[40, 20000, 0, n_time_bins])
-    
+
     plt.xlabel('Hz')
+    plt.xscale('log', base=2)
 
     def label_ticks(hz):
         if hz < 1000:
             return f'{hz:d}'
         k,c = divmod(hz, 1000)
+        c = c // 100
+        if c == 0:
+            return f'{k:d}k'
         return f'{k:d}k{c:d}'
-    
-    ticks = [round(20 * 2 ** (i/3)) for i in range(31)]
+
+    ticks = [round(40 * 2 ** (i/3)) for i in range(27)] + [20000]
     plt.xticks(ticks, [label_ticks(tick) for tick in ticks])
     plt.show(block=False)
 
@@ -81,9 +85,9 @@ if __name__ == '__main__':
             for f in os.listdir('testdata'):
                 if not f.endswith('.wav'):
                     continue
-                
+
                 audio_data, sample_rate = sf.read(os.path.join('testdata', f))
-                
+
                 # Enforce fixed sample rate
                 audio_data = enforce_sample_rate(audio_data, sample_rate, TARGET_SAMPLE_RATE)
                 sample_rate = TARGET_SAMPLE_RATE
