@@ -1,138 +1,114 @@
 #!/usr/bin/env python3
-import os
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.io import wavfile
-from scipy.signal import correlate, butter, lfilter
-from scipy.fft import fft
+import soundfile as sf
+import os
+from scipy.signal import resample
 
-# Global autocorrelation window in seconds (e.g., 50 ms)
-AUTOCORRELATION_WINDOW_MS = 0.05  # 50 ms
+def enforce_sample_rate(audio_data, current_rate, target_rate):
+    if current_rate != target_rate:
+        num_samples = int(len(audio_data) * target_rate / current_rate)
+        audio_data = resample(audio_data, num_samples)
+    return audio_data
 
-# Function to compute frequency magnitude for octave bands
-def octave_band_magnitudes(freqs, freq_domain):
-    # Define the octave band frequencies
-    # These are common octave bands used in audio analysis, from 20 Hz to 20 kHz
-    octave_bands = [20, 40, 80, 160, 315, 630, 1250, 2500, 5000, 10000, 20000]
-    band_magnitudes = []
-    
-    # Calculate magnitude for each band by summing the frequency components in that range
-    for i in range(len(octave_bands) - 1):
-        # Find indices of the frequencies that fall within this octave band
-        band_start = octave_bands[i]
-        band_end = octave_bands[i + 1]
-        band_mask = (freqs >= band_start) & (freqs < band_end)
-        
-        # Sum the magnitudes of the frequencies within the band
-        band_magnitude = np.sum(freq_domain[band_mask])
-        band_magnitudes.append(band_magnitude)
-
-    return octave_bands[:-1], band_magnitudes
-
-# Plot frequency response with smoothing in sub-octave bands
-def plot_frequency_response_smoothed(freqs, freq_domain):
-    smoothed_magnitudes = smooth_frequency_magnitudes(freqs, freq_domain)
-    plt.clf()  # Clear the current figure to avoid overplotting
-    plt.plot(freqs, 20 * np.log10(smoothed_magnitudes))  # dB scale for magnitude
-    plt.xscale('log')  # Logarithmic scale for frequency
-    plt.xlim([20, 20000])  # Limit plot range from 20 Hz to 20 kHz
-    plt.xlabel('Frequency (Hz)')
-    plt.ylabel('Magnitude (dB)')
-    plt.title('Smoothed Frequency Response')
-    plt.grid(True, which='both', axis='both', linestyle='--')
-    plt.pause(0.01)  # Pause briefly to update the plot
-
-# Function to compute FFT with small band resolution
-def compute_fft(signal, sample_rate):
-    freq_domain = np.abs(np.fft.rfft(signal))
+def compute_smoothed_fft(signal, sample_rate, previous_fft=None, alpha=0.2):
+    windowed_signal = signal * np.hanning(len(signal))
     freqs = np.fft.rfftfreq(len(signal), 1.0 / sample_rate)
-    return freqs, freq_domain
+    fft_result = np.abs(np.fft.rfft(windowed_signal))
 
-# Apply smoothing with a moving average
-def smooth_frequency_magnitudes(freqs, freq_domain, smoothing_window=5):
-    smoothed_magnitudes = np.convolve(freq_domain, np.ones(smoothing_window)/smoothing_window, mode='same')
-    return smoothed_magnitudes
+    # Smoothing with exponential moving average (EMA)
+    if previous_fft is not None:
+        smoothed_fft = alpha * fft_result + (1 - alpha) * previous_fft
+    else:
+        smoothed_fft = fft_result
 
-# High-pass filter to remove DC component (0Hz)
-def highpass_filter(signal, sample_rate, cutoff_freq=20.0):
-    nyquist = 0.5 * sample_rate
-    norm_cutoff_freq = cutoff_freq / nyquist
-    b, a = butter(1, norm_cutoff_freq, btype='high', analog=False)
-    return lfilter(b, a, signal)
+    # Avoid log10 of zero or negative values by adding a small constant
+    smoothed_fft = np.clip(smoothed_fft, a_min=1e-10, a_max=None)
+    return freqs, 20 * np.log10(smoothed_fft)  # Return magnitude in dB
 
-# Function to compute the autocorrelation of a signal and normalize it
-def autocorrelation(signal):
-    corr = correlate(signal, signal, mode='full')
-    corr /= np.max(np.abs(corr))  # Normalize by max value
-    return corr[corr.size // 2:]
+# Periodic update function for waterfall plot
+def update_waterfall_plot(fft_data, img, new_fft_data):
+    # Shift existing data upwards and append new FFT data at the bottom
+    fft_data = np.roll(fft_data, -1, axis=0)
+    fft_data[-1, :] = new_fft_data
 
-# Function to smooth the signal using a simple moving average
-def smooth(signal, window_len=10):
-    window = np.ones(window_len) / window_len
-    return np.convolve(signal, window, mode='same')
+    # Update the image data
+    img.set_data(fft_data)
+    img.autoscale()
 
-# Function to convert autocorrelation to frequency domain and normalize
-def autocorr_to_frequency(autocorr, sample_rate):
-    # Perform FFT to get frequency components
-    freq_domain = np.abs(fft(autocorr))
-    # Normalize the frequency domain
-    freq_domain /= np.max(freq_domain)  # Normalize to range [0, 1]
-    # Take the positive half of the spectrum (real frequencies)
-    freq_domain = freq_domain[:len(freq_domain) // 2]
-    # Generate corresponding frequency bins
-    freqs = np.fft.fftfreq(len(autocorr), 1/sample_rate)[:len(freq_domain)]
-    return freqs, freq_domain
-
-# Function to plot frequency data as an RTA-style plot
-def plot_frequency(freqs, freq_domain):
-    plt.clf()  # Clear the current figure to avoid overplotting
-    plt.bar(freqs, smooth(freq_domain, window_len=10), width=10)
-    plt.xlim([20, 20000])  # Set the range to 20Hz to 20kHz
-    plt.title('RTA-style Frequency Plot from Autocorrelation')
-    plt.xlabel('Frequency (Hz)')
-    plt.ylabel('Magnitude')
-    plt.xscale('log')  # Use a logarithmic scale for frequency
-    plt.pause(0.01)  # Pause briefly to update the plot
+    # Refresh the plot with updated data
+    plt.draw()
+    plt.pause(0.001)  # Small pause to allow plot to refresh smoothly
 
 if __name__ == '__main__':
-    # List WAV files in testdata directory
-    sample_files = os.listdir('testdata')
-    for wav in sample_files:
-        if wav.endswith('.wav'):
-            sample_rate, audio_data = wavfile.read(os.path.join('testdata', wav))
-            if len(audio_data.shape) == 2:  # If stereo, convert to mono
-                audio_data = audio_data.mean(axis=1)
-            audio_data = audio_data.astype(np.float32)  # Convert to float32
-            audio_data /= np.max(np.abs(audio_data))  # Normalize to [-1, 1]
+    # Parameters
+    WINDOW_SIZE_MS = 100  # Window size in milliseconds
+    HOP_SIZE_MS = 25      # Hop size for 75% overlap
+    UPDATE_RATE_HZ = 4    # Screen update rate (4 Hz)
+    SMOOTHING_ALPHA = 0.2 # Smoothing factor for FFT
+    TARGET_SAMPLE_RATE = 48000  # Desired sample rate for the application
 
-            # Apply high-pass filter to remove DC component (low-frequency bias)
-            audio_data = highpass_filter(audio_data, sample_rate, cutoff_freq=20.0)
+    # Set up the plot
+    plt.figure(figsize=(19.2, 10.8))  # 1920x1080 display size in inches
+    plt.subplots_adjust(left=0.05, right=0.95, top=0.9, bottom=0.1)  # Adjust margins
 
-            # Define buffer size based on the autocorrelation window
-            buffer_size = int(sample_rate * AUTOCORRELATION_WINDOW_MS)
+    n_time_bins = 100  # Number of time steps to display
+    window_size = int(TARGET_SAMPLE_RATE * WINDOW_SIZE_MS / 1000)
+    n_freq_bins = window_size // 2 + 1
 
-            # Initialize the plot (to avoid opening multiple figures)
-            plt.figure()
+    fft_data = np.zeros((n_time_bins, n_freq_bins))
+    # Set up the plot with updated extent
+    img = plt.imshow(fft_data, aspect='auto', origin='lower', cmap='inferno', extent=[40, 20000, 0, n_time_bins])
+    
+    plt.xlabel('Hz')
 
-            # Simulate processing the audio in a streaming manner
-            buffer = np.zeros(buffer_size)  # Initial buffer of 50ms of silence
-            for i in range(0, len(audio_data), buffer_size):
-                # Get the next chunk of audio
-                chunk = audio_data[i:i + buffer_size]
+    def label_ticks(hz):
+        if hz < 1000:
+            return f'{hz:d}'
+        k,c = divmod(hz, 1000)
+        return f'{k:d}k{c:d}'
+    
+    ticks = [round(20 * 2 ** (i/3)) for i in range(31)]
+    plt.xticks(ticks, [label_ticks(tick) for tick in ticks])
+    plt.show(block=False)
 
-                if len(chunk) < buffer_size:
-                    # If at the end of the file, pad the buffer with zeros
-                    buffer[:len(chunk)] = chunk
-                    break
-                else:
-                    buffer = chunk
+    # Adjust figure size to match your display resolution and remove padding
+    plt.figure(figsize=(19.2, 10.8))  # Size in inches for a 1920x1080 display
+    plt.subplots_adjust(left=0, right=1, top=1, bottom=0)  # Full window, no padding
 
-                # Compute autocorrelation and normalize
-                autocorr = autocorrelation(buffer)
+    try:
+        while True:
+            for f in os.listdir('testdata'):
+                if not f.endswith('.wav'):
+                    continue
+                
+                audio_data, sample_rate = sf.read(os.path.join('testdata', f))
+                
+                # Enforce fixed sample rate
+                audio_data = enforce_sample_rate(audio_data, sample_rate, TARGET_SAMPLE_RATE)
+                sample_rate = TARGET_SAMPLE_RATE
 
-                # Convert to frequency domain
-                freqs, freq_domain = autocorr_to_frequency(autocorr, sample_rate)
+                if len(audio_data.shape) == 2:  # Check if stereo
+                    audio_data = audio_data.mean(axis=1)  # Convert to mono
+                audio_data = audio_data.astype(np.float32)  # Convert to float
+                audio_data /= np.max(np.abs(audio_data))  # Normalize to range [-1, 1]
 
-                # Plot frequency as an RTA-style plot
-                plot_frequency_response_smoothed(freqs, freq_domain)
-            break  # Only process the first file for this example
+                # Convert hop size to samples
+                hop_size = int(sample_rate * HOP_SIZE_MS / 1000)
+
+                # Update the dimensions of the fft_data array
+                fft_data = np.zeros((n_time_bins, n_freq_bins))
+                img.set_data(fft_data)  # Update the image data dimensions
+
+                # Process the audio in a streaming fashion
+                previous_fft = None
+                for i in range(0, len(audio_data) - window_size, hop_size):
+                    audio_segment = audio_data[i:i + window_size]
+                    freqs, smoothed_fft = compute_smoothed_fft(audio_segment, sample_rate, previous_fft, SMOOTHING_ALPHA)
+
+                    # Update the waterfall display
+                    update_waterfall_plot(fft_data, img, smoothed_fft)
+                    previous_fft = smoothed_fft  # Store for smoothing
+
+    except KeyboardInterrupt:
+        print('Goodbye')
