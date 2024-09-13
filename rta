@@ -1,0 +1,138 @@
+#!/usr/bin/env python3
+import os
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.io import wavfile
+from scipy.signal import correlate, butter, lfilter
+from scipy.fft import fft
+
+# Global autocorrelation window in seconds (e.g., 50 ms)
+AUTOCORRELATION_WINDOW_MS = 0.05  # 50 ms
+
+# Function to compute frequency magnitude for octave bands
+def octave_band_magnitudes(freqs, freq_domain):
+    # Define the octave band frequencies
+    # These are common octave bands used in audio analysis, from 20 Hz to 20 kHz
+    octave_bands = [20, 40, 80, 160, 315, 630, 1250, 2500, 5000, 10000, 20000]
+    band_magnitudes = []
+    
+    # Calculate magnitude for each band by summing the frequency components in that range
+    for i in range(len(octave_bands) - 1):
+        # Find indices of the frequencies that fall within this octave band
+        band_start = octave_bands[i]
+        band_end = octave_bands[i + 1]
+        band_mask = (freqs >= band_start) & (freqs < band_end)
+        
+        # Sum the magnitudes of the frequencies within the band
+        band_magnitude = np.sum(freq_domain[band_mask])
+        band_magnitudes.append(band_magnitude)
+
+    return octave_bands[:-1], band_magnitudes
+
+# Plot frequency response with smoothing in sub-octave bands
+def plot_frequency_response_smoothed(freqs, freq_domain):
+    smoothed_magnitudes = smooth_frequency_magnitudes(freqs, freq_domain)
+    plt.clf()  # Clear the current figure to avoid overplotting
+    plt.plot(freqs, 20 * np.log10(smoothed_magnitudes))  # dB scale for magnitude
+    plt.xscale('log')  # Logarithmic scale for frequency
+    plt.xlim([20, 20000])  # Limit plot range from 20 Hz to 20 kHz
+    plt.xlabel('Frequency (Hz)')
+    plt.ylabel('Magnitude (dB)')
+    plt.title('Smoothed Frequency Response')
+    plt.grid(True, which='both', axis='both', linestyle='--')
+    plt.pause(0.01)  # Pause briefly to update the plot
+
+# Function to compute FFT with small band resolution
+def compute_fft(signal, sample_rate):
+    freq_domain = np.abs(np.fft.rfft(signal))
+    freqs = np.fft.rfftfreq(len(signal), 1.0 / sample_rate)
+    return freqs, freq_domain
+
+# Apply smoothing with a moving average
+def smooth_frequency_magnitudes(freqs, freq_domain, smoothing_window=5):
+    smoothed_magnitudes = np.convolve(freq_domain, np.ones(smoothing_window)/smoothing_window, mode='same')
+    return smoothed_magnitudes
+
+# High-pass filter to remove DC component (0Hz)
+def highpass_filter(signal, sample_rate, cutoff_freq=20.0):
+    nyquist = 0.5 * sample_rate
+    norm_cutoff_freq = cutoff_freq / nyquist
+    b, a = butter(1, norm_cutoff_freq, btype='high', analog=False)
+    return lfilter(b, a, signal)
+
+# Function to compute the autocorrelation of a signal and normalize it
+def autocorrelation(signal):
+    corr = correlate(signal, signal, mode='full')
+    corr /= np.max(np.abs(corr))  # Normalize by max value
+    return corr[corr.size // 2:]
+
+# Function to smooth the signal using a simple moving average
+def smooth(signal, window_len=10):
+    window = np.ones(window_len) / window_len
+    return np.convolve(signal, window, mode='same')
+
+# Function to convert autocorrelation to frequency domain and normalize
+def autocorr_to_frequency(autocorr, sample_rate):
+    # Perform FFT to get frequency components
+    freq_domain = np.abs(fft(autocorr))
+    # Normalize the frequency domain
+    freq_domain /= np.max(freq_domain)  # Normalize to range [0, 1]
+    # Take the positive half of the spectrum (real frequencies)
+    freq_domain = freq_domain[:len(freq_domain) // 2]
+    # Generate corresponding frequency bins
+    freqs = np.fft.fftfreq(len(autocorr), 1/sample_rate)[:len(freq_domain)]
+    return freqs, freq_domain
+
+# Function to plot frequency data as an RTA-style plot
+def plot_frequency(freqs, freq_domain):
+    plt.clf()  # Clear the current figure to avoid overplotting
+    plt.bar(freqs, smooth(freq_domain, window_len=10), width=10)
+    plt.xlim([20, 20000])  # Set the range to 20Hz to 20kHz
+    plt.title('RTA-style Frequency Plot from Autocorrelation')
+    plt.xlabel('Frequency (Hz)')
+    plt.ylabel('Magnitude')
+    plt.xscale('log')  # Use a logarithmic scale for frequency
+    plt.pause(0.01)  # Pause briefly to update the plot
+
+if __name__ == '__main__':
+    # List WAV files in testdata directory
+    sample_files = os.listdir('testdata')
+    for wav in sample_files:
+        if wav.endswith('.wav'):
+            sample_rate, audio_data = wavfile.read(os.path.join('testdata', wav))
+            if len(audio_data.shape) == 2:  # If stereo, convert to mono
+                audio_data = audio_data.mean(axis=1)
+            audio_data = audio_data.astype(np.float32)  # Convert to float32
+            audio_data /= np.max(np.abs(audio_data))  # Normalize to [-1, 1]
+
+            # Apply high-pass filter to remove DC component (low-frequency bias)
+            audio_data = highpass_filter(audio_data, sample_rate, cutoff_freq=20.0)
+
+            # Define buffer size based on the autocorrelation window
+            buffer_size = int(sample_rate * AUTOCORRELATION_WINDOW_MS)
+
+            # Initialize the plot (to avoid opening multiple figures)
+            plt.figure()
+
+            # Simulate processing the audio in a streaming manner
+            buffer = np.zeros(buffer_size)  # Initial buffer of 50ms of silence
+            for i in range(0, len(audio_data), buffer_size):
+                # Get the next chunk of audio
+                chunk = audio_data[i:i + buffer_size]
+
+                if len(chunk) < buffer_size:
+                    # If at the end of the file, pad the buffer with zeros
+                    buffer[:len(chunk)] = chunk
+                    break
+                else:
+                    buffer = chunk
+
+                # Compute autocorrelation and normalize
+                autocorr = autocorrelation(buffer)
+
+                # Convert to frequency domain
+                freqs, freq_domain = autocorr_to_frequency(autocorr, sample_rate)
+
+                # Plot frequency as an RTA-style plot
+                plot_frequency_response_smoothed(freqs, freq_domain)
+            break  # Only process the first file for this example
