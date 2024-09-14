@@ -73,8 +73,20 @@ def setup_plot():
 
     return fig, ax_fft, ax_vol, img_fft, img_vol
 
+
 def update_waterfall_plots(img_fft, img_vol, new_fft_data, new_volume_data):
-    global fft_data, vol_data, N_TIME_BINS
+    global fft_data, vol_data, N_TIME_BINS, N_FREQ_BINS
+
+    # Downsample new_fft_data to match the display size
+    if len(new_fft_data) != N_FREQ_BINS:
+        factor = len(new_fft_data) // N_FREQ_BINS
+        if factor > 1:
+            # Group bins and take the average within each group
+            new_fft_data = new_fft_data[:factor * N_FREQ_BINS]  # Trim to a multiple of display size
+            new_fft_data = new_fft_data.reshape(N_FREQ_BINS, factor).mean(axis=1)
+        else:
+            # If factor is less than 1, just trim the FFT data
+            new_fft_data = new_fft_data[:N_FREQ_BINS]
 
     # Shift existing data upwards and append new FFT data at the bottom
     fft_data = np.roll(fft_data, -1, axis=0)
@@ -90,15 +102,16 @@ def update_waterfall_plots(img_fft, img_vol, new_fft_data, new_volume_data):
 
     # Redraw the updated plot
     plt.draw()
-    plt.pause(0.001)  # Small pause to allow plot to refresh smoothly
-
+    fig.canvas.draw_idle()
+    plt.pause(0.05)  # Small pause to allow plot to refresh smoothly
+    
 def process_audio(audio_buffer):
     previous_fft = None
     
     # Compute FFT and volume
     freqs, smoothed_fft = compute_smoothed_fft(audio_buffer, previous_fft, SMOOTHING_ALPHA)
     volume = compute_volume(audio_buffer)
-    print(f'volume: {volume:.2f} dB')
+
     # Update the plots
     update_waterfall_plots(img_fft, img_vol, smoothed_fft, volume)
     previous_fft = smoothed_fft
@@ -136,6 +149,7 @@ def simulate_real_time_audio_input(filepath):
             chunk = audio_data + [0] * (WINDOW_SIZE - n_samples)
         chunk = audio_data[position:position + WINDOW_SIZE]
 
+        print(position)
         yield chunk
         if position + WINDOW_SIZE >= n_samples:
             break
