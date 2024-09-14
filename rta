@@ -153,8 +153,9 @@ def simulate_real_time_audio_input(filepath):
     if sample_rate != SAMPLE_RATE:
         raise ValueError(f'Invalid sample rate: {sample_rate} Hz. Only {SAMPLE_RATE} Hz supported')
 
-    if len(audio_data.shape) == 2:  # Check if stereo
-        audio_data = audio_data.mean(axis=1)  # Convert to mono
+    # Convert to mono if necessary
+    if len(audio_data.shape) == 2:  
+        audio_data = audio_data.mean(axis=1)
 
     audio_data = audio_data.astype(np.float32)  # Convert to float
     audio_data /= np.max(np.abs(audio_data))  # Normalize to range [-1, 1]
