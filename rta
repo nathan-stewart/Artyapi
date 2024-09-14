@@ -1,19 +1,46 @@
 #!/usr/bin/env python3
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib
 import soundfile as sf
 import os
 from scipy.signal import resample
 
-def enforce_sample_rate(audio_data, current_rate, target_rate):
-    if current_rate != target_rate:
-        num_samples = int(len(audio_data) * target_rate / current_rate)
-        audio_data = resample(audio_data, num_samples)
-    return audio_data
+# Parameters
+SCREEN_WIDTH    = 1920
+SCREEN_HEIGHT   = 480
+WINDOW_SIZE_MS  = 500   # Window size in milliseconds
+UPDATE_RATE_HZ  = 4     # Screen update rate (4 Hz)
+SMOOTHING_ALPHA = 0.2   # Smoothing factor for FFT
+SAMPLE_RATE     = 48000
+DPI             = 100
+HOP_SIZE_MS     = WINDOW_SIZE_MS * 0.25  # Hop size in milliseconds
+N_TIME_BINS     = int(SCREEN_HEIGHT * 0.9)
+N_FREQ_BINS     = (SCREEN_WIDTH - 100) // 2 + 1
+HOP_SIZE        = int(SAMPLE_RATE * HOP_SIZE_MS / 1000)
+WINDOW_SIZE     = int(SAMPLE_RATE * WINDOW_SIZE_MS / 1000)
 
-def compute_smoothed_fft(signal, sample_rate, previous_fft=None, alpha=0.2):
+
+# Update the dimensions of the fft_data array
+fft_data = np.zeros((N_TIME_BINS, N_FREQ_BINS))
+vol_data = np.zeros(N_TIME_BINS)
+
+def autocorrelation(signal):
+    # Compute the FFT of the signal
+    signal_fft = fft(signal)
+
+    # Compute the power spectrum
+    power_spectrum = signal_fft * np.conj(signal_fft)
+
+    # Perform the inverse FFT to get the autocorrelation
+    auto_corr = ifft(power_spectrum)
+
+    # Return the real part (autocorrelation is real-valued)
+    return np.real(auto_corr)
+
+def compute_smoothed_fft(signal, previous_fft=None, alpha=0.2):
     windowed_signal = signal * np.hanning(len(signal))
-    freqs = np.fft.rfftfreq(len(signal), 1.0 / sample_rate)
+    freqs = np.fft.rfftfreq(len(signal), 1.0 / SAMPLE_RATE)
     fft_result = np.abs(np.fft.rfft(windowed_signal))
 
     # Smoothing with exponential moving average (EMA)
@@ -26,93 +53,126 @@ def compute_smoothed_fft(signal, sample_rate, previous_fft=None, alpha=0.2):
     smoothed_fft = np.clip(smoothed_fft, a_min=1e-10, a_max=None)
     return freqs, 20 * np.log10(smoothed_fft)  # Return magnitude in dB
 
-# Periodic update function for waterfall plot
-def update_waterfall_plot(fft_data, img, new_fft_data):
-    # Shift existing data upwards and append new FFT data at the bottom
-    fft_data = np.roll(fft_data, -1, axis=0)
-    fft_data[-1, :] = new_fft_data
+import matplotlib.pyplot as plt
 
-    # Update the image data
-    img.set_data(fft_data)
-    img.autoscale()
+def setup_plot():
+    global N_TIME_BINS,N_FREQ_BINS,SCREEN_WIDTH, SCREEN_HEIGHT, DPI
+    global fft_data
+    figsize = (SCREEN_WIDTH / DPI,  SCREEN_HEIGHT / DPI)
+    plt.figure(figsize=figsize)
+    plt.subplots_adjust(left=0, right=1, top=1, bottom=0)  # Full window, no padding
 
-    # Refresh the plot with updated data
-    plt.draw()
-    plt.pause(0.001)  # Small pause to allow plot to refresh smoothly
+    # Draw a dummy plot to get the axes position
+    plt.plot([0], [0])  # Dummy plot to ensure axes are created
 
-if __name__ == '__main__':
-    # Parameters
-    WINDOW_SIZE_MS = 100  # Window size in milliseconds
-    HOP_SIZE_MS = 25      # Hop size for 75% overlap
-    UPDATE_RATE_HZ = 4    # Screen update rate (4 Hz)
-    SMOOTHING_ALPHA = 0.2 # Smoothing factor for FFT
-    TARGET_SAMPLE_RATE = 48000  # Desired sample rate for the application
+    # Get the current axes and figure
+    fig = plt.gcf()
+    ax = plt.gca()
 
-    # Set up the plot
-    plt.figure(figsize=(19.2, 10.8))  # 1920x1080 display size in inches
-    plt.subplots_adjust(left=0.05, right=0.95, top=0.9, bottom=0.1)  # Adjust margins
+    # Get the size of the figure in inches and the DPI
+    fig_size_inches = fig.get_size_inches()  # Size of figure in inches
+    dpi = fig.dpi  # Dots per inch (resolution)
 
-    n_time_bins = 100  # Number of time steps to display
-    window_size = int(TARGET_SAMPLE_RATE * WINDOW_SIZE_MS / 1000)
-    n_freq_bins = window_size // 2 + 1
+    # Convert figure size to pixels
+    fig_size_pixels = fig_size_inches * dpi
 
-    fft_data = np.zeros((n_time_bins, n_freq_bins))
-    # Set up the plot with updated extent
-    img = plt.imshow(fft_data, aspect='auto', origin='lower', cmap='inferno', extent=[40, 20000, 0, n_time_bins])
+    # Get the position of the axes in figure coordinates (normalized)
+    axes_position = ax.get_position()  # returns a Bbox instance
+    axes_position_pixels = np.array([
+        axes_position.x0 * fig_size_pixels[0],
+        axes_position.y0 * fig_size_pixels[1],
+        axes_position.width * fig_size_pixels[0],
+        axes_position.height * fig_size_pixels[1]
+    ])
 
+    # Compute the height of the non-plot vertical space
+    axes_height_pixels = axes_position_pixels[3]
+    fig_height_pixels = fig_size_pixels[1]
+    non_plot_vertical_space_pixels = fig_height_pixels - axes_height_pixels
+
+    # Calculate the height of one time bin in pixels
+    # Here we assume a fixed height per bin, for example, 1/100 of the available plot height
+    bin_height_fraction = 1 / 100  # Adjust this fraction as needed
+    bin_height_pixels = bin_height_fraction * axes_height_pixels
+
+    img = plt.imshow(fft_data, aspect='auto', origin='lower', cmap='inferno', extent=[40, 20000, 0, N_TIME_BINS])
     plt.xlabel('Hz')
     plt.xscale('log', base=2)
 
     def label_ticks(hz):
         if hz < 1000:
             return f'{hz:d}'
-        k,c = divmod(hz, 1000)
+        k, c = divmod(hz, 1000)
         c = c // 100
         if c == 0:
             return f'{k:d}k'
         return f'{k:d}k{c:d}'
 
     ticks = [round(40 * 2 ** (i/3)) for i in range(27)] + [20000]
-    plt.xticks(ticks, [label_ticks(tick) for tick in ticks])
-    plt.show(block=False)
+    plt.xticks(ticks=ticks, labels=[label_ticks(t) for t in ticks])
 
-    # Adjust figure size to match your display resolution and remove padding
-    plt.figure(figsize=(19.2, 10.8))  # Size in inches for a 1920x1080 display
-    plt.subplots_adjust(left=0, right=1, top=1, bottom=0)  # Full window, no padding
+    return fft_data, img
 
+def update_waterfall_plot(img, new_fft_data):
+    global fft_data, N_TIME_BINS
+    # Shift existing data upwards and append new FFT data at the bottom
+    fft_data = np.roll(fft_data, -1, axis=0)
+    fft_data[-1, :] = new_fft_data
+
+    # Update the image data
+    img.set_data(fft_data)
+    #img.autoscale()
+
+    # Clear the previous plot and redraw the updated plot
+    plt.clf()
+
+    # Refresh the plot with updated data
+    plt.draw()
+    plt.pause(0.001)  # Small pause to allow plot to refresh smoothly
+
+def process_audio(audio_data):
+    # Process the audio in a streaming fashion
+    previous_fft = None
+    for i in range(0, len(audio_data) - WINDOW_SIZE, HOP_SIZE):
+        audio_segment = audio_data[i:i + WINDOW_SIZE]
+        freqs, smoothed_fft = compute_smoothed_fft(audio_segment, previous_fft, SMOOTHING_ALPHA)
+
+        # Update the waterfall display
+        update_waterfall_plot(img, smoothed_fft)
+        previous_fft = smoothed_fft  # Store for smoothing
+
+
+def simulate_real_time_audio_input(filepath):
+    global SAMPLE_RATE
+    if not f.endswith('.wav'):
+        raise ValueError('Only .wav files are supported')
+
+    audio_data, sample_rate = sf.read(filepath)
+
+    # Enforce fixed sample rate
+    if sample_rate != SAMPLE_RATE:
+        raise ValueError(f'Invalid sample rate: {sample_rate} Hz. Only {SAMPLE_RATE} Hz supported')
+
+    if len(audio_data.shape) == 2:  # Check if stereo
+        audio_data = audio_data.mean(axis=1)  # Convert to mono
+
+    audio_data = audio_data.astype(np.float32)  # Convert to float
+    audio_data /= np.max(np.abs(audio_data))  # Normalize to range [-1, 1]
+
+    # Yield chunks of the audio data
+    for i in range(0, len(audio_data) - WINDOW_SIZE, HOP_SIZE):
+        audio_segment = audio_data[i:i + WINDOW_SIZE]
+        yield audio_segment
+
+if __name__ == '__main__':
+    fft_data, img = setup_plot()
     try:
         while True:
             for f in os.listdir('testdata'):
-                if not f.endswith('.wav'):
-                    continue
-
-                audio_data, sample_rate = sf.read(os.path.join('testdata', f))
-
-                # Enforce fixed sample rate
-                audio_data = enforce_sample_rate(audio_data, sample_rate, TARGET_SAMPLE_RATE)
-                sample_rate = TARGET_SAMPLE_RATE
-
-                if len(audio_data.shape) == 2:  # Check if stereo
-                    audio_data = audio_data.mean(axis=1)  # Convert to mono
-                audio_data = audio_data.astype(np.float32)  # Convert to float
-                audio_data /= np.max(np.abs(audio_data))  # Normalize to range [-1, 1]
-
-                # Convert hop size to samples
-                hop_size = int(sample_rate * HOP_SIZE_MS / 1000)
-
-                # Update the dimensions of the fft_data array
-                fft_data = np.zeros((n_time_bins, n_freq_bins))
-                img.set_data(fft_data)  # Update the image data dimensions
-
-                # Process the audio in a streaming fashion
-                previous_fft = None
-                for i in range(0, len(audio_data) - window_size, hop_size):
-                    audio_segment = audio_data[i:i + window_size]
-                    freqs, smoothed_fft = compute_smoothed_fft(audio_segment, sample_rate, previous_fft, SMOOTHING_ALPHA)
-
-                    # Update the waterfall display
-                    update_waterfall_plot(fft_data, img, smoothed_fft)
-                    previous_fft = smoothed_fft  # Store for smoothing
+                # Simulate real-time input by chunking the wav file
+                file_path = os.path.join('testdata', f)
+                for audio_chunk in simulate_real_time_audio_input(file_path):
+                    process_audio(audio_chunk)
 
     except KeyboardInterrupt:
         print('Goodbye')
