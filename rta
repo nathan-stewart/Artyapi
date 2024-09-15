@@ -38,7 +38,8 @@ def compute_smoothed_fft(signal, previous_fft=None, alpha=0.2):
 
 def compute_volume(signal):
     # Compute RMS (root mean square) volume of the signal
-    return np.sqrt(np.mean(signal ** 2))
+    rms = np.sqrt(np.mean(signal ** 2))
+    return round(20 * np.log10(rms),1)  # Convert to dB
 
 def setup_plot():
     global N_TIME_BINS, N_FREQ_BINS, SCREEN_WIDTH, SCREEN_HEIGHT, DPI
@@ -111,7 +112,6 @@ def process_audio(audio_buffer):
     # Compute FFT and volume
     freqs, smoothed_fft = compute_smoothed_fft(audio_buffer, previous_fft, SMOOTHING_ALPHA)
     volume = compute_volume(audio_buffer)
-
     # Update the plots
     update_waterfall_plots(img_fft, img_vol, smoothed_fft, volume)
     previous_fft = smoothed_fft
@@ -149,7 +149,6 @@ def simulate_real_time_audio_input(filepath):
             chunk = audio_data + [0] * (WINDOW_SIZE - n_samples)
         chunk = audio_data[position:position + WINDOW_SIZE]
 
-        print(position)
         yield chunk
         if position + WINDOW_SIZE >= n_samples:
             break
