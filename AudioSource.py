@@ -1,107 +1,95 @@
 #!/usr/bin/env python3
 import soundfile as sf
-import alsaaudio
+import pyaudio
 import time
 import numpy as np
 import threading
 import os 
 
-class AudioSource:
-    def __init__(self):
-        raise NotImplementedError("This method should be implemented by subclasses.")
 
-    def read(self):
-        raise NotImplementedError("This method should be implemented by subclasses.")
+def RealTimeAudioSource(chunksize=16384, readbufsize=4096, samplerate=44100):
+    def _capture_audio():
+        nonlocal buffer, write_index
 
-class RealTimeAudioSource(AudioSource):
-    def __init__(self, device='default', sample_rate=48000, chunksize=16384, channels=1):
-        self.device = alsaaudio.PCM(alsaaudio.PCM_CAPTURE, alsaaudio.PCM_NORMAL, device)
-        self.device.setrate(sample_rate)
-        self.device.setchannels(channels)
-        self.device.setformat(alsaaudio.PCM_FORMAT_S16_LE)
-        self.device.setperiodsize(chunksize)
-        self.window_size = chunksize
-        self.buffer = np.zeros(chunksize, dtype=np.int16)
-        self.lock = threading.Lock()
-        self.stop_flag = False
-        self.capture_thread = threading.Thread(target=self._capture_audio)
-        self.capture_thread.start()
-    
-    def _capture_audio(self):
-        while not self.stop_flag:
+        while not stop_flag:
             # Capture new audio data
-            length, data = self.device.read()
-            if length:
-                new_data = np.frombuffer(data, dtype=np.int16)
-                
-                # Safely update the buffer in a thread-safe manner
-                with self.lock:
-                    # Append new data to the buffer, keeping only the last `chunksize` samples
-                    self.buffer = np.concatenate((self.buffer, new_data))[-self.chunksize:]
+            data = stream.read(readbufsize)
+            new_data = np.frombuffer(data, dtype=np.int16)
 
-    def read(self):
-        while True:
-            # Safely access the buffer and return the last `chunksize` samples
+            # Safely update the buffer in a thread-safe manner (circular buffer)
+            with lock:
+                # Find the space available and wrap around if necessary
+                end_index = (write_index + len(new_data)) % buffer.size
+
+                # If no wrap-around, directly copy
+                if write_index < end_index:
+                    buffer[write_index:end_index] = new_data
+                else: 
+                    # If wrapping, copy in two parts
+                    buffer[write_index:] = new_data[:buffer.size - write_index]
+                    buffer[:end_index] = new_data[buffer.size - write_index:]
+
+                # Update write_index
+                write_index = end_index
+
+    # Initialize audio capture
+    p = pyaudio.PyAudio()
+    stream = p.open(format=pyaudio.paInt16, channels=1, rate=samplerate, input=True, frames_per_buffer=readbufsize)
+
+    # Initialize circular buffer and threading
+    buffer = np.zeros(chunksize, dtype=np.int16)
+    write_index = 0
+    lock = threading.Lock()
+    stop_flag = False
+    capture_thread = threading.Thread(target=_capture_audio)
+    capture_thread.start()
+
+    # Generator to yield the latest audio data
+    while True:
+        t0 = time.time()
+
+        # Safely access the buffer and return the last `chunksize` samples
+        with lock:
+            # Return a copy of the circular buffer, starting from the correct point
+            if write_index == chunksize:
+                chunk = buffer.copy()  # No wrapping needed
+            else:
+                # Return the last `chunksize` samples in proper order (handle wrap-around)
+                chunk = np.concatenate((buffer[write_index:], buffer[:write_index]))
+
+        yield chunk
+
+def FileAudioSource(testdir, chunksize):
+    files = os.listdir(testdir)
+    while True:
+        for f in files:
+            fullpath = os.path.join(testdir, f)
+            if not (fullpath and fullpath.lower().endswith('.wav')):
+                print(fullpath)
+                raise ValueError('Only .wav files are supported')
+
+            audio_data, samplerate = sf.read(fullpath)
+
+            # Convert to mono if necessary
+            if len(audio_data.shape) == 2:
+                audio_data = audio_data.mean(axis=1)
+
+            audio_data = audio_data.astype(np.float32)  # Convert to float
+            audio_data /= np.max(np.abs(audio_data))  # Normalize to range [-1, 1]
+            n_samples = len(audio_data)
+            position = 0
             t0 = time.time()
-            with self.lock:
+            while True:
                 running_time = time.time() - t0
-                if running_time >= self.chunksize / self.sample_rate:
+                position = int(running_time * samplerate)
+                if position + chunksize > n_samples:
+                    chunk = audio_data[position:position + chunksize]
+                    if len(chunk) < chunksize:
+                        chunk = np.pad(chunk, (0, chunksize - len(chunk)), mode='constant')
+                    yield chunk
                     break
-                # Safely access the buffer and return the last `chunksize` samples
-                with self.lock:
-                    chunk = self.buffer.copy()
-                yield chunk
-                t0 = time.time()
-        
-    def __del__(self):
-        # Stop the capture thread when done
-        self.stop_flag = True
-        self.capture_thread.join()
-
-class FileAudioSource(AudioSource):
-
-    def __init__(self, filepath, chunksize):
-        super().__init__()
-        self.filepath = filepath
-        self.chunksize = chunksize
+                else:
+                    chunk = audio_data[position:position + chunksize]
+                    yield chunk
+        files = os.listdir(testdir)
     
-    def process_file(filepath):
-        if not (filepath and filepath.endswith('.wav')):
-            raise ValueError('Only .wav files are supported')
-
-        audio_data, sample_rate = sf.read(filepath)
-
-        # Enforce fixed sample rate
-        if sample_rate != self.sample_rate:
-            raise ValueError(f'Invalid sample rate: {sample_rate} Hz. Only {SAMPLE_RATE} Hz supported')
-
-        # Convert to mono if necessary
-        if len(audio_data.shape) == 2:
-            audio_data = audio_data.mean(axis=1)
-
-        audio_data = audio_data.astype(np.float32)  # Convert to float
-        audio_data /= np.max(np.abs(audio_data))  # Normalize to range [-1, 1]
-        return sf.read(filepath)
-
-    def read(self):
-        files = os.listdir(self.filepath)
-        while True:
-            for f in files:
-                fullpath = self.os.path.join(self.filepath, f)
-                self.audio_data, self.sample_rate = FileAudioSource.process_file(fullpath)
-                n_samples = len(self.audio_data)
-                self.position = 0
-                t0 = time.time()
-                while True:
-                    running_time = time.time() - t0
-                    position = int(running_time * self.sample_rate)
-                    if position + self.chunksize > self.chunksize:
-                        chunk = self.audio_data[position:position + self.chunksize]
-                        if len(chunk) < self.chunksize:
-                            chunk = np.pad(chunk, (0, self.chunksize - len(chunk)), mode='constant')
-                        yield chunk
-                        break
-                    else:
-                        chunk = self.audio_data[position:position + self.chunksize]
-                        yield chunk
-            files = os.listdir(self.filepath)
