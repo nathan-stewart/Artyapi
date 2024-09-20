@@ -7,152 +7,69 @@ import time
 from scipy.signal import resample
 import argparse
 from AudioSource import  RealTimeAudioSource, FileAudioSource
+from AppMode import RTAMode, SPLMode, AutocorrelationFeedbackMode
 
 # Parameters
 SCREEN_WIDTH = 1920
 SCREEN_HEIGHT = 480
-UPDATE_PERIOD = 0.25     # Update period in millisecond
-SMOOTHING_ALPHA = 0.2   # Smoothing factor for FFT
-DPI = 100
-N_TIME_BINS = int(SCREEN_HEIGHT * 0.9)
-N_FREQ_BINS = (SCREEN_WIDTH - 100) // 2 + 1  # 100 pixels for the volume plot
+def get_plotsize():
+    fig = plt.figure()
+    dpi = fig.get_dpi()
+    return (SCREEN_WIDTH/dpi, SCREEN_HEIGHT/dpi)
+plotsize = get_plotsize()
 
 # Update the dimensions of the fft_data and vol_data arrays
-fft_data = np.zeros((N_TIME_BINS, N_FREQ_BINS))
-vol_data = np.zeros(N_TIME_BINS)
+SPL_TIME_BINS = SCREEN_WIDTH
+SPL_VOL_BINS = SCREEN_HEIGHT
+vol_data = np.zeros(SPL_TIME_BINS)
 
-def compute_smoothed_fft(signal, previous_fft=None, alpha=0.2):
-    windowed_signal = signal * np.hanning(len(signal))
-    freqs = np.fft.rfftfreq(len(signal), 1.0 / SAMPLE_RATE)
-    fft_result = np.abs(np.fft.rfft(windowed_signal))
+FFT_TIME_BINS = SCREEN_HEIGHT
+FFT_FREQ_BINS = SCREEN_WIDTH // 2 + 1
+fft_data = np.zeros((FFT_FREQ_BINS, FFT_TIME_BINS))
 
-    # Smoothing with exponential moving average (EMA)
-    if previous_fft is not None:
-        smoothed_fft = alpha * fft_result + (1 - alpha) * previous_fft
-    else:
-        smoothed_fft = fft_result
-
-    # Avoid log10 of zero or negative values by adding a small constant
-    smoothed_fft = np.clip(smoothed_fft, a_min=1e-10, a_max=None)
-    return freqs, 20 * np.log10(smoothed_fft)  # Return magnitude in dB
+ACF_TIME_BINS = SCREEN_HEIGHT
+ACF_FREQ_BINS = SCREEN_WIDTH // 2 + 1
+acf_data = np.zeros((ACF_FREQ_BINS, ACF_TIME_BINS))
 
 def compute_volume(signal):
+    global vol_data
     # Compute RMS (root mean square) volume of the signal
     rms = np.sqrt(np.mean(signal ** 2))
-    return round(20 * np.log10(rms),1)  # Convert to dB
+    spl = round(20 * np.log10(np.where(rms < 1e-6, 1e-6, rms)),1)  # Convert to dB
+    return spl
 
-def setup_plot():
-    global N_TIME_BINS, N_FREQ_BINS, SCREEN_WIDTH, SCREEN_HEIGHT, DPI
-    global fft_data, vol_data
-
-    figsize = (SCREEN_WIDTH / DPI, SCREEN_HEIGHT / DPI)
-    fig, (ax_fft, ax_vol) = plt.subplots(1, 2, figsize=figsize, gridspec_kw={'width_ratios': [SCREEN_WIDTH - 100, 100]})
-    fig.subplots_adjust(left=0, right=1, top=1, bottom=0)  # Full window, no padding
-
-    # FFT waterfall plot
-    img_fft = ax_fft.imshow(fft_data, aspect='auto', origin='lower', cmap='inferno', extent=[40, 20000, 0, N_TIME_BINS])
-    ax_fft.set_xlabel('Hz')
-    ax_fft.set_xscale('log', base=2)
-
-    def label_ticks(hz):
-        if hz < 1000:
-            return f'{hz:d}'
-        k, c = divmod(hz, 1000)
-        c = c // 100
-        if c == 0:
-            return f'{k:d}k'
-        return f'{k:d}k{c:d}'
-
-    ticks = [round(40 * 2 ** (i/3)) for i in range(27)] + [20000]
-    ax_fft.set_xticks(ticks)
-    ax_fft.set_xticklabels([label_ticks(t) for t in ticks])
-
-    # Volume waterfall plot
-    img_vol = ax_vol.imshow(vol_data[:, np.newaxis], aspect='auto', origin='lower', cmap='plasma', extent=[0, 1, 0, N_TIME_BINS])
-    ax_vol.set_xticks([])  # No x-axis for volume
-    ax_vol.set_ylabel('Time')
-
-    return fig, ax_fft, ax_vol, img_fft, img_vol
-
-
-def update_waterfall_plots(img_fft, img_vol, new_fft_data, new_volume_data):
-    global fft_data, vol_data, N_TIME_BINS, N_FREQ_BINS
-
-    # Downsample new_fft_data to match the display size
-    if len(new_fft_data) != N_FREQ_BINS:
-        factor = len(new_fft_data) // N_FREQ_BINS
-        if factor > 1:
-            # Group bins and take the average within each group
-            new_fft_data = new_fft_data[:factor * N_FREQ_BINS]  # Trim to a multiple of display size
-            new_fft_data = new_fft_data.reshape(N_FREQ_BINS, factor).mean(axis=1)
-        else:
-            # If factor is less than 1, just trim the FFT data
-            new_fft_data = new_fft_data[:N_FREQ_BINS]
-
-    # Shift existing data upwards and append new FFT data at the bottom
-    fft_data = np.roll(fft_data, -1, axis=0)
-    fft_data[-1, :] = new_fft_data
-
-    # Shift existing volume data upwards and append new volume at the bottom
-    vol_data = np.roll(vol_data, -1)
-    vol_data[-1] = new_volume_data
-
-    # Update the image data for both plots
-    img_fft.set_data(fft_data)
-    img_vol.set_data(vol_data[:, np.newaxis])
-
-    # Redraw the updated plot
-    plt.draw()
-    fig.canvas.draw_idle()
-    plt.pause(0.05)  # Small pause to allow plot to refresh smoothly
-    
-def process_audio(audio_buffer):
-    previous_fft = None
-    
-    # Compute FFT and volume
-    freqs, smoothed_fft = compute_smoothed_fft(audio_buffer, previous_fft, SMOOTHING_ALPHA)
-    volume = compute_volume(audio_buffer)
-    # Update the plots
-    update_waterfall_plots(img_fft, img_vol, smoothed_fft, volume)
-    previous_fft = smoothed_fft
-
-
+def compute_smoothed_fft(signal, samplerate, previous_fft=None, alpha=0.2):
+    pass
 
 class AudioVisualizer:
     def __init__(self):
-        self.rta_mode = RTAMode(np.zeros((N_TIME_BINS, N_FREQ_BINS)), np.zeros(N_TIME_BINS))
-        self.spl_mode = SPLMode(np.zeros(N_TIME_BINS))
-        self.acorr_mode = AutocorrelationFeedbackMode(np.zeros(WINDOW_SIZE))
-        self.current_mode = self.rta_mode  # Start with RTA
+        self.spl_mode = SPLMode(vol_data, plotsize = plotsize)
+        self.rta_mode = None
+        self.acf_mode = None
+        self.current_mode = self.spl_mode # initial mode
 
     def switch_mode(self, mode_name):
         if mode_name == 'RTA':
-            self.current_mode = self.rta_mode
+            pass #self.current_mode = self.rta_mode
         elif mode_name == 'SPL':
             self.current_mode = self.spl_mode
+            self.current_mode.setup_plot(vol_data, plotsize)
         elif mode_name == 'Autocorr':
-            self.current_mode = self.acorr_mode
+            pass# self.current_mode = self.acf_mode
         else:
-            print(f"Unknown mode: {mode_name}")
+            raise ValueError(f"Invalid mode: {mode_name}")
         self.redraw()
 
     def redraw(self):
+        global SCREEN_HEIGHT, SCREEN_WIDTH
         plt.close(self.current_mode.fig)
-        self.current_mode.setup_plot()
+        self.current_mode.setup_plot(plotsize)
 
-    def process_audio_chunk(self, audio_chunk):
-        if isinstance(self.current_mode, RTAMode):
-            freqs, fft_data = compute_smoothed_fft(audio_chunk)
-            volume = compute_volume(audio_chunk)
-            self.current_mode.update_plot(fft_data, volume)
-        elif isinstance(self.current_mode, SPLMode):
-            volume = compute_volume(audio_chunk)
-            self.current_mode.update_plot(volume)
-        elif isinstance(self.current_mode, AutocorrelationFeedbackMode):
-            autocorr_data = np.correlate(audio_chunk, audio_chunk, mode='full')
-            autocorr_data = autocorr_data[autocorr_data.size // 2:]  # Keep positive lags
-            self.current_mode.update_plot(autocorr_data)
-
+    def process_audio_chunk(self, audio_chunk, samplerate):
+        compute_volume(audio_chunk)    
+        compute_smoothed_fft(audio_chunk, samplerate)
+        if self.current_mode == self.spl_mode:
+            self.current_mode.update_plot(vol_data[-1])
 
 def scan_buttons():
     # Simulate scanning for button presses
@@ -161,9 +78,11 @@ def scan_buttons():
 if __name__ == '__main__':
     argparse = argparse.ArgumentParser(description='Audio Visualizer')
     argparse.add_argument('--mode', choices=['SPL', 'RTA','Autocorr'], default="SPL", help='Mode to run the visualizer in')
-    argparse.add_argument('--source', type=str, default='default', help='Use test data instead of real-time audio')
+    # change to default once we have hardware
+    argparse.add_argument('--source', type=str, default='testdata', help='Use test data instead of real-time audio')
     argparse.add_argument('--windowsize', type=int, default=16384, help='Window size for FFT')
     args = argparse.parse_args()
+
     windowsize = int(args.windowsize)
     if args.source == 'testdata':
         audio_source = FileAudioSource('testdata', chunksize=windowsize)
@@ -172,17 +91,15 @@ if __name__ == '__main__':
         samplerate = 44100 # for now - need to get this from the audio source
         audio_source = RealTimeAudioSource(chunksize=windowsize)
 
-    print(args)
-    #visualizer = AudioVisualizer()
+    visualizer = AudioVisualizer()
     try:
         while True:
-            #visualizer.process_audio_chunk(audio_chunk)
             button_press = scan_buttons()
             if button_press:
                 pass
                 #visualizer.switch_mode(button_press)                
             chunk = next(audio_source)
-            print(len(chunk))
+            visualizer.process_audio_chunk(chunk, samplerate)
 
     except KeyboardInterrupt:
         print('Goodbye')

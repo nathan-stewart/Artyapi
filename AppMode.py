@@ -1,3 +1,6 @@
+import matplotlib.pyplot as plt
+import numpy as np
+
 class BaseMode:
     def __init__(self):
         self.fig, self.ax = None, None
@@ -9,15 +12,13 @@ class BaseMode:
         raise NotImplementedError
 
 class RTAMode(BaseMode):
-    def __init__(self, fft_data, vol_data):
+    def __init__(self, fft_data):
         super().__init__()
         self.fft_data = fft_data
-        self.vol_data = vol_data
-        self.fig, self.ax_fft, self.ax_vol, self.img_fft, self.img_vol = self.setup_plot()
+        self.fig, self.ax_fft, self.ax_vol, self.img_fft = self.setup_plot()
 
-    def setup_plot(self):
-        figsize = (SCREEN_WIDTH / DPI, SCREEN_HEIGHT / DPI)
-        fig, (ax_fft, ax_vol) = plt.subplots(1, 2, figsize=figsize, gridspec_kw={'width_ratios': [SCREEN_WIDTH - 100, 100]})
+    def setup_plot(self, plotsize):
+        fig, (ax_fft, ax_vol) = plt.subplots(1, 2, figsize=plotsize, gridspec_kw={'width_ratios': [SCREEN_WIDTH - 100, 100]})
         fig.subplots_adjust(left=0, right=1, top=1, bottom=0)
 
         # FFT plot
@@ -25,12 +26,7 @@ class RTAMode(BaseMode):
         ax_fft.set_xlabel('Hz')
         ax_fft.set_xscale('log', base=2)
 
-        # Volume plot
-        img_vol = ax_vol.imshow(self.vol_data[:, np.newaxis], aspect='auto', origin='lower', cmap='plasma', extent=[0, 1, 0, N_TIME_BINS])
-        ax_vol.set_xticks([])  # No x-axis for volume
-        ax_vol.set_ylabel('Time')
-
-        return fig, ax_fft, ax_vol, img_fft, img_vol
+        return fig, ax_fft, ax_vol, img_fft
 
     def update_plot(self, new_fft_data, new_volume_data):
         # FFT data
@@ -48,27 +44,29 @@ class RTAMode(BaseMode):
         self.fig.canvas.draw_idle()
 
 class SPLMode(BaseMode):
-    def __init__(self, vol_data):
+    def __init__(self, vol_data, plotsize):
         super().__init__()
         self.vol_data = vol_data
-        self.fig, self.ax_spl, self.img_spl = self.setup_plot()
+        self.fig, self.ax_spl, self.img_spl = self.setup_plot(vol_data, plotsize)
 
-    def setup_plot(self):
-        figsize = (SCREEN_WIDTH / DPI, SCREEN_HEIGHT / DPI)
-        fig, ax_spl = plt.subplots(1, 1, figsize=figsize)
-        fig.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.1)
+    def setup_plot(self, vol_data, plotsize):
+        fig, ax_spl = plt.subplots(1, 1, figsize=plotsize)
+        fig.subplots_adjust(left=0, right=1, top=1, bottom=0)
 
         # SPL plot
-        time_data = np.linspace(0, N_TIME_BINS * UPDATE_PERIOD, N_TIME_BINS)
-        img_spl, = ax_spl.plot(time_data, self.vol_data, color='b')  # Plot volume over time
+        self.img_spl, = ax_spl.plot(vol_data, color='b')  # Fix here by extracting the Line2D object
         ax_spl.set_xlabel('Time (s)')
         ax_spl.set_ylabel('Volume (dB)')
-        ax_spl.set_ylim(-100, 0)
-        return fig, ax_spl, img_spl
+        ax_spl.set_ylim(-96, 12)
+        ax_spl.set_yticks(np.arange(-96, 12, 3))
+        return fig, ax_spl, self.img_spl
 
-    def update_plot(self, new_volume_data):
-        self.vol_data = np.roll(self.vol_data, -1)
-        self.vol_data[-1] = new_volume_data
+    def update_plot(self, spl):
+         # Shift the data to the left and append the new SPL value
+        self.vol_data = np.roll(self.vol_data, -1, axis=0)
+        self.vol_data[-1] = spl
+
+        self.img_spl.set_ydata(self.vol_data)
         self.img_spl.set_ydata(self.vol_data)
         plt.draw()
         self.fig.canvas.draw_idle()
@@ -79,10 +77,9 @@ class AutocorrelationFeedbackMode(BaseMode):
         self.autocorr_data = autocorr_data
         self.fig, self.ax_acorr = self.setup_plot()
 
-    def setup_plot(self):
+    def setup_plot(self, plotsize):
         # Placeholder setup for autocorrelation
-        figsize = (SCREEN_WIDTH / DPI, SCREEN_HEIGHT / DPI)
-        fig, ax_acorr = plt.subplots(1, 1, figsize=figsize)
+        fig, ax_acorr = plt.subplots(1, 1, figsize=plotsize)
         fig.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.1)
 
         img_acorr, = ax_acorr.plot(self.autocorr_data, color='g')  # Plot autocorrelation
