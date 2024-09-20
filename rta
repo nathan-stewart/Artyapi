@@ -33,10 +33,12 @@ acf_data = np.zeros((ACF_FREQ_BINS, ACF_TIME_BINS))
 
 def compute_volume(signal):
     global vol_data
+    import math
     # Compute RMS (root mean square) volume of the signal
     rms = np.sqrt(np.mean(signal ** 2))
     spl = round(20 * np.log10(np.where(rms < 1e-6, 1e-6, rms)),1)  # Convert to dB
-    return spl
+    vol_data = np.roll(vol_data, 1, axis=0)
+    vol_data[0] = spl
 
 def compute_smoothed_fft(signal, samplerate, previous_fft=None, alpha=0.2):
     pass
@@ -69,7 +71,7 @@ class AudioVisualizer:
         compute_volume(audio_chunk)    
         compute_smoothed_fft(audio_chunk, samplerate)
         if self.current_mode == self.spl_mode:
-            self.current_mode.update_plot(vol_data[-1])
+            self.current_mode.update_plot(vol_data)
 
 def scan_buttons():
     # Simulate scanning for button presses
