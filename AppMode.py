@@ -1,10 +1,22 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import os
+
+def is_framebuffer():
+    display = os.environ.get('DISPLAY'):
+    if not display:
+        return True
+    elif display != ':0':
+        return True
+    return False
+
+if is_framebuffer():
+    plt.use('Agg')
 
 class BaseMode:
     def __init__(self):
         self.fig, self.ax = None, None
-    
+
     def setup_plot(self):
         raise NotImplementedError
 
