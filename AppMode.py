@@ -3,7 +3,7 @@ import numpy as np
 import os
 
 def is_framebuffer():
-    display = os.environ.get('DISPLAY'):
+    display = os.environ.get('DISPLAY')
     if not display:
         return True
     elif display != ':0':
