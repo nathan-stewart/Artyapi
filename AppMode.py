@@ -1,115 +1,127 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+import pygame
 
-def is_framebuffer():
-    display = os.environ.get('DISPLAY')
-    if not display:
-        return True
-    elif display != ':0':
-        return True
-    return False
-
-if is_framebuffer():
-    plt.use('Agg')
+# This is global so that imported modules can access it
+pygame.init()
+screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
 
 class BaseMode:
-    def __init__(self):
-        self.fig, self.ax = None, None
+    major_color = (255, 255, 255)
+    minor_color = (127, 127, 127)
+    major_tick_length = 8
+    minor_tick_length = 4
+    major_tick_width = 3
+    minor_tick_width = 2
 
+    def __init__(self):
+        self.mx = self.my = 1
+        self.bx = self.by = 0
+    
     def setup_plot(self):
         raise NotImplementedError
 
     def update_plot(self, data):
         raise NotImplementedError
 
-class RTAMode(BaseMode):
-    def __init__(self, fft_data):
-        super().__init__()
-        self.fft_data = fft_data
-        self.fig, self.ax_fft, self.ax_vol, self.img_fft = self.setup_plot()
+    def blank(self):
+        screen.fill((0, 0, 0))
+            
+    def calculate_label_size(self, labels, font):
+        width, height = 0, 0
+        for label in labels:
+            text = font.render(label, True, BaseMode.major_color)
+            if text.get_height() > height + 10:
+                height = text.get_height() + 10
+            if text.get_width() > width:
+                width = text.get_width()
+        return width, height
 
-    def setup_plot(self, plotsize):
-        fig, (ax_fft, ax_vol) = plt.subplots(1, 1, figsize=plotsize, gridspec_kw={'width_ratios': [SCREEN_WIDTH - 100, 100]})
-        fig.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
+    def scale_xpos(self,pos):
+        return int(pos * self.mx + self.bx)
 
-        # FFT plot
-        img_fft = ax_fft.imshow(self.fft_data, aspect='auto', origin='lower', cmap='inferno', extent=[40, 20000, 0, N_TIME_BINS])
-        ax_fft.set_xlabel('Hz')
-        ax_fft.set_xscale('log', base=2)
+    def scale_ypos(self, pos):
+        return int(pos * self.my + self.by)
+     
+    def draw_ticks(self, series=[], orientation='x', mode='major'):
+        if mode == 'major':
+            length = BaseMode.major_tick_length
+            width = BaseMode.major_tick_width
+            color = BaseMode.major_color
+        else:
+            length = BaseMode.minor_tick_length
+            width = BaseMode.minor_tick_width
+            color = BaseMode.minor_color
+        
+        if orientation == 'x':
+            screen_min = 0
+            screen_max = screen.get_width()
+        else:
+            screen_min = 0
+            screen_max = screen.get_height()
 
-        return fig, ax_fft, ax_vol, img_fft
+        data_min = min(series)
+        data_range = max(series) - data_min
+        screen_range = screen_max - screen_min
+        
+        for tick in series:
+            if orientation == 'x':
+                x = self.scale_xpos(tick)
+                y = 0
+                start_pos = (x, y)
+                end_pos = (x, y + length)
+            else:
+                x = 0
+                y = self.scale_ypos(tick)
+                start_pos = (x, y)
+                end_pos = (x - length, y)
+            pygame.draw.line(screen, color, start_pos, end_pos, width)
 
-    def update_plot(self, new_fft_data, new_volume_data):
-        # FFT data
-        self.fft_data = np.roll(self.fft_data, -1, axis=0)
-        self.fft_data[-1, :] = new_fft_data
+    def draw_axis(self, labels=None, major=None, minor=None, orientation='x'):
+        if labels:
+            if len(labels) != len(major):
+                raise ValueError('Length of labels must match length of major ticks')
+        
+        # Draw major ticks
+        if major:
+            self.draw_ticks(major, orientation, 'major')
+        
+        # Draw minor ticks
+        if minor:
+            self.draw_ticks(minor, orientation, 'minor')
 
-        # Update plot visuals
-        self.img_fft.set_data(self.fft_data)
-        plt.draw()
-        self.fig.canvas.draw_idle()
 
 class SPLMode(BaseMode):
-    def __init__(self, vol_data, plotsize):
+    def __init__(self, vol_data):
         super().__init__()
         self.vol_data = vol_data
-        self.fig, self.ax_spl, self.img_spl = self.setup_plot(vol_data, plotsize)
+        self.my = screen.get_height() / (12 + 96)
+        self.by = screen.get_height() - 12 * self.my
+        self.plot_color = (12, 200, 255)
+        
+    def setup_plot(self, vol_data):
+        self.blank()
+        self.draw_axes()
+        pygame.display.flip()
 
-    def setup_plot(self, vol_data, plotsize):
-        plt.ion()  # Enable interactive mode
-        fig, ax_spl = plt.subplots(1, 1, figsize=plotsize)
-        fig.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
+    def draw_axes(self):
+        font = pygame.font.Font(None, 36)
+        y_major = [y for y in range(-96, 13, 12)]
+        y_labels = [str(y) for y in y_major]
+        y_minor = [y for y in range(-96, 12, 3) if y not in y_major]
+        self.text_size = self.calculate_label_size(y_labels, font)
+        self.draw_axis(major = y_major, labels = y_labels, minor = y_minor)
 
-        # SPL plot
-        fig.patch.set_facecolor('black')
-        ax_spl.set_facecolor('black')
-
-        # Configure major and minor ticks
-        ax_spl.yaxis.set_major_locator(plt.MultipleLocator(1))  # Major ticks every 1 second
-        ax_spl.yaxis.set_major_locator(plt.MultipleLocator(12))  # Major ticks every 12db
-        ax_spl.tick_params(which='minor', length=4, color='gray')  # Minor ticks customization
-        ax_spl.tick_params(which='major', length=8, color='white')  # Major ticks customization
-        ax_spl.xaxis.set_tick_params(labelcolor='white')  # Major tick labels color
-        ax_spl.yaxis.set_tick_params(labelcolor='white')  # Y-axis tick labels color
-        ax_spl.set_xlabel('seconds', color='white')
-        ax_spl.set_ylabel('dB', color='white')
-
-
-        self.img_spl, = ax_spl.plot(vol_data, color='b')  # Fix here by extracting the Line2D object
-        ax_spl.set_xlabel('Time (s)')
-        ax_spl.set_ylabel('Volume (dB)')
-        ax_spl.set_ylim(-96, 12)
-        ax_spl.set_yticks(np.arange(-96, 12, 3))
-        ax_spl.set_xlim(-2000,2000)
-        ax_spl.invert_xaxis()
-        ax_spl.axhline(y=-10, color='r')
-        self.t = 0.0
-        return fig, ax_spl, self.img_spl
+        # time axis isn't super useful for SPL histogram - leave it out
+        
 
     def update_plot(self, vol_data):
-        self.img_spl.set_ydata(vol_data)
-        self.fig.canvas.flush_events()  # Force an update in interactive mode
-        self.fig.canvas.draw_idle()
+        self.draw_axes()
+        for x in range(len(vol_data)-1):
+            p0 = (self.scale_xpos(x),   self.scale_ypos(vol_data[x  ]))
+            p1 = (self.scale_xpos(x+1), self.scale_ypos(vol_data[x+1]))
+            pygame.draw.line(screen, self.plot_color, p0, p1)
+            
+        pygame.display.flip()
 
-class AutocorrelationFeedbackMode(BaseMode):
-    def __init__(self, autocorr_data):
-        super().__init__()
-        self.autocorr_data = autocorr_data
-        self.fig, self.ax_acorr = self.setup_plot()
-
-    def setup_plot(self, plotsize):
-        # Placeholder setup for autocorrelation
-        fig, ax_acorr = plt.subplots(1, 1, figsize=plotsize)
-        fig.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.1)
-
-        img_acorr, = ax_acorr.plot(self.autocorr_data, color='g')  # Plot autocorrelation
-        ax_acorr.set_xlabel('Lag (samples)')
-        ax_acorr.set_ylabel('Autocorrelation')
-        return fig, ax_acorr, img_acorr
-
-    def update_plot(self, new_autocorr_data):
-        self.autocorr_data = new_autocorr_data
-        self.img_acorr.set_ydata(self.autocorr_data)
-        plt.draw()
-        self.fig.canvas.draw_idle()

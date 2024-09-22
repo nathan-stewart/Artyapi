@@ -1,39 +1,28 @@
 #!/usr/bin/env python3
 import numpy as np
-import matplotlib.pyplot as plt
 import soundfile as sf
 import os
 import time
 from scipy.signal import resample
 import argparse
 from AudioSource import  RealTimeAudioSource, FileAudioSource
-from AppMode import RTAMode, SPLMode, AutocorrelationFeedbackMode
-
-# Parameters
-SCREEN_WIDTH = 1920
-SCREEN_HEIGHT = 480
-def get_plotsize():
-    fig = plt.figure()
-    dpi = fig.get_dpi()
-    return (SCREEN_WIDTH/dpi, SCREEN_HEIGHT/dpi)
-plotsize = get_plotsize()
+from AppMode import *
+import pygame
 
 # Update the dimensions of the fft_data and vol_data arrays
-SPL_TIME_BINS = SCREEN_WIDTH
-SPL_VOL_BINS = SCREEN_HEIGHT
-vol_data = np.zeros(SPL_TIME_BINS)
+plot_width = screen.get_width()
+plot_height = screen.get_height()
+vol_data = np.zeros(plot_width)
 
-FFT_TIME_BINS = SCREEN_HEIGHT
-FFT_FREQ_BINS = SCREEN_WIDTH // 2 + 1
-fft_data = np.zeros((FFT_FREQ_BINS, FFT_TIME_BINS))
+TIME_BINS = plot_height
+FFT_FREQ_BINS = plot_width // 2 + 1
+fft_data = np.zeros((FFT_FREQ_BINS, TIME_BINS))
 
-ACF_TIME_BINS = SCREEN_HEIGHT
-ACF_FREQ_BINS = SCREEN_WIDTH // 2 + 1
-acf_data = np.zeros((ACF_FREQ_BINS, ACF_TIME_BINS))
+ACF_FREQ_BINS = plot_width // 2 + 1
+acf_data = np.zeros((ACF_FREQ_BINS, TIME_BINS))
 
 def compute_volume(signal):
     global vol_data
-    import math
     # Compute RMS (root mean square) volume of the signal
     rms = np.sqrt(np.mean(signal ** 2))
     spl = round(20 * np.log10(np.where(rms < 1e-6, 1e-6, rms)),1)  # Convert to dB
@@ -45,17 +34,18 @@ def compute_smoothed_fft(signal, samplerate, previous_fft=None, alpha=0.2):
 
 class AudioVisualizer:
     def __init__(self):
-        self.spl_mode = SPLMode(vol_data, plotsize = plotsize)
+        self.spl_mode = SPLMode(vol_data)
         self.rta_mode = None
         self.acf_mode = None
         self.current_mode = self.spl_mode # initial mode
+        self.current_mode.setup_plot(vol_data)
 
     def switch_mode(self, mode_name):
         if mode_name == 'RTA':
             pass #self.current_mode = self.rta_mode
         elif mode_name == 'SPL':
             self.current_mode = self.spl_mode
-            self.current_mode.setup_plot(vol_data, plotsize)
+            self.current_mode.setup_plot(vol_data)
         elif mode_name == 'Autocorr':
             pass# self.current_mode = self.acf_mode
         else:
@@ -63,9 +53,7 @@ class AudioVisualizer:
         self.redraw()
 
     def redraw(self):
-        global SCREEN_HEIGHT, SCREEN_WIDTH
-        plt.close(self.current_mode.fig)
-        self.current_mode.setup_plot(plotsize)
+        self.current_mode.setup_plot()
 
     def process_audio_chunk(self, audio_chunk, samplerate):
         compute_volume(audio_chunk)    
@@ -94,6 +82,7 @@ if __name__ == '__main__':
         audio_source = RealTimeAudioSource(chunksize=windowsize)
 
     visualizer = AudioVisualizer()
+
     try:
         while True:
             button_press = scan_buttons()
@@ -102,6 +91,11 @@ if __name__ == '__main__':
                 #visualizer.switch_mode(button_press)                
             chunk = next(audio_source)
             visualizer.process_audio_chunk(chunk, samplerate)
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    raise KeyboardInterrupt
 
     except KeyboardInterrupt:
         print('Goodbye')
+    finally:
+        pygame.quit()
