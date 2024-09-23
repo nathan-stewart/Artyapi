@@ -28,6 +28,7 @@ def compute_volume(signal):
     spl = round(20 * np.log10(np.where(rms < 1.584e-5, 1.584e-5, rms)),1)  # Convert to dB
     vol_data = np.roll(vol_data, -1)
     vol_data[-1] = spl
+    print(f"Volume: {spl} dB")
 
 def compute_smoothed_fft(signal, samplerate, previous_fft=None, alpha=0.2):
     pass
@@ -91,7 +92,7 @@ if __name__ == '__main__':
             button_press = scan_buttons()
             if button_press:
                 pass
-                #visualizer.switch_mode(button_press)                
+                #visualizer.switch_mode(button_press)
             chunk = next(audio_source)
             visualizer.process_audio_chunk(chunk, samplerate)
             for event in pygame.event.get():
