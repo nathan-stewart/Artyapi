@@ -24,10 +24,11 @@ acf_data = np.zeros((ACF_FREQ_BINS, TIME_BINS))
 def compute_volume(signal):
     global vol_data
     # Compute RMS (root mean square) volume of the signal
+    vol_data = np.roll(vol_data, -1, axis=0)
     rms = np.sqrt(np.mean(signal ** 2))
     spl = round(20 * np.log10(np.where(rms < 1e-6, 1e-6, rms)),1)  # Convert to dB
-    vol_data = np.roll(vol_data, 1, axis=0)
-    vol_data[0] = spl
+    vol_data[-1] = spl
+    print(spl)
 
 def compute_smoothed_fft(signal, samplerate, previous_fft=None, alpha=0.2):
     pass
@@ -56,7 +57,8 @@ class AudioVisualizer:
         self.current_mode.setup_plot()
 
     def process_audio_chunk(self, audio_chunk, samplerate):
-        compute_volume(audio_chunk)    
+        global vol_data
+        compute_volume(audio_chunk)
         compute_smoothed_fft(audio_chunk, samplerate)
         if self.current_mode == self.spl_mode:
             self.current_mode.update_plot(vol_data)

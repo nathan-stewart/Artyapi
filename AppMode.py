@@ -38,7 +38,7 @@ class BaseMode:
                 width = text.get_width()
         return width, height
 
-    def scale_xpos(self,pos):
+    def scale_xpos(self, pos):
         return int(pos * self.mx + self.bx)
 
     def scale_ypos(self, pos):
@@ -96,7 +96,9 @@ class SPLMode(BaseMode):
     def __init__(self, vol_data):
         super().__init__()
         self.vol_data = vol_data
-        self.my = screen.get_height() / (12 + 96)
+        self.mx = 1.0
+        self.bx = 0
+        self.my = float(screen.get_height() / (12 + 96))
         self.by = screen.get_height() - 12 * self.my
         self.plot_color = (12, 200, 255)
         
