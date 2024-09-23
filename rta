@@ -5,37 +5,13 @@ import os
 from scipy.signal import resample
 import argparse
 
-def is_raspberry_pi():
-    try:
-        with open('/proc/device-tree/model', 'r') as f:
-            return 'Raspberry Pi' in f.read()
-    except FileNotFoundError:
-        return False
-    return False
-
-if is_raspberry_pi():
-    # use framebuffer for display
-    os.environ['SDL_VIDEODRIVER'] = 'fbcon'
-    os.environ["SDL_FBDEV"] = "/dev/fb1"
-    # os.environ["SDL_MOUSEDEV"] = "/dev/input/touchscreen"
-    os.environ["SDL_MOUSEDEV"] = "/dev/input/event0"
-
-
 from AudioSource import  RealTimeAudioSource, FileAudioSource
 from AppMode import *
-import pygame
 
 # Update the dimensions of the fft_data and vol_data arrays
-plot_width = screen.get_width()
-plot_height = screen.get_height()
-vol_data = np.zeros(plot_width)
-
-TIME_BINS = plot_height
-FFT_FREQ_BINS = plot_width // 2 + 1
-fft_data = np.zeros((FFT_FREQ_BINS, TIME_BINS))
-
-ACF_FREQ_BINS = plot_width // 2 + 1
-acf_data = np.zeros((ACF_FREQ_BINS, TIME_BINS))
+vol_data = np.zeros(screen_width)
+fft_data = np.zeros((screen_width // 2 + 1, screen_height))
+acf_data = np.zeros((screen_width // 2 + 1, screen_height))
 
 def compute_volume(signal):
     global vol_data

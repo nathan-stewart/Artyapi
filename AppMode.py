@@ -3,9 +3,32 @@ import numpy as np
 import os
 import pygame
 
-# This is global so that imported modules can access it
-pygame.init()
-screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+def is_raspberry_pi():
+    try:
+        with open('/proc/device-tree/model', 'r') as f:
+            return 'Raspberry Pi' in f.read()
+    except FileNotFoundError:
+        return False
+    return False
+
+if is_raspberry_pi():
+    # use framebuffer for display
+    os.environ['SDL_VIDEODRIVER'] = 'kmsdrm'
+    os.environ["SDL_FBDEV"] = "/dev/fb1"
+    # os.environ["SDL_MOUSEDEV"] = "/dev/input/touchscreen"
+    os.environ["SDL_MOUSEDEV"] = "/dev/input/event0"
+    
+    print('Raspberry Pi detected')
+    pygame.init()
+    screen_width=1920
+    screen_height=480
+    screen = pygame.display.set_mode((screen_width, screen_height), pygame.FULLSCREEN)
+else:
+    print('Not a Raspberry Pi - running in X')
+    pygame.init()
+    # This is global so that imported modules can access it
+    screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+    screen_width, screen_height = screen.get_size()
 
 class BaseMode:
     major_color = (255, 255, 255)
@@ -56,10 +79,10 @@ class BaseMode:
         
         if orientation == 'x':
             screen_min = 0
-            screen_max = screen.get_width()
+            screen_max = screen_width
         else:
             screen_min = 0
-            screen_max = screen.get_height()
+            screen_max = screen_height
 
         data_min = min(series)
         data_range = max(series) - data_min
@@ -98,8 +121,8 @@ class SPLMode(BaseMode):
         self.vol_data = vol_data
         self.mx = 1.0
         self.bx = 0
-        self.my = float(screen.get_height() / (12 + 96))
-        self.by = screen.get_height() - 12 * self.my
+        self.my = float(screen_height / (12 + 96))
+        self.by = screen_height - 12 * self.my
         self.plot_color = (12, 200, 255)
         
     def setup_plot(self, vol_data):
