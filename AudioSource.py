@@ -4,7 +4,7 @@ import pyaudio
 import time
 import numpy as np
 import threading
-import os 
+import os
 
 
 def RealTimeAudioSource(chunksize=16384, readbufsize=4096, samplerate=44100):
@@ -24,7 +24,7 @@ def RealTimeAudioSource(chunksize=16384, readbufsize=4096, samplerate=44100):
                 # If no wrap-around, directly copy
                 if write_index < end_index:
                     buffer[write_index:end_index] = new_data
-                else: 
+                else:
                     # If wrapping, copy in two parts
                     buffer[write_index:] = new_data[:buffer.size - write_index]
                     buffer[:end_index] = new_data[buffer.size - write_index:]
@@ -84,12 +84,11 @@ def FileAudioSource(testdir, chunksize):
                     if len(chunk.shape) == 2:
                         chunk = chunk.mean(axis=1)
 
-                    chunk /= np.max(np.abs(chunk))  # Normalize to range [-1, 1]
+                    chunk /= 32768.0  # Normalize to [-1, 1]
 
                     if len(chunk) < chunksize:
                         chunk = np.pad(chunk, (0, chunksize - len(chunk)), mode='constant')
 
                     yield chunk
 
-        files = os.listdir(testdir)    
-    
+        files = os.listdir(testdir)
