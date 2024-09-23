@@ -119,11 +119,21 @@ class SPLMode(BaseMode):
         
 
     def update_plot(self, vol_data):
+        self.blank()
         self.draw_axes()
         for x in range(len(vol_data)-1):
             p0 = (self.scale_xpos(x),   self.scale_ypos(vol_data[x  ]))
             p1 = (self.scale_xpos(x+1), self.scale_ypos(vol_data[x+1]))
             pygame.draw.line(screen, self.plot_color, p0, p1)
-            
         pygame.display.flip()
 
+
+if __name__ == "__main__":
+    # Test SPLMode
+    vol_data = np.random.randint(-96, 13, 1920)
+    mode = SPLMode(vol_data)
+    mode.setup_plot(vol_data)
+    mode.update_plot(vol_data)
+    pygame.time.wait(5000)
+    pygame.quit()
+    os._exit(0)
