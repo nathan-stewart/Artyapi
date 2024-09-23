@@ -84,8 +84,6 @@ def FileAudioSource(testdir, chunksize):
                     if len(chunk.shape) == 2:
                         chunk = chunk.mean(axis=1)
 
-                    chunk /= 32768.0  # Normalize to [-1, 1]
-
                     if len(chunk) < chunksize:
                         chunk = np.pad(chunk, (0, chunksize - len(chunk)), mode='constant')
 
