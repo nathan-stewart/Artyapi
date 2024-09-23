@@ -68,29 +68,28 @@ def FileAudioSource(testdir, chunksize):
                 print(fullpath)
                 raise ValueError('Only .wav files are supported')
 
-            audio_data, samplerate = sf.read(fullpath)
+            with sf.SoundFile(fullpath) as audio_file:
+                samplerate = audio_file.samplerate
+                n_samples = len(audio_file)
+                t0 = time.time()
+                position = 0
 
-            # Convert to mono if necessary
-            if len(audio_data.shape) == 2:
-                audio_data = audio_data.mean(axis=1)
+                while position < n_samples:
+                    running_time = time.time() - t0
+                    position = int(running_time * samplerate)
+                    audio_file.seek(position)
+                    chunk = audio_file.read(chunksize, dtype='float32')
 
-            audio_data = audio_data.astype(np.float32)  # Convert to float
-            audio_data /= np.max(np.abs(audio_data))  # Normalize to range [-1, 1]
-            n_samples = len(audio_data)
-            position = 0
-            t0 = time.time()
-            while True:
-                running_time = time.time() - t0
-                position = int(running_time * samplerate)
-                if position + chunksize > n_samples:
-                    chunk = audio_data[position:position + chunksize]
+                    # Convert to mono if necessary
+                    if len(chunk.shape) == 2:
+                        chunk = chunk.mean(axis=1)
+
+                    chunk /= np.max(np.abs(chunk))  # Normalize to range [-1, 1]
+
                     if len(chunk) < chunksize:
                         chunk = np.pad(chunk, (0, chunksize - len(chunk)), mode='constant')
+
                     yield chunk
-                    break
-                else:
-                    chunk = audio_data[position:position + chunksize]
-                    yield chunk
-        files = os.listdir(testdir)
-    
+
+        files = os.listdir(testdir)    
     
