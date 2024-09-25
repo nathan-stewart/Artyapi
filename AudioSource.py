@@ -19,6 +19,13 @@ def RealTimeAudioSource(source, chunksize=16384, readbufsize=16384):
     import pyaudio
     p = pyaudio.PyAudio()
 
+    def list_audio_devices():
+        for i in range(p.get_device_count()):
+            dev = p.get_device_info_by_index(i)
+            if dev['maxInputChannels'] < 1:
+                continue
+            print(f"Device {dev['name']} ({i})")
+
     def get_audio_device_index(name):
         for i in range(p.get_device_count()):
             dev = p.get_device_info_by_index(i)
@@ -65,14 +72,15 @@ def RealTimeAudioSource(source, chunksize=16384, readbufsize=16384):
                     logging.error('input overflowed: skipping buffer')
 
     if source == "-l":
-        get_audio_device_index(None)
+        list_audio_devices(None)
         return
     else:
         source = get_audio_device_index(source)
-        if source is None:
-            logging.error('Audio input device found')
-            return
-    
+
+    if source is None:
+        logging.error('Audio input device found')
+        raise RuntimeError('No audio input device found')
+
     samplerate = get_preferred_samplerate(source)
     stream = p.open(format=pyaudio.paInt16, channels=1, rate=samplerate, input=True, frames_per_buffer=readbufsize, input_device_index=source)
 
