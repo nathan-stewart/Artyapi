@@ -14,42 +14,23 @@ argparse.add_argument('--source', type=str, help='Use test data instead of real-
 argparse.add_argument('--windowsize', type=int, default=16384, help='Window size for FFT')
 args = argparse.parse_args()
 
-# Update the dimensions of the fft_data and vol_data arrays
-vol_data = np.zeros(screen_width)
 fft_data = np.zeros((screen_width // 2 + 1, screen_height))
 acf_data = np.zeros((screen_width // 2 + 1, screen_height))
 
-def compute_volume(signal):
-    global vol_data
-    # Compute RMS (root mean square) volume of the signal
-    rms = np.sqrt(np.mean(signal ** 2))
-    if np.isnan(rms):
-        rms = 0
-        print('NaN')
-
-    spl = round(20 * np.log10(np.where(rms < 1.584e-5, 1.584e-5, rms)),1)  # Convert to dB
-    vol_data = np.roll(vol_data, -1)
-    vol_data[-1] = spl
-
-def compute_smoothed_fft(signal, samplerate, previous_fft=None, alpha=0.2):
-    pass
-
 class AudioVisualizer:
     def __init__(self):
-        global vol_data
-        self.spl_mode = SPLMode(vol_data)
-        self.rta_mode = None
+        self.spl_mode = SPLMode()
+        self.rta_mode = None # RTAMode(windowsize, samplerate)
         self.acf_mode = None
         self.current_mode = self.spl_mode # initial mode
-        self.current_mode.setup_plot(vol_data)
+        self.current_mode.setup_plot()
 
     def switch_mode(self, mode_name):
-        global vol_data
         if mode_name == 'RTA':
             pass #self.current_mode = self.rta_mode
         elif mode_name == 'SPL':
             self.current_mode = self.spl_mode
-            self.current_mode.setup_plot(vol_data)
+            self.current_mode.setup_plot()
         elif mode_name == 'Autocorr':
             pass# self.current_mode = self.acf_mode
         else:
@@ -59,12 +40,11 @@ class AudioVisualizer:
     def redraw(self):
         self.current_mode.setup_plot()
 
-    def process_audio_chunk(self, audio_chunk, samplerate):
-        global vol_data
-        compute_volume(audio_chunk)
-        compute_smoothed_fft(audio_chunk, samplerate)
+    def process_audio_chunk(self, audio_chunk):
+        self.spl_mode.process_data(audio_chunk)
+        #self.rta_mode.process_data(audio_chunk)
         if self.current_mode == self.spl_mode:
-            self.current_mode.update_plot(vol_data)
+            self.current_mode.update_plot()
 
 def scan_buttons():
     # Simulate scanning for button presses
@@ -88,7 +68,7 @@ if __name__ == '__main__':
                 pass
                 #visualizer.switch_mode(button_press)
             chunk = next(audio_source)
-            visualizer.process_audio_chunk(chunk, samplerate)
+            visualizer.process_audio_chunk(chunk)
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     raise KeyboardInterrupt

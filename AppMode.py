@@ -39,7 +39,7 @@ class BaseMode:
     minor_tick_width = 2
 
     def __init__(self):
-        self.mx = self.my = 1
+        mx = self.my = 1
         self.bx = self.by = 0
     
     def setup_plot(self):
@@ -116,16 +116,16 @@ class BaseMode:
 
 
 class SPLMode(BaseMode):
-    def __init__(self, vol_data):
+    def __init__(self):
         super().__init__()
-        self.vol_data = vol_data
+        self.vol_data = np.zeros(screen_width)
         self.mx = 1.0
         self.bx = 0
         self.my = float(screen_height / (12 + 96))
         self.by = screen_height - 12 * self.my
         self.plot_color = (12, 200, 255)
         
-    def setup_plot(self, vol_data):
+    def setup_plot(self):
         self.blank()
         self.draw_axes()
         pygame.display.flip()
@@ -141,12 +141,22 @@ class SPLMode(BaseMode):
         # time axis isn't super useful for SPL histogram - leave it out
         
 
-    def update_plot(self, vol_data):
+    def process_data(self, data):
+        # Compute RMS (root mean square) volume of the signal
+        rms = np.sqrt(np.mean(data ** 2))
+        if np.isnan(rms):
+            rms = 0
+            print('NaN')
+        spl = round(20 * np.log10(np.where(rms < 1.584e-5, 1.584e-5, rms)),1)  # Convert to dB
+        self.vol_data = np.roll(self.vol_data, -1)
+        self.vol_data[-1] = spl
+
+    def update_plot(self):
         self.blank()
         self.draw_axes()
-        for x in range(len(vol_data)-1):
-            p0 = (self.scale_xpos(x),   self.scale_ypos(vol_data[x  ]))
-            p1 = (self.scale_xpos(x+1), self.scale_ypos(vol_data[x+1]))
+        for x in range(len(self.vol_data)-1):
+            p0 = (self.scale_xpos(x),   self.scale_ypos(self.vol_data[x  ]))
+            p1 = (self.scale_xpos(x+1), self.scale_ypos(self.vol_data[x+1]))
             pygame.draw.line(screen, self.plot_color, p0, p1)
         pygame.display.flip()
 
@@ -154,9 +164,9 @@ class SPLMode(BaseMode):
 if __name__ == "__main__":
     # Test SPLMode
     vol_data = np.random.randint(-96, 13, 1920)
-    mode = SPLMode(vol_data)
-    mode.setup_plot(vol_data)
-    mode.update_plot(vol_data)
+    mode = SPLMode()
+    mode.setup_plot()
+    mode.update_plot()
     pygame.time.wait(5000)
     pygame.quit()
     os._exit(0)
