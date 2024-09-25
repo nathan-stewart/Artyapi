@@ -8,26 +8,35 @@ import logging
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
+p = None
+samplerate = None
 
-# Initialize audio capture
-os.environ['PA_ALSA_PLUGHW'] = '1'
-os.environ['PYTHONWARNINGS'] = 'ignore'
-import pyaudio
-p = pyaudio.PyAudio()
-
-def get_audio_device_index(name):
+def RealTimeAudioSource(source, chunksize=16384, readbufsize=16384):
+    global p, samplerate
+    # Initialize audio capture
+    os.environ['PA_ALSA_PLUGHW'] = '1'
+    os.environ['PYTHONWARNINGS'] = 'ignore'
+    import pyaudio
     p = pyaudio.PyAudio()
-    for i in range(p.get_device_count()):
-        dev = p.get_device_info_by_index(i)
-        if dev['maxInputChannels'] < 1:
-            continue
-        if not name:
-            print(f"Device {dev['name']} ({i})")
-        elif name in dev['name']:
-            return i
-    return None
 
-def RealTimeAudioSource(source, chunksize=16384, readbufsize=16384, samplerate=48000):
+    def get_audio_device_index(name):
+        for i in range(p.get_device_count()):
+            dev = p.get_device_info_by_index(i)
+            if dev['maxInputChannels'] < 1:
+                continue
+            if not name:
+                print(f"Device {dev['name']} ({i})")
+            elif name in dev['name']:
+                return i
+        return None
+
+    def get_preferred_samplerate(dev_index):
+        dev = p.get_device_info_by_index(dev_index)
+        for rate in [48000, 44100, 96000, 192000]:
+            if dev['defaultSampleRate'] == rate:
+                return rate
+        raise ValueError('No supported sample rate found')
+
     def _capture_audio():
         nonlocal buffer, write_index, stop_flag
         while not stop_flag:
@@ -63,7 +72,8 @@ def RealTimeAudioSource(source, chunksize=16384, readbufsize=16384, samplerate=4
         if source is None:
             logging.error('Audio input device found')
             return
-    global p
+    
+    samplerate = get_preferred_samplerate(source)
     stream = p.open(format=pyaudio.paInt16, channels=1, rate=samplerate, input=True, frames_per_buffer=readbufsize, input_device_index=source)
 
     # Initialize circular buffer and threading
