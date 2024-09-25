@@ -1,40 +1,70 @@
 #!/usr/bin/env python3
 import soundfile as sf
-import pyaudio
 import time
 import numpy as np
 import threading
 import os
+import logging
 
+# Initialize logging
+logging.basicConfig(level=logging.INFO)
 
-def RealTimeAudioSource(chunksize=16384, readbufsize=4096, samplerate=44100):
-    def _capture_audio():
-        nonlocal buffer, write_index
+# Initialize audio capture
+os.environ['PA_ALSA_PLUGHW'] = '1'
+os.environ['PYTHONWARNINGS'] = 'ignore'
+import pyaudio
+p = pyaudio.PyAudio()
 
-        while not stop_flag:
-            # Capture new audio data
-            data = stream.read(readbufsize)
-            new_data = np.frombuffer(data, dtype=np.int16)
-
-            # Safely update the buffer in a thread-safe manner (circular buffer)
-            with lock:
-                # Find the space available and wrap around if necessary
-                end_index = (write_index + len(new_data)) % buffer.size
-
-                # If no wrap-around, directly copy
-                if write_index < end_index:
-                    buffer[write_index:end_index] = new_data
-                else:
-                    # If wrapping, copy in two parts
-                    buffer[write_index:] = new_data[:buffer.size - write_index]
-                    buffer[:end_index] = new_data[buffer.size - write_index:]
-
-                # Update write_index
-                write_index = end_index
-
-    # Initialize audio capture
+def get_audio_device_index(name):
     p = pyaudio.PyAudio()
-    stream = p.open(format=pyaudio.paInt16, channels=1, rate=samplerate, input=True, frames_per_buffer=readbufsize)
+    for i in range(p.get_device_count()):
+        dev = p.get_device_info_by_index(i)
+        if dev['maxInputChannels'] < 1:
+            continue
+        if not name:
+            print(f"Device {dev['name']} ({i})")
+        elif name in dev['name']:
+            return i
+    return None
+
+def RealTimeAudioSource(source, chunksize=16384, readbufsize=16384, samplerate=48000):
+    def _capture_audio():
+        nonlocal buffer, write_index, stop_flag
+        while not stop_flag:
+            try:
+                # Capture new audio data
+                data = stream.read(readbufsize, exception_on_overflow=False)
+                new_data = np.frombuffer(data, dtype=np.int16)
+
+                # Safely update the buffer in a thread-safe manner (circular buffer)
+                with lock:
+                    # Find the space available and wrap around if necessary
+                    end_index = (write_index + len(new_data)) % buffer.size
+
+                    # If no wrap-around, directly copy
+                    if write_index < end_index:
+                        buffer[write_index:end_index] = new_data
+                    else:
+                        # If wrapping, copy in two parts
+                        buffer[write_index:] = new_data[:buffer.size - write_index]
+                        buffer[:end_index] = new_data[buffer.size - write_index:]
+
+                    # Update write_index
+                    write_index = end_index
+            except OSError as e:
+                if e.errno == -9981:
+                    logging.error('input overflowed: skipping buffer')
+
+    if source == "-l":
+        get_audio_device_index(None)
+        return
+    else:
+        source = get_audio_device_index(source)
+        if source is None:
+            logging.error('Audio input device found')
+            return
+    global p
+    stream = p.open(format=pyaudio.paInt16, channels=1, rate=samplerate, input=True, frames_per_buffer=readbufsize, input_device_index=source)
 
     # Initialize circular buffer and threading
     buffer = np.zeros(chunksize, dtype=np.int16)

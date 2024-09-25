@@ -4,9 +4,15 @@ import soundfile as sf
 import os
 from scipy.signal import resample
 import argparse
-
 from AudioSource import  RealTimeAudioSource, FileAudioSource
 from AppMode import *
+
+# setup argparse before opening pygame
+argparse = argparse.ArgumentParser(description='Audio Visualizer')
+argparse.add_argument('--mode', choices=['SPL', 'RTA','Autocorr'], default="SPL", help='Mode to run the visualizer in')
+argparse.add_argument('--source', type=str, default=None, help='Use test data instead of real-time audio')
+argparse.add_argument('--windowsize', type=int, default=16384, help='Window size for FFT')
+args = argparse.parse_args()
 
 # Update the dimensions of the fft_data and vol_data arrays
 vol_data = np.zeros(screen_width)
@@ -61,20 +67,13 @@ def scan_buttons():
     return None
 
 if __name__ == '__main__':
-    argparse = argparse.ArgumentParser(description='Audio Visualizer')
-    argparse.add_argument('--mode', choices=['SPL', 'RTA','Autocorr'], default="SPL", help='Mode to run the visualizer in')
-    # change to default once we have hardware
-    argparse.add_argument('--source', type=str, default='testdata', help='Use test data instead of real-time audio')
-    argparse.add_argument('--windowsize', type=int, default=16384, help='Window size for FFT')
-    args = argparse.parse_args()
-
     windowsize = int(args.windowsize)
     if args.source == 'testdata':
         audio_source = FileAudioSource('testdata', chunksize=windowsize)
         samplerate = 48000
     else:
         samplerate = 44100 # for now - need to get this from the audio source
-        audio_source = RealTimeAudioSource(chunksize=windowsize)
+        audio_source = RealTimeAudioSource(source=args.source, chunksize=windowsize)
 
     visualizer = AudioVisualizer()
 
