@@ -9,7 +9,7 @@ from AppMode import *
 
 # setup argparse before opening pygame
 argparse = argparse.ArgumentParser(description='Audio Visualizer')
-argparse.add_argument('--mode', choices=['spl', 'rta','acf'], default="SPL", help='Mode to run the visualizer in')
+argparse.add_argument('--mode', choices=['spl', 'acf'], default="", help='Mode to run the visualizer in')
 argparse.add_argument('--source', type=str, help='Use test data instead of real-time audio')
 argparse.add_argument('--windowsize', type=int, default=16384, help='Window size for FFT')
 args = argparse.parse_args()
@@ -17,20 +17,17 @@ args = argparse.parse_args()
 class AudioVisualizer:
     def __init__(self):
         self.spl_mode = SPLMode()
-        self.rta_mode = RTAMode(windowsize, samplerate)
-        self.acf_mode = None
+        self.acf_mode = ACFMode(windowsize, samplerate)
         self.current_mode = None
         self.switch_mode(args.mode)
 
     def switch_mode(self, mode_name):
-        if mode_name == 'rta':
-            self.current_mode = self.rta_mode
+        if mode_name == 'acf':
+            self.current_mode = self.acf_mode
             self.current_mode.setup_plot()
         elif mode_name == 'spl':
             self.current_mode = self.spl_mode
             self.current_mode.setup_plot()
-        elif mode_name == 'acf':
-            pass# self.current_mode = self.acf_mode
         else:
             raise ValueError(f"Invalid mode: {mode_name}")
         self.redraw()
@@ -40,7 +37,7 @@ class AudioVisualizer:
 
     def process_audio_chunk(self, audio_chunk):
         self.spl_mode.process_data(audio_chunk)
-        #self.rta_mode.process_data(audio_chunk)
+        self.acf_mode.process_data(audio_chunk)
         if self.current_mode == self.spl_mode:
             self.current_mode.update_plot()
 

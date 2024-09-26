@@ -68,6 +68,9 @@ class BaseMode:
     def scale_ypos(self, pos):
         return int(pos * self.my + self.by)
      
+    def logscale_xpos(self, pos):
+        return int(math.log2(pos) * self.mx + self.bx)
+    
     def draw_ticks(self, series=[], orientation='x', mode='major'):
         if mode == 'major':
             length = BaseMode.major_tick_length
@@ -162,12 +165,12 @@ class SPLMode(BaseMode):
         pygame.display.flip()
 
 
-class RTAMode(BaseMode):
+class ACFMode(BaseMode):
     def __init__(self, windowsize, samplerate):
         super().__init__()
         self.windowsize = windowsize
         self.samplerate = samplerate
-        self.freq_data = np.zeros(screen_width)
+        self.freq_data = np.zeros(screen_width, screen_height - self.major_tick_length)
         self.mx = 1.0
         self.bx = 0
         self.my = float(screen_height / 100)
@@ -207,18 +210,31 @@ class RTAMode(BaseMode):
         fft_data = np.abs(fft_data)
         fft_data = 20 * np.log10(fft_data / self.windowsize)
 
-        # scale to screen height and width
+        # scale the data to fit the screen
+        fft_data = np.interp(fft_data, (fft_data.min(), fft_data.max()), (0, screen_height - self.major_tick_length))
         self.freq_data = np.roll(self.freq_data, -1)
-        self.freq_data[-1] = np.max(fft_data)
 
+        # compute the autocorrelation
+        acf = np.correlate(data, data, mode='full')
+        acf = acf[len(acf)//2:]
+        acf = acf / acf.max()
+
+        self.acf_data = np.roll(self.acf_data, -1)
+        self.acf_data[-1] = acf
+
+    def map_db_to_color(self, db):
+        pass
+        # blue to green to red gradient
 
     def update_plot(self):
         self.blank()
         self.draw_axes()
-        for x in range(len(self.freq_data)-1):
-            p0 = (self.scale_xpos(x),   self.scale_ypos(self.freq_data[x  ]))
-            p1 = (self.scale_xpos(x+1), self.scale_ypos(self.freq_data[x+1]))
-            pygame.draw.line(screen, self.plot_color, p0, p1)
+        
+        # iterate across frequencies in the plot
+        for x in range(len(self.freq_data[0:])-1):
+            pass    
+            # x is self.x_major[0] to self.x_major[-1]
+            # y is self.freq_data[x] - color is intensity
         pygame.display.flip()
 
 if __name__ == "__main__":
