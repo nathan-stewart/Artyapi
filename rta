@@ -9,29 +9,27 @@ from AppMode import *
 
 # setup argparse before opening pygame
 argparse = argparse.ArgumentParser(description='Audio Visualizer')
-argparse.add_argument('--mode', choices=['SPL', 'RTA','Autocorr'], default="SPL", help='Mode to run the visualizer in')
+argparse.add_argument('--mode', choices=['spl', 'rta','acf'], default="SPL", help='Mode to run the visualizer in')
 argparse.add_argument('--source', type=str, help='Use test data instead of real-time audio')
 argparse.add_argument('--windowsize', type=int, default=16384, help='Window size for FFT')
 args = argparse.parse_args()
 
-fft_data = np.zeros((screen_width // 2 + 1, screen_height))
-acf_data = np.zeros((screen_width // 2 + 1, screen_height))
-
 class AudioVisualizer:
     def __init__(self):
         self.spl_mode = SPLMode()
-        self.rta_mode = None # RTAMode(windowsize, samplerate)
+        self.rta_mode = RTAMode(windowsize, samplerate)
         self.acf_mode = None
-        self.current_mode = self.spl_mode # initial mode
-        self.current_mode.setup_plot()
+        self.current_mode = None
+        self.switch_mode(args.mode)
 
     def switch_mode(self, mode_name):
-        if mode_name == 'RTA':
-            pass #self.current_mode = self.rta_mode
-        elif mode_name == 'SPL':
+        if mode_name == 'rta':
+            self.current_mode = self.rta_mode
+            self.current_mode.setup_plot()
+        elif mode_name == 'spl':
             self.current_mode = self.spl_mode
             self.current_mode.setup_plot()
-        elif mode_name == 'Autocorr':
+        elif mode_name == 'acf':
             pass# self.current_mode = self.acf_mode
         else:
             raise ValueError(f"Invalid mode: {mode_name}")

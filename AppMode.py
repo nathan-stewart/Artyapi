@@ -1,6 +1,9 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+import math
+
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
 import pygame
 
 def is_raspberry_pi():
@@ -18,13 +21,11 @@ if is_raspberry_pi():
     # os.environ["SDL_MOUSEDEV"] = "/dev/input/touchscreen"
     os.environ["SDL_MOUSEDEV"] = "/dev/input/event0"
     
-    print('Raspberry Pi detected')
     pygame.init()
     screen_width=1920
     screen_height=480
     screen = pygame.display.set_mode((screen_width, screen_height), pygame.FULLSCREEN)
 else:
-    print('Not a Raspberry Pi - running in X')
     pygame.init()
     # This is global so that imported modules can access it
     screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
@@ -161,9 +162,67 @@ class SPLMode(BaseMode):
         pygame.display.flip()
 
 
+class RTAMode(BaseMode):
+    def __init__(self, windowsize, samplerate):
+        super().__init__()
+        self.windowsize = windowsize
+        self.samplerate = samplerate
+        self.freq_data = np.zeros(screen_width)
+        self.mx = 1.0
+        self.bx = 0
+        self.my = float(screen_height / 100)
+        self.by = screen_height
+        self.plot_color = (12, 200, 255)
+
+        def format_hz(hz):
+            if hz < 1000:
+                return f'{hz:.0f}'
+            else:
+                k = int(hz) // 1000
+                c = (int(hz) % 1000) // 100
+                if c == 0:
+                    return f'{k}k'
+                elif k < 10:
+                    return f'{k}k{c:02d}'
+                else:
+                    return f'{k}k{c:01d}'
+                
+        self.x_major = [(30*2**(f/3)) for f in range(1, 29)]
+        self.x_labels = [format_hz(30*2**(f/3)) for f in range(1, 29)]
+
+    def setup_plot(self):
+        self.blank()
+        self.draw_axes()
+        pygame.display.flip()
+
+    def draw_axes(self):
+        font = pygame.font.Font(None, 36)
+
+        self.text_size = self.calculate_label_size(self.x_labels, font)
+        self.draw_axis(major = self.x_major, labels = self.x_labels, minor = None, orientation='x')
+
+    def process_data(self, data):
+        # compute FFT
+        fft_data = np.fft.rfft(data)
+        fft_data = np.abs(fft_data)
+        fft_data = 20 * np.log10(fft_data / self.windowsize)
+
+        # scale to screen height and width
+        self.freq_data = np.roll(self.freq_data, -1)
+        self.freq_data[-1] = np.max(fft_data)
+
+
+    def update_plot(self):
+        self.blank()
+        self.draw_axes()
+        for x in range(len(self.freq_data)-1):
+            p0 = (self.scale_xpos(x),   self.scale_ypos(self.freq_data[x  ]))
+            p1 = (self.scale_xpos(x+1), self.scale_ypos(self.freq_data[x+1]))
+            pygame.draw.line(screen, self.plot_color, p0, p1)
+        pygame.display.flip()
+
 if __name__ == "__main__":
     # Test SPLMode
-    vol_data = np.random.randint(-96, 13, 1920)
     mode = SPLMode()
     mode.setup_plot()
     mode.update_plot()
