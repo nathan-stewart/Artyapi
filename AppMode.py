@@ -169,10 +169,6 @@ class ACFMode(BaseMode):
         self.windowsize = windowsize
         self.samplerate = samplerate
         self.acf_plot = np.zeros((screen_width, screen_height - self.major_tick_length,3), dtype=np.uint8)
-        self.mx = 1.0
-        self.bx = 0
-        self.my = float(screen_height / 100)
-        self.by = screen_height
         self.plot_color = (12, 200, 255)
 
         def format_hz(hz):
@@ -188,9 +184,18 @@ class ACFMode(BaseMode):
                 else:
                     return f'{k}k{c:01d}'
                 
-        self.x_major = [(30*2**(f/3)) for f in range(1, 29)]
-        self.x_labels = [format_hz(30*2**(f/3)) for f in range(1, 29)]
+        # last tick is 16.3k but the plot goes to 20k to allow label space
+        self.x_major = [(40*2**(f/3)) for f in range(0, 27)]
+        self.x_labels = [format_hz(f) for f in self.x_major]
+        self.x_minor= [(self.x_major[0]*2**(f/6)) for f in range(0, 55) if f not in self.x_major]
+        self.mx = screen_width / (math.log2(self.x_minor[-1])-math.log2(self.x_major[0]))
+        self.bx = -self.mx * math.log2(self.x_major[0])
+        self.my = 1
+        self.by = 0
 
+    def scale_xpos(self, pos):
+        return int(math.log2(pos) * self.mx + self.bx)
+    
     def setup_plot(self):
         self.blank()
         self.draw_axes()
@@ -200,7 +205,7 @@ class ACFMode(BaseMode):
         font = pygame.font.Font(None, 36)
 
         self.text_size = self.calculate_label_size(self.x_labels, font)
-        self.draw_axis(major = self.x_major, labels = self.x_labels, minor = None, orientation='x')
+        self.draw_axis(major = self.x_major, labels = self.x_labels, minor = self.x_minor, orientation='x')
 
     # progressive FFT
     def process_data(self, data):
