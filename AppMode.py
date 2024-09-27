@@ -170,7 +170,7 @@ class ACFMode(BaseMode):
         super().__init__()
         self.windowsize = windowsize
         self.samplerate = samplerate
-        self.acf_plot = np.zeros((screen_width, screen_height - self.major_tick_length),3, dtype=np.uint8
+        self.acf_plot = np.zeros((screen_width, screen_height - self.major_tick_length,3), dtype=np.uint8)
         self.mx = 1.0
         self.bx = 0
         self.my = float(screen_height / 100)
@@ -204,23 +204,57 @@ class ACFMode(BaseMode):
         self.text_size = self.calculate_label_size(self.x_labels, font)
         self.draw_axis(major = self.x_major, labels = self.x_labels, minor = None, orientation='x')
 
+    # progressive FFT
     def process_data(self, data):
-        # compute FFT
-        fft_data = np.fft.rfft(data)
-        fft_data = np.abs(fft_data)
-        fft_data = 20 * np.log10(fft_data / self.windowsize)
+       # Initial window size
+        initial_window_size = 1024
+        num_octaves = 9
+        downsample_factor = 2
 
-        # scale the data to fit the screen
-        fft_data = np.interp(fft_data, (fft_data.min(), fft_data.max()), (0, screen_height - self.major_tick_length))
-        
-        # compute the autocorrelation
+        # Initialize the combined FFT result
+        combined_fft = np.zeros(1920)
+
+        # Process each octave
+        for octave in range(num_octaves):
+            # Downsample the signal
+            downsampled_data = data[::downsample_factor**octave]
+            
+            # Apply anti-aliasing filter before downsampling (if necessary)
+            # downsampled_data = apply_anti_aliasing_filter(downsampled_data)
+            
+            # Compute FFT
+            fft_data = np.fft.rfft(downsampled_data, n=initial_window_size)
+            fft_data = np.abs(fft_data)
+            fft_data = 20 * np.log10(fft_data / initial_window_size)
+            
+            # Interpolate FFT data to log-spaced bins
+            freq_bins = np.fft.rfftfreq(initial_window_size, 1/self.samplerate)
+            log_freq_bins = np.logspace(np.log10(40), np.log10(20480), 1920)
+            log_fft_data = np.interp(log_freq_bins, freq_bins, fft_data)
+            
+            # Combine the FFT results
+            combined_fft += log_fft_data
+
+        # Normalize the combined FFT result
+        combined_fft = np.interp(combined_fft, (combined_fft.min(), combined_fft.max()), (0, 255)).astype(np.uint8)
+
+        # Compute the autocorrelation on the original signal
         acf = np.correlate(data, data, mode='full')
         acf = acf[len(acf)//2:]
         acf = acf / acf.max()
 
-        self.acf_plot = np.roll(self.acf_plot, -1)
-        # combine the FFT and ACF data - FFT is gray, ACF is red
-        self.acf_plot[-1] = [0,0,0]
+        # Initialize the acf_plot array
+        self.acf_plot = np.zeros((screen_width, screen_height - self.major_tick_length, 3), dtype=np.uint8)
+
+        # Combine FFT and ACF data - FFT is gray, ACF is red
+        for x in range(screen_width):
+            gray_value = combined_fft[x % len(combined_fft)]
+            self.acf_plot[x, :, 0] = gray_value  # Set the red channel for FFT data
+
+        for y in range(screen_height - self.major_tick_length):
+            similarity_value = int(np.interp(acf[y % len(acf)], (acf.min(), acf.max()), (0, 255)))
+            self.acf_plot[:, y, 2] = similarity_value  # Set the blue channel for autocorrelation data
+
 
 
     def map_db_to_color(self, db):
