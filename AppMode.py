@@ -185,9 +185,9 @@ class ACFMode(BaseMode):
                     return f'{k}k{c:01d}'
                 
         # last tick is 16.3k but the plot goes to 20k to allow label space
-        self.x_major = [(40*2**(f/3)) for f in range(0, 27)]
+        self.x_major = [(40*2**(f/2)) for f in range(0, 18)]
         self.x_labels = [format_hz(f) for f in self.x_major]
-        self.x_minor= [(self.x_major[0]*2**(f/6)) for f in range(0, 55) if f not in self.x_major]
+        self.x_minor= [(self.x_major[0]*2**(f/6)) for f in range(0, 54) if f % 3 != 0]
         self.mx = screen_width / (math.log2(self.x_minor[-1])-math.log2(self.x_major[0]))
         self.bx = -self.mx * math.log2(self.x_major[0])
         self.my = 1
