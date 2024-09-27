@@ -118,7 +118,6 @@ class BaseMode:
         if minor:
             self.draw_ticks(minor, orientation, 'minor')
 
-
 class SPLMode(BaseMode):
     def __init__(self):
         super().__init__()
@@ -163,7 +162,6 @@ class SPLMode(BaseMode):
             p1 = (self.scale_xpos(x+1), self.scale_ypos(self.spl_plot[x+1]))
             pygame.draw.line(screen, self.plot_color, p0, p1)
         pygame.display.flip()
-
 
 class ACFMode(BaseMode):
     def __init__(self, windowsize, samplerate):
@@ -276,7 +274,12 @@ if __name__ == "__main__":
     # Test SPLMode
     mode = SPLMode()
     mode.setup_plot()
+    mode.process_data(np.random.rand(1920))
+    mode.update_plot()
+    pygame.time.wait(5000)
+
+    mode = ACFMode(1024, 48000)
+    mode.setup_plot()
     mode.update_plot()
     pygame.time.wait(5000)
     pygame.quit()
-    os._exit(0)

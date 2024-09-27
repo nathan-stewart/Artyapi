@@ -5,7 +5,8 @@ import os
 from scipy.signal import resample
 import argparse
 from AudioSource import  RealTimeAudioSource, FileAudioSource
-from AppMode import *
+from AppMode import SPLMode, ACFMode
+import pygame
 
 # setup argparse before opening pygame
 argparse = argparse.ArgumentParser(description='Audio Visualizer')
