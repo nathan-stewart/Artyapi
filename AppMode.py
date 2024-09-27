@@ -122,7 +122,7 @@ class BaseMode:
 class SPLMode(BaseMode):
     def __init__(self):
         super().__init__()
-        self.vol_data = np.zeros(screen_width)
+        self.spl_plot = np.zeros(screen_width)
         self.mx = 1.0
         self.bx = 0
         self.my = float(screen_height / (12 + 96))
@@ -152,15 +152,15 @@ class SPLMode(BaseMode):
             rms = 0
             print('NaN')
         spl = round(20 * np.log10(np.where(rms < 1.584e-5, 1.584e-5, rms)),1)  # Convert to dB
-        self.vol_data = np.roll(self.vol_data, -1)
-        self.vol_data[-1] = spl
+        self.spl_plot = np.roll(self.spl_plot, -1)
+        self.spl_plot[-1] = spl
 
     def update_plot(self):
         self.blank()
         self.draw_axes()
-        for x in range(len(self.vol_data)-1):
-            p0 = (self.scale_xpos(x),   self.scale_ypos(self.vol_data[x  ]))
-            p1 = (self.scale_xpos(x+1), self.scale_ypos(self.vol_data[x+1]))
+        for x in range(len(self.spl_plot)-1):
+            p0 = (self.scale_xpos(x),   self.scale_ypos(self.spl_plot[x  ]))
+            p1 = (self.scale_xpos(x+1), self.scale_ypos(self.spl_plot[x+1]))
             pygame.draw.line(screen, self.plot_color, p0, p1)
         pygame.display.flip()
 
@@ -170,7 +170,7 @@ class ACFMode(BaseMode):
         super().__init__()
         self.windowsize = windowsize
         self.samplerate = samplerate
-        self.freq_data = np.zeros(screen_width, screen_height - self.major_tick_length)
+        self.acf_plot = np.zeros((screen_width, screen_height - self.major_tick_length),3, dtype=np.uint8
         self.mx = 1.0
         self.bx = 0
         self.my = float(screen_height / 100)
@@ -212,15 +212,16 @@ class ACFMode(BaseMode):
 
         # scale the data to fit the screen
         fft_data = np.interp(fft_data, (fft_data.min(), fft_data.max()), (0, screen_height - self.major_tick_length))
-        self.freq_data = np.roll(self.freq_data, -1)
-
+        
         # compute the autocorrelation
         acf = np.correlate(data, data, mode='full')
         acf = acf[len(acf)//2:]
         acf = acf / acf.max()
 
-        self.acf_data = np.roll(self.acf_data, -1)
-        self.acf_data[-1] = acf
+        self.acf_plot = np.roll(self.acf_plot, -1)
+        # combine the FFT and ACF data - FFT is gray, ACF is red
+        self.acf_plot[-1] = [0,0,0]
+
 
     def map_db_to_color(self, db):
         pass
