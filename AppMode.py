@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import math
+from scipy.signal import firwin, lfilter
 
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
 import pygame
@@ -170,6 +171,8 @@ class ACFMode(BaseMode):
         self.samplerate = samplerate
         self.acf_plot = np.zeros((screen_width, screen_height - self.major_tick_length,3), dtype=np.uint8)
         self.plot_color = (12, 200, 255)
+        self.num_folds = 6
+        self.lpf = [ firwin(101, 2**-(n+1)) for n in range(self.num_folds)]
 
         def format_hz(hz):
             if hz < 1000:
@@ -190,8 +193,9 @@ class ACFMode(BaseMode):
         self.x_minor= [(self.x_major[0]*2**(f/6)) for f in range(0, 54) if f % 3 != 0]
         self.mx = screen_width / (math.log2(self.x_minor[-1])-math.log2(self.x_major[0]))
         self.bx = -self.mx * math.log2(self.x_major[0])
-        self.my = 1
-        self.by = 0
+        self.my = -1
+        self.by = screen_height - self.major_tick_length
+        self.acf_plot = np.zeros((screen_width, screen_height - self.major_tick_length, 3), dtype=np.uint8)
 
     def scale_xpos(self, pos):
         return int(math.log2(pos) * self.mx + self.bx)
@@ -210,21 +214,18 @@ class ACFMode(BaseMode):
     # progressive FFT
     def process_data(self, data):
        # Initial window size
-        initial_window_size = 1024
-        num_octaves = 9
-        downsample_factor = 2
-
+        initial_window_size = self.windowsize
         # Initialize the combined FFT result
         combined_fft = np.zeros(1920)
 
         # Process each octave
-        for octave in range(num_octaves):
-            # Downsample the signal
-            downsampled_data = data[::downsample_factor**octave]
-            
+        for fold in range(self.num_folds):
             # Apply anti-aliasing filter before downsampling (if necessary)
-            # downsampled_data = apply_anti_aliasing_filter(downsampled_data)
-            
+            filtered_data =  lfilter(self.lpf[fold], 1, data)
+
+            # Downsample the signal
+            downsampled_data = filtered_data[::2**self.num_folds]
+                        
             # Compute FFT
             fft_data = np.fft.rfft(downsampled_data, n=initial_window_size)
             fft_data = np.abs(fft_data)
@@ -247,15 +248,10 @@ class ACFMode(BaseMode):
         acf = acf[len(acf)//2:]
         acf = acf / acf.max()
 
-        # Initialize the acf_plot array
-        self.acf_plot = np.zeros((screen_width, screen_height - self.major_tick_length, 3), dtype=np.uint8)
-
-        # Combine FFT and ACF data - FFT is gray - ACF is red positive
-
         # Roll data up (new data at the bottom)
         self.acf_plot = np.roll(self.acf_plot, -1, axis=1)
         # draw fake data for now
-        self.acf_plot[:, -1, :] = np.random.randint(0, 255, (screen_width,3))
+        self.acf_plot[:, -1, :] = np.stack([combined_fft, combined_fft, combined_fft], axis=-1)
     
     def update_plot(self):
         self.blank()
@@ -272,12 +268,12 @@ if __name__ == "__main__":
     mode = SPLMode()
     mode.setup_plot()
 
-    for i in range(1920):
+    for i in range(192):
         bias = math.sin(i * math.pi / 860)*0.5
         fake_data = np.random.uniform(-0.2 + bias, 0.2 + bias, 1920)
         mode.process_data(fake_data)
         mode.update_plot()
-    pygame.time.wait(1000)
+    #pygame.time.wait(1000)
 
     mode = ACFMode(1024, 48000)
     for i in range(100):
