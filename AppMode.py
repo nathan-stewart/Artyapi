@@ -5,6 +5,7 @@ import math
 
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
 import pygame
+LOGMIN = 1.584e-5
 
 def is_raspberry_pi():
     try:
@@ -149,8 +150,7 @@ class SPLMode(BaseMode):
         rms = np.sqrt(np.mean(data ** 2))
         if np.isnan(rms):
             rms = 0
-            print('NaN')
-        spl = round(20 * np.log10(np.where(rms < 1.584e-5, 1.584e-5, rms)),1)  # Convert to dB
+        spl = round(20 * np.log10(np.where(rms < LOGMIN, LOGMIN, rms)),1)  # Convert to dB
         self.spl_plot = np.roll(self.spl_plot, -1)
         self.spl_plot[-1] = spl
 
@@ -228,6 +228,7 @@ class ACFMode(BaseMode):
             # Compute FFT
             fft_data = np.fft.rfft(downsampled_data, n=initial_window_size)
             fft_data = np.abs(fft_data)
+            fft_data = np.maximum(fft_data, 1.584e-5)
             fft_data = 20 * np.log10(fft_data / initial_window_size)
             
             # Interpolate FFT data to log-spaced bins
@@ -249,42 +250,39 @@ class ACFMode(BaseMode):
         # Initialize the acf_plot array
         self.acf_plot = np.zeros((screen_width, screen_height - self.major_tick_length, 3), dtype=np.uint8)
 
-        # Combine FFT and ACF data - FFT is gray, ACF is red
-        for x in range(screen_width):
-            gray_value = combined_fft[x % len(combined_fft)]
-            self.acf_plot[x, :, 0] = gray_value  # Set the red channel for FFT data
+        # Combine FFT and ACF data - FFT is gray - ACF is red positive
 
-        for y in range(screen_height - self.major_tick_length):
-            similarity_value = int(np.interp(acf[y % len(acf)], (acf.min(), acf.max()), (0, 255)))
-            self.acf_plot[:, y, 2] = similarity_value  # Set the blue channel for autocorrelation data
-
-
-
-    def map_db_to_color(self, db):
-        pass
-        # blue to green to red gradient
-
+        # Roll data up (new data at the bottom)
+        self.acf_plot = np.roll(self.acf_plot, -1, axis=1)
+        # draw fake data for now
+        self.acf_plot[:, -1, :] = np.random.randint(0, 255, (screen_width,3))
+    
     def update_plot(self):
         self.blank()
         self.draw_axes()
-        
-        # iterate across frequencies in the plot
-        for x in range(len(self.freq_data[0:])-1):
-            pass    
-            # x is self.x_major[0] to self.x_major[-1]
-            # y is self.freq_data[x] - color is intensity
+        # draw computed pixel data
+        for x in range(screen_width):
+            for y in range(screen_height - self.major_tick_length):
+                color = self.acf_plot[x, y]
+                screen.set_at((x, y + self.major_tick_length), color)
         pygame.display.flip()
 
 if __name__ == "__main__":
     # Test SPLMode
     mode = SPLMode()
     mode.setup_plot()
-    mode.process_data(np.random.rand(1920))
-    mode.update_plot()
-    pygame.time.wait(5000)
+
+    for i in range(1920):
+        bias = math.sin(i * math.pi / 860)*0.5
+        fake_data = np.random.uniform(-0.2 + bias, 0.2 + bias, 1920)
+        mode.process_data(fake_data)
+        mode.update_plot()
+    pygame.time.wait(1000)
 
     mode = ACFMode(1024, 48000)
-    mode.setup_plot()
-    mode.update_plot()
+    for i in range(100):
+        mode.process_data(np.random.rand(1920))
+        mode.update_plot()
+        pygame.time.wait(100)
     pygame.time.wait(5000)
     pygame.quit()

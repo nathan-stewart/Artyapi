@@ -108,12 +108,12 @@ def RealTimeAudioSource(source, chunksize=16384, readbufsize=16384):
         yield chunk
 
 def FileAudioSource(testdir, chunksize):
+    global samplerate
     files = os.listdir(testdir)
     while True:
         for f in files:
             fullpath = os.path.join(testdir, f)
             if not (fullpath and fullpath.lower().endswith('.wav')):
-                print(fullpath)
                 raise ValueError('Only .wav files are supported')
 
             with sf.SoundFile(fullpath) as audio_file:

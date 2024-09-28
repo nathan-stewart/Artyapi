@@ -5,6 +5,8 @@ import os
 from scipy.signal import resample
 import argparse
 from AudioSource import  RealTimeAudioSource, FileAudioSource
+import AudioSource
+
 from AppMode import SPLMode, ACFMode
 import pygame
 
@@ -18,7 +20,9 @@ args = argparse.parse_args()
 class AudioVisualizer:
     def __init__(self):
         self.spl_mode = SPLMode()
-        self.acf_mode = ACFMode(windowsize, samplerate)
+        if AudioSource.samplerate is None:
+            raise RuntimeError("Samplerate not set")
+        self.acf_mode = ACFMode(windowsize, AudioSource.samplerate)
         self.current_mode = None
         self.switch_mode(args.mode)
 
@@ -39,8 +43,7 @@ class AudioVisualizer:
     def process_audio_chunk(self, audio_chunk):
         self.spl_mode.process_data(audio_chunk)
         self.acf_mode.process_data(audio_chunk)
-        if self.current_mode == self.spl_mode:
-            self.current_mode.update_plot()
+        self.current_mode.update_plot()
 
 def scan_buttons():
     # Simulate scanning for button presses
@@ -50,13 +53,11 @@ if __name__ == '__main__':
     windowsize = int(args.windowsize)
     if args.source == 'testdata':
         audio_source = FileAudioSource('testdata', chunksize=windowsize)
-        samplerate = 48000
     else:
-        samplerate = 44100 # for now - need to get this from the audio source
         audio_source = RealTimeAudioSource(source=args.source, chunksize=windowsize)
+    next(audio_source) # read a chunk and discard - this is necessary to initialize samplerate
 
     visualizer = AudioVisualizer()
-
     try:
         while True:
             button_press = scan_buttons()
