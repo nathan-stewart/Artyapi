@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import math
-from scipy.signal import firwin, lfilter
+from scipy.signal import firwin, lfilter, freqz
 
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
 import pygame
@@ -164,6 +164,15 @@ class SPLMode(BaseMode):
             pygame.draw.line(screen, self.plot_color, p0, p1)
         pygame.display.flip()
 
+def get_filter_freq(filter, samplerate):
+    w,h = freqz(filter)
+    gain_db = 20 * np.log10(np.abs(h))
+
+    # Find the frequency where the gain drops to -3 dB
+    corner_freq_index = np.where(gain_db <= -3)[0][0]
+    corner_freq = w[corner_freq_index] * (0.5 * samplerate) / np.pi  # Assuming a sample rate of 48000 Hz
+    return corner_freq
+
 class ACFMode(BaseMode):
     def __init__(self, windowsize, samplerate):
         super().__init__()
@@ -171,9 +180,11 @@ class ACFMode(BaseMode):
         self.samplerate = samplerate
         self.acf_plot = np.zeros((screen_width, screen_height - self.major_tick_length,3), dtype=np.uint8)
         self.plot_color = (12, 200, 255)
-        self.num_folds = 6
-        self.lpf = [ firwin(101, 2**-(n+1)) for n in range(self.num_folds)]
-
+        self.num_folds = 5
+        self.lpf = [ firwin(101, 0.83*2**-(n)) for n in range(0,self.num_folds)]
+        binsize = [self.samplerate / (self.windowsize * 2**n) for n in range(0, self.num_folds)]
+        print(binsize)
+        
         def format_hz(hz):
             if hz < 1000:
                 return f'{hz:.0f}'
@@ -186,16 +197,18 @@ class ACFMode(BaseMode):
                     return f'{k}k{c:02d}'
                 else:
                     return f'{k}k{c:01d}'
-                
+
+        
         # last tick is 16.3k but the plot goes to 20k to allow label space
         self.x_major = [(40*2**(f/2)) for f in range(0, 18)]
         self.x_labels = [format_hz(f) for f in self.x_major]
         self.x_minor= [(self.x_major[0]*2**(f/6)) for f in range(0, 54) if f % 3 != 0]
         self.mx = screen_width / (math.log2(self.x_minor[-1])-math.log2(self.x_major[0]))
         self.bx = -self.mx * math.log2(self.x_major[0])
-        self.my = -1
+        self.my = 1
         self.by = screen_height - self.major_tick_length
         self.acf_plot = np.zeros((screen_width, screen_height - self.major_tick_length, 3), dtype=np.uint8)
+        self.plot_surface = pygame.Surface((screen_width, screen_height - self.major_tick_length))
 
     def scale_xpos(self, pos):
         return int(math.log2(pos) * self.mx + self.bx)
@@ -214,7 +227,7 @@ class ACFMode(BaseMode):
     # progressive FFT
     def process_data(self, data):
        # Initial window size
-        initial_window_size = self.windowsize
+        initial_window_size = 256
         # Initialize the combined FFT result
         combined_fft = np.zeros(1920)
 
@@ -238,29 +251,27 @@ class ACFMode(BaseMode):
             log_fft_data = np.interp(log_freq_bins, freq_bins, fft_data)
             
             # Combine the FFT results
-            combined_fft += log_fft_data
+            combined_fft = log_fft_data
 
         # Normalize the combined FFT result
-        combined_fft = np.interp(combined_fft, (combined_fft.min(), combined_fft.max()), (0, 255)).astype(np.uint8)
+        #combined_fft = np.interp(combined_fft, (combined_fft.min(), combined_fft.max()), (0, 255)).astype(np.uint8)
 
         # Compute the autocorrelation on the original signal
-        acf = np.correlate(data, data, mode='full')
-        acf = acf[len(acf)//2:]
-        acf = acf / acf.max()
+        # acf = np.correlate(data, data, mode='full')
+        # acf = acf[len(acf)//2:]
+        # acf = acf / acf.max()
 
-        # Roll data up (new data at the bottom)
+        # Roll data up
         self.acf_plot = np.roll(self.acf_plot, -1, axis=1)
-        # draw fake data for now
+
+        # plot new data at the bottom
         self.acf_plot[:, -1, :] = np.stack([combined_fft, combined_fft, combined_fft], axis=-1)
     
     def update_plot(self):
         self.blank()
         self.draw_axes()
-        # draw computed pixel data
-        for x in range(screen_width):
-            for y in range(screen_height - self.major_tick_length):
-                color = self.acf_plot[x, y]
-                screen.set_at((x, y + self.major_tick_length), color)
+        pygame.surfarray.blit_array(self.plot_surface, self.acf_plot)
+        screen.blit(self.plot_surface, (0, self.major_tick_length))
         pygame.display.flip()
 
 if __name__ == "__main__":
@@ -276,7 +287,7 @@ if __name__ == "__main__":
     #pygame.time.wait(1000)
 
     mode = ACFMode(1024, 48000)
-    for i in range(100):
+    for i in range(480):
         mode.process_data(np.random.rand(1920))
         mode.update_plot()
         pygame.time.wait(100)
