@@ -14,7 +14,7 @@ import pygame
 argparse = argparse.ArgumentParser(description='Audio Visualizer')
 argparse.add_argument('--mode', choices=['spl', 'acf'], default="", help='Mode to run the visualizer in')
 argparse.add_argument('--source', type=str, help='Use test data instead of real-time audio')
-argparse.add_argument('--windowsize', type=int, default=1024, help='Window size for FFT')
+argparse.add_argument('--windowsize', type=int, default=512, help='Window size for FFT')
 args = argparse.parse_args()
 
 class AudioVisualizer:
