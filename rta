@@ -7,15 +7,27 @@ import argparse
 from AudioSource import  RealTimeAudioSource, FileAudioSource
 import AudioSource
 
-from AppMode import SPLMode, ACFMode
-import pygame
-
 # setup argparse before opening pygame
 argparse = argparse.ArgumentParser(description='Audio Visualizer')
 argparse.add_argument('--mode', choices=['spl', 'acf'], default="", help='Mode to run the visualizer in')
 argparse.add_argument('--source', type=str, help='Use test data instead of real-time audio')
 argparse.add_argument('--windowsize', type=int, default=512, help='Window size for FFT')
 args = argparse.parse_args()
+
+windowsize = int(args.windowsize)
+if args.source == 'testdata':
+    audio_source = FileAudioSource('testdata', chunksize=windowsize)
+elif args.source == "-l":
+    AudioSource.list_audio_devices()
+    exit()
+else:
+    audio_source = RealTimeAudioSource(source=args.source, chunksize=windowsize)
+next(audio_source) # read a chunk and discard - this is necessary to initialize samplerate
+
+from AppMode import SPLMode, ACFMode
+import pygame
+
+
 
 class AudioVisualizer:
     def __init__(self):
@@ -50,13 +62,6 @@ def scan_buttons():
     return None
 
 if __name__ == '__main__':
-    windowsize = int(args.windowsize)
-    if args.source == 'testdata':
-        audio_source = FileAudioSource('testdata', chunksize=windowsize)
-    else:
-        audio_source = RealTimeAudioSource(source=args.source, chunksize=windowsize)
-    next(audio_source) # read a chunk and discard - this is necessary to initialize samplerate
-
     visualizer = AudioVisualizer()
     try:
         while True:

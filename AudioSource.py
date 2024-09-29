@@ -8,24 +8,27 @@ import logging
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
-p = None
+
 samplerate = None
+p = None
+if not p:
+    import pyaudio
+    p = pyaudio.PyAudio()
+
+def list_audio_devices():
+    global p
+    for i in range(p.get_device_count()):
+        dev = p.get_device_info_by_index(i)
+        if dev['maxInputChannels'] < 1:
+            continue
+        print(f"Device {dev['name']} ({i})")
 
 def RealTimeAudioSource(source, chunksize=16384, readbufsize=16384):
     global p, samplerate
     # Initialize audio capture
     os.environ['PA_ALSA_PLUGHW'] = '1'
     os.environ['PYTHONWARNINGS'] = 'ignore'
-    import pyaudio
-    p = pyaudio.PyAudio()
-
-    def list_audio_devices():
-        for i in range(p.get_device_count()):
-            dev = p.get_device_info_by_index(i)
-            if dev['maxInputChannels'] < 1:
-                continue
-            print(f"Device {dev['name']} ({i})")
-
+    
     def get_audio_device_index(name):
         for i in range(p.get_device_count()):
             dev = p.get_device_info_by_index(i)
@@ -70,12 +73,8 @@ def RealTimeAudioSource(source, chunksize=16384, readbufsize=16384):
             except OSError as e:
                 if e.errno == -9981:
                     logging.error('input overflowed: skipping buffer')
-
-    if source == "-l":
-        list_audio_devices(None)
-        return
-    else:
-        source = get_audio_device_index(source)
+    
+    source = get_audio_device_index(source)
 
     if source is None:
         logging.error('Audio input device found')
