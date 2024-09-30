@@ -182,8 +182,6 @@ class ACFMode(BaseMode):
         self.plot_color = (12, 200, 255)
         self.num_folds = 5
         self.lpf = [ firwin(101, 0.83*2**-(n)) for n in range(0,self.num_folds)]
-        binsize = [self.samplerate / (self.windowsize * 2**n) for n in range(0, self.num_folds)]
-        print(binsize)
         
         def format_hz(hz):
             if hz < 1000:
@@ -237,30 +235,26 @@ class ACFMode(BaseMode):
             filtered_data =  lfilter(self.lpf[fold], 1, data)
 
             # Downsample the signal
-            downsampled_data = filtered_data[::2**self.num_folds]
+            downsampled_data = filtered_data[::2**fold]
                         
             # Compute FFT
             fft_data = np.fft.rfft(downsampled_data, n=initial_window_size)
             fft_data = np.abs(fft_data)
-            fft_data = np.maximum(fft_data, 1.584e-5)
+            fft_data = np.maximum(fft_data, LOGMIN)
             fft_data = 20 * np.log10(fft_data / initial_window_size)
             
             # Interpolate FFT data to log-spaced bins
             freq_bins = np.fft.rfftfreq(initial_window_size, 1/self.samplerate)
-            log_freq_bins = np.logspace(np.log10(40), np.log10(20480), 1920)
+            log_freq_bins = np.logspace(np.log2(self.x_major[0]), np.log2(self.x_minor[-1]), screen_width, base=2)
             log_fft_data = np.interp(log_freq_bins, freq_bins, fft_data)
             
-            # Combine the FFT results
-            combined_fft = log_fft_data
-
-        # Normalize the combined FFT result
-        #combined_fft = np.interp(combined_fft, (combined_fft.min(), combined_fft.max()), (0, 255)).astype(np.uint8)
-
-        # Compute the autocorrelation on the original signal
-        # acf = np.correlate(data, data, mode='full')
-        # acf = acf[len(acf)//2:]
-        # acf = acf / acf.max()
-
+            # Add the FFT data to the combined FFT result
+            combined_fft = np.average([combined_fft, log_fft_data], axis=0)
+                  
+        # scale data to input range
+        combined_fft = np.clip(combined_fft, -96, 12)
+        combined_fft = (combined_fft + 96) * (255 / 108)
+        
         # Roll data up
         self.acf_plot = np.roll(self.acf_plot, -1, axis=1)
 
