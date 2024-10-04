@@ -12,7 +12,15 @@ argparse = argparse.ArgumentParser(description='Audio Visualizer')
 argparse.add_argument('--mode', choices=['spl', 'acf'], default="", help='Mode to run the visualizer in')
 argparse.add_argument('--source', type=str, help='Use test data instead of real-time audio')
 argparse.add_argument('--windowsize', type=int, default=512, help='Window size for FFT')
+argparse.add_argument('--rotate', choices=['true','false'], default=None)
+
 args = argparse.parse_args()
+import AppMode
+if args.rotate:
+    if args.rotate == 'true':
+        AppMode.rotate = True
+    elif args.rotate == 'false':
+        AppMode.rotate = False
 
 windowsize = int(args.windowsize)
 if args.source == 'testdata':
@@ -24,17 +32,15 @@ else:
     audio_source = RealTimeAudioSource(source=args.source, chunksize=windowsize)
 next(audio_source) # read a chunk and discard - this is necessary to initialize samplerate
 
-from AppMode import SPLMode, ACFMode
+
 import pygame
-
-
 
 class AudioVisualizer:
     def __init__(self):
-        self.spl_mode = SPLMode()
+        self.spl_mode = AppMode.SPLMode()
         if AudioSource.samplerate is None:
             raise RuntimeError("Samplerate not set")
-        self.acf_mode = ACFMode(windowsize, AudioSource.samplerate)
+        self.acf_mode = AppMode.ACFMode(windowsize, AudioSource.samplerate)
         self.current_mode = None
         self.switch_mode(args.mode)
 
@@ -54,7 +60,7 @@ class AudioVisualizer:
 
     def process_audio_chunk(self, audio_chunk):
         self.spl_mode.process_data(audio_chunk)
-        self.acf_mode.process_data(audio_chunk)
+        #self.acf_mode.process_data(audio_chunk)
         self.current_mode.update_plot()
 
 def scan_buttons():

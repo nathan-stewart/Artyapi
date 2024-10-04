@@ -19,19 +19,19 @@ def is_raspberry_pi():
 if is_raspberry_pi():
     # use framebuffer for display
     os.environ['SDL_VIDEODRIVER'] = 'kmsdrm'
-    os.environ["SDL_FBDEV"] = "/dev/fb1"
-    # os.environ["SDL_MOUSEDEV"] = "/dev/input/touchscreen"
-    os.environ["SDL_MOUSEDEV"] = "/dev/input/event0"
-    
+    os.environ["SDL_FBDEV"] = "/dev/fb0"
+
     pygame.init()
     screen_width=1920
     screen_height=480
-    screen = pygame.display.set_mode((screen_width, screen_height), pygame.FULLSCREEN)
+    screen = pygame.display.set_mode((screen_width, screen_height), pygame.FIXED_SIZE)
+    rotate = True
 else:
     pygame.init()
     # This is global so that imported modules can access it
     screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
     screen_width, screen_height = screen.get_size()
+    rotate = False
 
 class BaseMode:
     major_color = (255, 255, 255)
@@ -123,7 +123,10 @@ class BaseMode:
 class SPLMode(BaseMode):
     def __init__(self):
         super().__init__()
-        self.spl_plot = np.zeros(screen_width)
+        if rotate:
+            self.spl_plot = np.zeros(screen_height)
+        else:
+            self.spl_plot = np.zeros(screen_width)
         self.mx = 1.0
         self.bx = 0
         self.my = float(screen_height / (12 + 96))
@@ -147,20 +150,27 @@ class SPLMode(BaseMode):
         
 
     def process_data(self, data):
+        global rotate
         # Compute RMS (root mean square) volume of the signal
         rms = np.sqrt(np.mean(data ** 2))
         if np.isnan(rms):
             rms = 0
         spl = round(20 * np.log10(np.where(rms < LOGMIN, LOGMIN, rms)),1)  # Convert to dB
-        self.spl_plot = np.roll(self.spl_plot, -1)
+
+        # roll data and push new volume
+        self.spl_plot = np.roll(self.spl_plot, -1)            
         self.spl_plot[-1] = spl
 
     def update_plot(self):
         self.blank()
         self.draw_axes()
         for x in range(len(self.spl_plot)-1):
-            p0 = (self.scale_xpos(x),   self.scale_ypos(self.spl_plot[x  ]))
-            p1 = (self.scale_xpos(x+1), self.scale_ypos(self.spl_plot[x+1]))
+            if rotate:
+                p0 = (self.scale_xpos(x),   self.scale_ypos(self.spl_plot[x  ]))
+                p1 = (self.scale_xpos(x+1), self.scale_ypos(self.spl_plot[x+1]))
+            else:
+                p0 = (self.scale_xpos(x),   self.scale_ypos(self.spl_plot[x  ]))
+                p1 = (self.scale_xpos(x+1), self.scale_ypos(self.spl_plot[x+1]))
             pygame.draw.line(screen, self.plot_color, p0, p1)
         pygame.display.flip()
 
@@ -178,7 +188,10 @@ class ACFMode(BaseMode):
         super().__init__()
         self.windowsize = windowsize
         self.samplerate = samplerate
-        self.acf_plot = np.zeros((screen_width, screen_height - self.major_tick_length,3), dtype=np.uint8)
+        if rotate:
+            self.acf_plot = np.zeros((screen_width, screen_height - self.major_tick_length,3), dtype=np.uint8)
+        else:
+            self.acf_plot = np.zeros((screen_height, screen_width - self.major_tick_length,3), dtype=np.uint8)
         self.plot_color = (12, 200, 255)
         self.num_folds = 5
         self.lpf = [ firwin(101, 0.83*2**-(n)) for n in range(0,self.num_folds)]
@@ -205,9 +218,7 @@ class ACFMode(BaseMode):
         self.bx = -self.mx * math.log2(self.x_major[0])
         self.my = 1
         self.by = screen_height - self.major_tick_length
-        self.acf_plot = np.zeros((screen_width, screen_height - self.major_tick_length, 3), dtype=np.uint8)
-        self.plot_surface = pygame.Surface((screen_width, screen_height - self.major_tick_length))
-
+        
     def scale_xpos(self, pos):
         return int(math.log2(pos) * self.mx + self.bx)
     
@@ -224,10 +235,12 @@ class ACFMode(BaseMode):
 
     # progressive FFT
     def process_data(self, data):
+        global rotate
+
        # Initial window size
         initial_window_size = 256
         # Initialize the combined FFT result
-        combined_fft = np.zeros(1920)
+        combined_fft = None
 
         # Process each octave
         for fold in range(self.num_folds):
@@ -245,9 +258,13 @@ class ACFMode(BaseMode):
             
             # Interpolate FFT data to log-spaced bins
             freq_bins = np.fft.rfftfreq(initial_window_size, 1/self.samplerate)
-            log_freq_bins = np.logspace(np.log2(self.x_major[0]), np.log2(self.x_minor[-1]), screen_width, base=2)
+            if rotate:
+                log_freq_bins = np.logspace(np.log2(self.x_major[0]), np.log2(self.x_minor[-1]), screen_height, base=2)
+            else:
+                log_freq_bins = np.logspace(np.log2(self.x_major[0]), np.log2(self.x_minor[-1]), screen_width, base=2)
             log_fft_data = np.interp(log_freq_bins, freq_bins, fft_data)
-            
+            if combined_fft is None:
+                combined_fft = np.zeros_like(log_fft_data)
             # Add the FFT data to the combined FFT result
             combined_fft = np.average([combined_fft, log_fft_data], axis=0)
                   
@@ -255,11 +272,13 @@ class ACFMode(BaseMode):
         combined_fft = np.clip(combined_fft, -96, 12)
         combined_fft = (combined_fft + 96) * (255 / 108)
         
-        # Roll data up
-        self.acf_plot = np.roll(self.acf_plot, -1, axis=1)
-
-        # plot new data at the bottom
-        self.acf_plot[:, -1, :] = np.stack([combined_fft, combined_fft, combined_fft], axis=-1)
+        if rotate:
+            combined_fft = combined_fft.reshape((1,screen_height))
+            self.acf_plot = np.roll(self.acf_plot, -1, axis=0)
+            self.acf_plot[-1, :, :] = np.stack([combined_fft]*3, axis=0).T
+        else:
+            self.acf_plot = np.roll(self.acf_plot, -1, axis=1)
+            self.acf_plot[:, -1, :] = np.stack([combined_fft]*3, axis=-1)
     
     def update_plot(self):
         self.blank()
