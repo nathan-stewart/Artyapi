@@ -122,6 +122,7 @@ class BaseMode:
 
 class SPLMode(BaseMode):
     def __init__(self):
+        global rotate
         super().__init__()
         if rotate:
             self.spl_plot = np.zeros(screen_height)
@@ -129,8 +130,12 @@ class SPLMode(BaseMode):
             self.spl_plot = np.zeros(screen_width)
         self.mx = 1.0
         self.bx = 0
-        self.my = float(screen_height / (12 + 96))
-        self.by = screen_height - 12 * self.my
+        if rotate:
+            self.my = float(screen_width / (12 + 96))
+            self.by = screen_width - 12 * self.my
+        else:
+            self.my = float(screen_height / (12 + 96))
+            self.by = screen_height - 12 * self.my
         self.plot_color = (12, 200, 255)
         
     def setup_plot(self):
@@ -166,8 +171,8 @@ class SPLMode(BaseMode):
         self.draw_axes()
         for x in range(len(self.spl_plot)-1):
             if rotate:
-                p0 = (self.scale_xpos(x),   self.scale_ypos(self.spl_plot[x  ]))
-                p1 = (self.scale_xpos(x+1), self.scale_ypos(self.spl_plot[x+1]))
+                p0 = (self.scale_ypos(self.spl_plot[x  ]), self.scale_xpos(x))
+                p1 = (self.scale_ypos(self.spl_plot[x+1]), self.scale_xpos(x+1))
             else:
                 p0 = (self.scale_xpos(x),   self.scale_ypos(self.spl_plot[x  ]))
                 p1 = (self.scale_xpos(x+1), self.scale_ypos(self.spl_plot[x+1]))
