@@ -195,8 +195,11 @@ class ACFMode(BaseMode):
         self.samplerate = samplerate
         if rotate:
             self.acf_plot = np.zeros((screen_width, screen_height - self.major_tick_length,3), dtype=np.uint8)
+            self.plot_surface = pygame.Surface((screen_width, screen_height - self.major_tick_length))
         else:
             self.acf_plot = np.zeros((screen_height, screen_width - self.major_tick_length,3), dtype=np.uint8)
+            self.plot_surface = pygame.Surface((screen_height, screen_width - self.major_tick_length))
+
         self.plot_color = (12, 200, 255)
         self.num_folds = 5
         self.lpf = [ firwin(101, 0.83*2**-(n)) for n in range(0,self.num_folds)]
@@ -219,10 +222,14 @@ class ACFMode(BaseMode):
         self.x_major = [(40*2**(f/2)) for f in range(0, 18)]
         self.x_labels = [format_hz(f) for f in self.x_major]
         self.x_minor= [(self.x_major[0]*2**(f/6)) for f in range(0, 54) if f % 3 != 0]
-        self.mx = screen_width / (math.log2(self.x_minor[-1])-math.log2(self.x_major[0]))
-        self.bx = -self.mx * math.log2(self.x_major[0])
         self.my = 1
-        self.by = screen_height - self.major_tick_length
+        if rotate:
+            self.by = screen_width - self.major_tick_length
+            self.mx = screen_height / (math.log2(self.x_minor[-1])-math.log2(self.x_major[0]))
+        else:
+            self.by = screen_height - self.major_tick_length
+            self.mx = screen_width / (math.log2(self.x_minor[-1])-math.log2(self.x_major[0]))
+        self.bx = -self.mx * math.log2(self.x_major[0])
         
     def scale_xpos(self, pos):
         return int(math.log2(pos) * self.mx + self.bx)
@@ -288,6 +295,7 @@ class ACFMode(BaseMode):
     def update_plot(self):
         self.blank()
         self.draw_axes()
+        print(self.acf_plot.shape, self.plot_surface.get_size())
         pygame.surfarray.blit_array(self.plot_surface, self.acf_plot)
         screen.blit(self.plot_surface, (0, self.major_tick_length))
         pygame.display.flip()
@@ -302,7 +310,6 @@ if __name__ == "__main__":
         fake_data = np.random.uniform(-0.2 + bias, 0.2 + bias, 1920)
         mode.process_data(fake_data)
         mode.update_plot()
-    #pygame.time.wait(1000)
 
     mode = ACFMode(1024, 48000)
     for i in range(480):
