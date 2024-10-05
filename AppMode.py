@@ -126,14 +126,14 @@ class SPLMode(BaseMode):
         super().__init__()
         if rotate:
             self.spl_plot = np.zeros(screen_height)
-        else:
-            self.spl_plot = np.zeros(screen_width)
-        self.mx = 1.0
-        self.bx = 0
-        if rotate:
+            self.mx = -1
+            self.bx = screen_height
             self.my = float(screen_width / (12 + 96))
             self.by = screen_width - 12 * self.my
         else:
+            self.spl_plot = np.zeros(screen_width)
+            self.mx = 1.0
+            self.bx = 0
             self.my = float(screen_height / (12 + 96))
             self.by = screen_height - 12 * self.my
         self.plot_color = (12, 200, 255)
@@ -149,10 +149,7 @@ class SPLMode(BaseMode):
         y_labels = [str(y) for y in y_major]
         y_minor = [y for y in range(-96, 12, 3) if y not in y_major]
         self.text_size = self.calculate_label_size(y_labels, font)
-        self.draw_axis(major = y_major, labels = y_labels, minor = y_minor)
-
-        # time axis isn't super useful for SPL histogram - leave it out
-        
+        self.draw_axis(major = y_major, labels = y_labels, minor = y_minor, orientation='y' if rotate else 'x')
 
     def process_data(self, data):
         global rotate
@@ -243,7 +240,7 @@ class ACFMode(BaseMode):
         font = pygame.font.Font(None, 36)
 
         self.text_size = self.calculate_label_size(self.x_labels, font)
-        self.draw_axis(major = self.x_major, labels = self.x_labels, minor = self.x_minor, orientation='x')
+        self.draw_axis(major = self.x_major, labels = self.x_labels, minor = self.x_minor, orientation='y' if rotate else 'x')
 
     # progressive FFT
     def process_data(self, data):
@@ -295,7 +292,6 @@ class ACFMode(BaseMode):
     def update_plot(self):
         self.blank()
         self.draw_axes()
-        print(self.acf_plot.shape, self.plot_surface.get_size())
         pygame.surfarray.blit_array(self.plot_surface, self.acf_plot)
         screen.blit(self.plot_surface, (0, self.major_tick_length))
         pygame.display.flip()
