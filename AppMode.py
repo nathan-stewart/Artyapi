@@ -120,10 +120,11 @@ class SPLMode(BaseMode):
         super().__init__()
         if rotate:
             self.spl_plot = np.zeros(screen_height)
-            self.mx = -1
-            self.bx = screen_height
-            self.my = float(screen_width / (12 + 96))
-            self.by = screen_width - 12 * self.my
+            self.mx = 1
+            self.bx = 0
+            self.my = -float(screen_width / (12 + 96))
+            #self.by = screen_width - 12 * self.my
+            self.by = -12/self.my
         else:
             self.spl_plot = np.zeros(screen_width)
             self.mx = 1.0
@@ -311,10 +312,10 @@ if __name__ == "__main__":
         mode.process_data(fake_data)
         mode.update_plot()
 
-    # mode = ACFMode(1024, 48000)
-    # for i in range(480):
-    #     mode.process_data(np.random.rand(1920))
-    #     mode.update_plot()
-    #     pygame.time.wait(100)
+    mode = ACFMode(1024, 48000)
+    for i in range(480):
+        mode.process_data(np.random.rand(1920))
+        mode.update_plot()
+        pygame.time.wait(100)
     pygame.time.wait(5000)
     pygame.quit()
