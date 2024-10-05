@@ -300,16 +300,21 @@ if __name__ == "__main__":
     mode = SPLMode()
     mode.setup_plot()
 
-    for i in range(192):        
-        bias = math.sin(i * math.pi / 860)*0.5
-        fake_data = np.random.uniform(-0.2 + bias, 0.2 + bias, 1920)
+    numsamples = 1920
+    min_db = -96
+    max_db = 12
+    sawtooth = np.linspace(min_db, max_db, numsamples)
+    sawtooth = np.tile(sawtooth, 10)
+
+    for i in range(len(sawtooth) // numsamples):
+        fake_data = sawtooth[i*numsamples:(i+1)*numsamples]
         mode.process_data(fake_data)
         mode.update_plot()
 
-    mode = ACFMode(1024, 48000)
-    for i in range(480):
-        mode.process_data(np.random.rand(1920))
-        mode.update_plot()
-        pygame.time.wait(100)
+    # mode = ACFMode(1024, 48000)
+    # for i in range(480):
+    #     mode.process_data(np.random.rand(1920))
+    #     mode.update_plot()
+    #     pygame.time.wait(100)
     pygame.time.wait(5000)
     pygame.quit()
