@@ -24,7 +24,7 @@ if is_raspberry_pi():
     pygame.init()
     screen_width=1920
     screen_height=480
-    screen = pygame.display.set_mode((screen_width, screen_height), pygame.FIXED_SIZE)
+    screen = pygame.display.set_mode((screen_width, screen_height), pygame.FULLSCREEN)
     rotate = True
 else:
     pygame.init()
