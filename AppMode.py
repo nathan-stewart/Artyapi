@@ -123,8 +123,7 @@ class SPLMode(BaseMode):
             self.mx = 1
             self.bx = 0
             self.my = -float(screen_width / (12 + 96))
-            #self.by = screen_width - 12 * self.my
-            self.by = -12/self.my
+            self.by = screen_width - 12 * self.my
         else:
             self.spl_plot = np.zeros(screen_width)
             self.mx = 1.0
