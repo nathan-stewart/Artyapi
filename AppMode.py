@@ -17,21 +17,15 @@ def is_raspberry_pi():
     return False
 
 if is_raspberry_pi():
-    # use framebuffer for display
     os.environ['SDL_VIDEODRIVER'] = 'kmsdrm'
     os.environ["SDL_FBDEV"] = "/dev/fb0"
-
-    pygame.init()
-    screen_width=1920
-    screen_height=480
-    screen = pygame.display.set_mode((screen_width, screen_height), pygame.FULLSCREEN)
     rotate = True
 else:
-    pygame.init()
-    # This is global so that imported modules can access it
-    screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
-    screen_width, screen_height = screen.get_size()
     rotate = False
+
+pygame.init()
+screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+screen_width, screen_height = screen.get_size()
 
 class BaseMode:
     major_color = (255, 255, 255)
@@ -144,6 +138,7 @@ class SPLMode(BaseMode):
         pygame.display.flip()
 
     def draw_axes(self):
+        global rotate
         font = pygame.font.Font(None, 36)
         y_major = [y for y in range(-96, 13, 12)]
         y_labels = [str(y) for y in y_major]
@@ -164,6 +159,7 @@ class SPLMode(BaseMode):
         self.spl_plot[-1] = spl
 
     def update_plot(self):
+        global rotate
         self.blank()
         self.draw_axes()
         for x in range(len(self.spl_plot)-1):
@@ -187,6 +183,7 @@ def get_filter_freq(filter, samplerate):
 
 class ACFMode(BaseMode):
     def __init__(self, windowsize, samplerate):
+        global rotate
         super().__init__()
         self.windowsize = windowsize
         self.samplerate = samplerate
@@ -237,6 +234,7 @@ class ACFMode(BaseMode):
         pygame.display.flip()
 
     def draw_axes(self):
+        global rotate
         font = pygame.font.Font(None, 36)
 
         self.text_size = self.calculate_label_size(self.x_labels, font)
@@ -298,10 +296,11 @@ class ACFMode(BaseMode):
 
 if __name__ == "__main__":
     # Test SPLMode
+    rotate = True
     mode = SPLMode()
     mode.setup_plot()
 
-    for i in range(192):
+    for i in range(192):        
         bias = math.sin(i * math.pi / 860)*0.5
         fake_data = np.random.uniform(-0.2 + bias, 0.2 + bias, 1920)
         mode.process_data(fake_data)
