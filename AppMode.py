@@ -100,7 +100,7 @@ class BaseMode:
                 x = 0
                 y = self.scale_ypos(tick)
                 start_pos = (x, y)
-                end_pos = (x - length, y)
+                end_pos = (x + length, y)
             pygame.draw.line(screen, color, start_pos, end_pos, width)
 
     def draw_axis(self, labels=None, major=None, minor=None, orientation='x'):
@@ -137,7 +137,7 @@ class SPLMode(BaseMode):
         y_labels = [str(y) for y in y_major]
         y_minor = [y for y in range(-96, 12, 3) if y not in y_major]
         self.text_size = self.calculate_label_size(y_labels, font)
-        self.draw_axis(major = y_major, labels = y_labels, minor = y_minor, orientation='x')
+        self.draw_axis(major = y_major, labels = y_labels, minor = y_minor, orientation='y')
 
     def process_data(self, data):
         # Compute RMS (root mean square) volume of the signal
