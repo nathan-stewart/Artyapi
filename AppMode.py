@@ -26,6 +26,8 @@ else:
 pygame.init()
 screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
 screen_width, screen_height = screen.get_size()
+if rotate:
+    screen_width, screen_height = screen_height, screen_width
 
 class BaseMode:
     major_color = (255, 255, 255)
@@ -69,13 +71,13 @@ class BaseMode:
     
     def draw_ticks(self, series=[], orientation='x', mode='major'):
         if mode == 'major':
-            length = BaseMode.major_tick_length
-            width = BaseMode.major_tick_width
-            color = BaseMode.major_color
+            length = self.major_tick_length
+            width = self.major_tick_width
+            color = self.major_color
         else:
-            length = BaseMode.minor_tick_length
-            width = BaseMode.minor_tick_width
-            color = BaseMode.minor_color
+            length = self.minor_tick_length
+            width = self.minor_tick_width
+            color = self.minor_color
         
         if orientation == 'x':
             screen_min = 0
@@ -116,20 +118,12 @@ class BaseMode:
 
 class SPLMode(BaseMode):
     def __init__(self):
-        global rotate
         super().__init__()
-        if rotate:
-            self.spl_plot = np.zeros(screen_height)
-            self.mx = 1
-            self.bx = 0
-            self.my = -float(screen_width / (12 + 96))
-            self.by = screen_width - 12 * self.my
-        else:
-            self.spl_plot = np.zeros(screen_width)
-            self.mx = 1.0
-            self.bx = 0
-            self.my = float(screen_height / (12 + 96))
-            self.by = screen_height - 12 * self.my
+        self.spl_plot = np.zeros(screen_width)
+        self.mx = 1.0
+        self.bx = 0
+        self.my = -(screen_height - self.major_tick_length)/(12 + 96)
+        self.by = -12 * self.my
         self.plot_color = (12, 200, 255)
         
     def setup_plot(self):
@@ -138,16 +132,14 @@ class SPLMode(BaseMode):
         pygame.display.flip()
 
     def draw_axes(self):
-        global rotate
         font = pygame.font.Font(None, 36)
         y_major = [y for y in range(-96, 13, 12)]
         y_labels = [str(y) for y in y_major]
         y_minor = [y for y in range(-96, 12, 3) if y not in y_major]
         self.text_size = self.calculate_label_size(y_labels, font)
-        self.draw_axis(major = y_major, labels = y_labels, minor = y_minor, orientation='y' if rotate else 'x')
+        self.draw_axis(major = y_major, labels = y_labels, minor = y_minor, orientation='x')
 
     def process_data(self, data):
-        global rotate
         # Compute RMS (root mean square) volume of the signal
         rms = np.sqrt(np.mean(data ** 2))
         if np.isnan(rms):
@@ -163,12 +155,8 @@ class SPLMode(BaseMode):
         self.blank()
         self.draw_axes()
         for x in range(len(self.spl_plot)-1):
-            if rotate:
-                p0 = (self.scale_ypos(self.spl_plot[x  ]), self.scale_xpos(x))
-                p1 = (self.scale_ypos(self.spl_plot[x+1]), self.scale_xpos(x+1))
-            else:
-                p0 = (self.scale_xpos(x),   self.scale_ypos(self.spl_plot[x  ]))
-                p1 = (self.scale_xpos(x+1), self.scale_ypos(self.spl_plot[x+1]))
+            p0 = (self.scale_xpos(x),   self.scale_ypos(self.spl_plot[x  ]))
+            p1 = (self.scale_xpos(x+1), self.scale_ypos(self.spl_plot[x+1]))
             pygame.draw.line(screen, self.plot_color, p0, p1)
         pygame.display.flip()
 
@@ -183,16 +171,11 @@ def get_filter_freq(filter, samplerate):
 
 class ACFMode(BaseMode):
     def __init__(self, windowsize, samplerate):
-        global rotate
         super().__init__()
         self.windowsize = windowsize
         self.samplerate = samplerate
-        if rotate:
-            self.acf_plot = np.zeros((screen_width, screen_height - self.major_tick_length,3), dtype=np.uint8)
-            self.plot_surface = pygame.Surface((screen_width, screen_height - self.major_tick_length))
-        else:
-            self.acf_plot = np.zeros((screen_height, screen_width - self.major_tick_length,3), dtype=np.uint8)
-            self.plot_surface = pygame.Surface((screen_height, screen_width - self.major_tick_length))
+        self.acf_plot = np.zeros((screen_width, screen_height  - self.major_tick_length,3), dtype=np.uint8)
+        self.plot_surface = pygame.Surface((screen_width, screen_height - self.major_tick_length))
 
         self.plot_color = (12, 200, 255)
         self.num_folds = 5
@@ -217,12 +200,8 @@ class ACFMode(BaseMode):
         self.x_labels = [format_hz(f) for f in self.x_major]
         self.x_minor= [(self.x_major[0]*2**(f/6)) for f in range(0, 54) if f % 3 != 0]
         self.my = 1
-        if rotate:
-            self.by = screen_width - self.major_tick_length
-            self.mx = screen_height / (math.log2(self.x_minor[-1])-math.log2(self.x_major[0]))
-        else:
-            self.by = screen_height - self.major_tick_length
-            self.mx = screen_width / (math.log2(self.x_minor[-1])-math.log2(self.x_major[0]))
+        self.by = screen_height - self.major_tick_length
+        self.mx = screen_width / (math.log2(self.x_minor[-1])-math.log2(self.x_major[0]))
         self.bx = -self.mx * math.log2(self.x_major[0])
         
     def scale_xpos(self, pos):
@@ -234,16 +213,12 @@ class ACFMode(BaseMode):
         pygame.display.flip()
 
     def draw_axes(self):
-        global rotate
         font = pygame.font.Font(None, 36)
-
         self.text_size = self.calculate_label_size(self.x_labels, font)
-        self.draw_axis(major = self.x_major, labels = self.x_labels, minor = self.x_minor, orientation='y' if rotate else 'x')
+        self.draw_axis(major = self.x_major, labels = self.x_labels, minor = self.x_minor, orientation='x')
 
     # progressive FFT
     def process_data(self, data):
-        global rotate
-
        # Initial window size
         initial_window_size = 256
         # Initialize the combined FFT result
@@ -265,10 +240,7 @@ class ACFMode(BaseMode):
             
             # Interpolate FFT data to log-spaced bins
             freq_bins = np.fft.rfftfreq(initial_window_size, 1/self.samplerate)
-            if rotate:
-                log_freq_bins = np.logspace(np.log2(self.x_major[0]), np.log2(self.x_minor[-1]), screen_height, base=2)
-            else:
-                log_freq_bins = np.logspace(np.log2(self.x_major[0]), np.log2(self.x_minor[-1]), screen_width, base=2)
+            log_freq_bins = np.logspace(np.log2(self.x_major[0]), np.log2(self.x_minor[-1]), screen_width, base=2)
             log_fft_data = np.interp(log_freq_bins, freq_bins, fft_data)
             if combined_fft is None:
                 combined_fft = np.zeros_like(log_fft_data)
@@ -277,17 +249,12 @@ class ACFMode(BaseMode):
                   
         # scale data to input range
         combined_fft = np.clip(combined_fft, -96, 12)
-        combined_fft = (combined_fft + 96) * (255 / 108)
-        
-        if rotate:
-            combined_fft = combined_fft.reshape((1,screen_height))
-            self.acf_plot = np.roll(self.acf_plot, -1, axis=0)
-            self.acf_plot[-1, :, :] = np.stack([combined_fft]*3, axis=0).T
-        else:
-            self.acf_plot = np.roll(self.acf_plot, -1, axis=1)
-            self.acf_plot[:, -1, :] = np.stack([combined_fft]*3, axis=-1)
+        combined_fft = (combined_fft + 96) * (255 / 108)        
+        self.acf_plot = np.roll(self.acf_plot, -1, axis=1)
+        self.acf_plot[:, -1, :] = np.stack([combined_fft]*3, axis=-1)
     
     def update_plot(self):
+        global rotate
         self.blank()
         self.draw_axes()
         pygame.surfarray.blit_array(self.plot_surface, self.acf_plot)
@@ -296,20 +263,17 @@ class ACFMode(BaseMode):
 
 if __name__ == "__main__":
     # Test SPLMode
-    rotate = True
     mode = SPLMode()
     mode.setup_plot()
 
-    numsamples = 1920
-    min_db = -96
-    max_db = 12
-    sawtooth = np.linspace(min_db, max_db, numsamples)
-    sawtooth = np.tile(sawtooth, 10)
-
-    for i in range(len(sawtooth) // numsamples):
-        fake_data = sawtooth[i*numsamples:(i+1)*numsamples]
-        mode.process_data(fake_data)
-        mode.update_plot()
+    print(f'my: {mode.my}, by: {mode.by}')
+    print(mode.scale_ypos(-96))
+    print(mode.scale_ypos(12))
+    print(mode.scale_xpos(0))
+    print(mode.scale_xpos(1920))
+    mode.spl_plot = np.linspace(-96, 12, 1920)
+    mode.update_plot()
+    pygame.time.wait(5000)
 
     mode = ACFMode(1024, 48000)
     for i in range(480):
