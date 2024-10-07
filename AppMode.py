@@ -261,23 +261,45 @@ class ACFMode(BaseMode):
         screen.blit(self.plot_surface, (0, self.major_tick_length))
         pygame.display.flip()
 
+def generate_acf_data():
+    samplerate = 48000
+    duration = 1
+    t = np.linspace(0, duration, int(samplerate * duration), endpoint=False)
+    data = np.zeros(t.shape)
+    
+    # Generate a -40db bandpass noise signal from 300-2000 Hz
+    noise = np.random.normal(0, 1, t.shape)
+    b,a = firwin(101, [300,2000], pass_zero=False, fs=samplerate), 1
+    filtered_noise = lfilter(b, a, noise) # filter to 300-2000 Hz
+    filtered_noise = filtered_noise *(10 ** (-40/20)) # scale to -2db
+    data += filtered_noise
+
+    # Generate a 4000 Hz sine wave
+    signal = np.sin(2*np.pi*4000*t)
+    signal = signal * (10 ** (0/20))    # scale to 0db
+    data += signal
+
+    # Generate a +12db bandpass noise signal from 40-100 Hz
+    noise = np.random.normal(0, 1, t.shape)
+    b,a = firwin(101, [40,100], pass_zero=False, fs=samplerate), 1
+    filtered_noise = lfilter(b, a, noise) # filter to 300-2000 Hz
+    filtered_noise = filtered_noise *(10 ** (12/20)) # scale to -2db
+    data += filtered_noise
+
+    return data
+
 if __name__ == "__main__":
     # Test SPLMode
     mode = SPLMode()
     mode.setup_plot()
-
-    print(f'my: {mode.my}, by: {mode.by}')
-    print(mode.scale_ypos(-96))
-    print(mode.scale_ypos(12))
-    print(mode.scale_xpos(0))
-    print(mode.scale_xpos(1920))
     mode.spl_plot = np.linspace(-96, 12, 1920)
     mode.update_plot()
-    pygame.time.wait(5000)
+    pygame.time.wait(1000)
 
     mode = ACFMode(1024, 48000)
+    data = generate_acf_data()
     for i in range(480):
-        mode.process_data(np.random.rand(1920))
+        mode.process_data(data)
         mode.update_plot()
         pygame.time.wait(100)
     pygame.time.wait(5000)
