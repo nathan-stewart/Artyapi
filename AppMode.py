@@ -172,7 +172,7 @@ def get_filter_freq(filter, samplerate):
 class ACFMode(BaseMode):
     def __init__(self, windowsize, samplerate):
         super().__init__()
-        self.windowsize = windowsize
+
         self.samplerate = samplerate
         self.acf_plot = np.zeros((screen_width, screen_height  - self.major_tick_length,3), dtype=np.uint8)
         self.plot_surface = pygame.Surface((screen_width, screen_height - self.major_tick_length))
@@ -288,6 +288,22 @@ def generate_acf_data():
 
     return data
 
+def generate_acf_plot():
+    # test the drawing not the processing
+    data = np.zeros((screen_width, screen_height  - 8,3), dtype=np.uint8)
+    
+    # draw  +12db line at 320 Hz
+    for y in range(0, screen_height - 8):
+        data[mode.scale_xpos(320), y] = (0, 255, 0)
+    
+    # draw a -60db line from 1000 to 2000 Hz at 100 pixels from the bottom
+    spl_minus_60db  = np.array([255,255,255]) * 10**-60/20
+    for x in range(screen_width//2, screen_width):
+        for y in range(screen_height - 8 - 100, screen_height - 8):
+            data[x, y] = spl_minus_60db
+    return data
+
+    
 if __name__ == "__main__":
     # Test SPLMode
     mode = SPLMode()
@@ -297,10 +313,12 @@ if __name__ == "__main__":
     pygame.time.wait(1000)
 
     mode = ACFMode(1024, 48000)
-    data = generate_acf_data()
-    for i in range(480):
-        mode.process_data(data)
-        mode.update_plot()
-        pygame.time.wait(100)
-    pygame.time.wait(5000)
+    mode.acf_plot = generate_acf_plot()
+    mode.update_plot()
+    pygame.time.wait(1000)
+
+    mode.process_data(generate_acf_data())
+    mode.update_plot()
+    pygame.time.wait(1000)
+
     pygame.quit()
