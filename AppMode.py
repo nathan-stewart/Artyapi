@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import math
-from scipy.signal import firwin, lfilter, freqz
+from scipy.signal import firwin, lfilter, freqz, find_peaks
 
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
 import pygame
@@ -169,6 +169,34 @@ def get_filter_freq(filter, samplerate):
     corner_freq = w[corner_freq_index] * (0.5 * samplerate) / np.pi  # Assuming a sample rate of 48000 Hz
     return corner_freq
 
+def print_fft_summary(label, fft_data, freq_bins, height_threshold=-60, prominence=1):
+    """
+    Print the significant peaks found in the FFT data for debugging.
+
+    Parameters:
+    - label: A label for the FFT data (e.g., "FFT Data").
+    - fft_data: The FFT data in decibels.
+    - freq_bins: The corresponding frequency bins for the FFT data.
+    - height_threshold: The minimum height (in dB) to consider a peak.
+    - prominence: The prominence of the peaks to consider.
+    - num_peaks: The number of top peaks to display.
+    """
+    # Find peaks in the FFT data
+    peaks, properties = find_peaks(fft_data, height=height_threshold, prominence=prominence)
+    
+    # Sort peaks by magnitude
+    sorted_peaks = sorted(peaks, key=lambda x: fft_data[x], reverse=True)
+    
+    # Select the top N peaks
+    num_peaks = len(sorted_peaks)
+    top_peaks = sorted_peaks[:num_peaks]
+    
+    # Print the peaks
+    print(f"{label} - Mean: {np.mean(fft_data)}, Min: {np.min(fft_data)}, Max: {np.max(fft_data)}")
+    print(f"{label} - Top {num_peaks} Peaks found:")
+    for peak in top_peaks:
+        print(f"Frequency: {freq_bins[peak]:.2f} Hz, Magnitude: {fft_data[peak]:.2f} dB")
+
 class ACFMode(BaseMode):
     def __init__(self, windowsize, samplerate):
         super().__init__()
@@ -178,8 +206,8 @@ class ACFMode(BaseMode):
         self.plot_surface = pygame.Surface((screen_width, screen_height - self.major_tick_length))
 
         self.plot_color = (12, 200, 255)
-        self.num_folds = 5
-        self.lpf = [ firwin(101, 0.83*2**-(n)) for n in range(0,self.num_folds)]
+        self.num_folds = 0
+        self.lpf = [ firwin(101, 0.83*2**-(n)) for n in range(0,self.num_folds+1)]
         
         def format_hz(hz):
             if hz < 1000:
@@ -217,15 +245,22 @@ class ACFMode(BaseMode):
         self.text_size = self.calculate_label_size(self.x_labels, font)
         self.draw_axis(major = self.x_major, labels = self.x_labels, minor = self.x_minor, orientation='x')
 
+
+    
     # progressive FFT
     def process_data(self, data):
        # Initial window size
         initial_window_size = 256
+        
         # Initialize the combined FFT result
-        combined_fft = None
+        combined_fft = np.zeros(initial_window_size // 2 + 1)
+
+        # Generate log-spaced frequency bins
+        freq_bins = np.fft.rfftfreq(initial_window_size, 1/self.samplerate)
+        log_freq_bins = np.logspace(np.log2(self.x_major[0]), np.log2(self.x_minor[-1]), screen_width, base=2)
 
         # Process each octave
-        for fold in range(self.num_folds):
+        for fold in range(self.num_folds+1):
             # Apply anti-aliasing filter before downsampling (if necessary)
             filtered_data =  lfilter(self.lpf[fold], 1, data)
 
@@ -236,23 +271,27 @@ class ACFMode(BaseMode):
             fft_data = np.fft.rfft(downsampled_data, n=initial_window_size)
             fft_data = np.abs(fft_data)
             fft_data = np.maximum(fft_data, LOGMIN)
-            fft_data = 20 * np.log10(fft_data / initial_window_size)
-            
-            # Interpolate FFT data to log-spaced bins
-            freq_bins = np.fft.rfftfreq(initial_window_size, 1/self.samplerate)
-            log_freq_bins = np.logspace(np.log2(self.x_major[0]), np.log2(self.x_minor[-1]), screen_width, base=2)
-            log_fft_data = np.interp(log_freq_bins, freq_bins, fft_data)
-            if combined_fft is None:
-                combined_fft = np.zeros_like(log_fft_data)
+
             # Add the FFT data to the combined FFT result
-            combined_fft = np.average([combined_fft, log_fft_data], axis=0)
-                  
+            combined_fft += fft_data
+        
+        # Average the combined FFT result
+        combined_fft /= (self.num_folds + 1)
+
+        # Normalize the FFT data
+        normalized_fft = 20 * np.log10(combined_fft / initial_window_size)
+
+        # Interpolate FFT data to log-spaced bins
+        log_fft_data = np.interp(log_freq_bins, freq_bins, normalized_fft)
+        
+        print_fft_summary("FFT Data", log_fft_data, log_freq_bins, height_threshold=-60)
+
         # scale data to input range
         combined_fft = np.clip(combined_fft, -96, 12)
         combined_fft = (combined_fft + 96) * (255 / 108)        
         self.acf_plot = np.roll(self.acf_plot, -1, axis=1)
-        self.acf_plot[:, -1, :] = np.stack([combined_fft]*3, axis=-1)
-    
+        self.acf_plot[:, -1, :] = np.stack([log_fft_data]*3, axis=-1)
+
     def update_plot(self):
         global rotate
         self.blank()
@@ -261,32 +300,6 @@ class ACFMode(BaseMode):
         screen.blit(self.plot_surface, (0, self.major_tick_length))
         pygame.display.flip()
 
-def generate_acf_data():
-    samplerate = 48000
-    duration = 1
-    t = np.linspace(0, duration, int(samplerate * duration), endpoint=False)
-    data = np.zeros(t.shape)
-    
-    # Generate a -40db bandpass noise signal from 300-2000 Hz
-    noise = np.random.normal(0, 1, t.shape)
-    b,a = firwin(101, [300,2000], pass_zero=False, fs=samplerate), 1
-    filtered_noise = lfilter(b, a, noise) # filter to 300-2000 Hz
-    filtered_noise = filtered_noise *(10 ** (-40/20)) # scale to -2db
-    data += filtered_noise
-
-    # Generate a 4000 Hz sine wave
-    signal = np.sin(2*np.pi*4000*t)
-    signal = signal * (10 ** (0/20))    # scale to 0db
-    data += signal
-
-    # Generate a +12db bandpass noise signal from 40-100 Hz
-    noise = np.random.normal(0, 1, t.shape)
-    b,a = firwin(101, [40,100], pass_zero=False, fs=samplerate), 1
-    filtered_noise = lfilter(b, a, noise) # filter to 300-2000 Hz
-    filtered_noise = filtered_noise *(10 ** (12/20)) # scale to -2db
-    data += filtered_noise
-
-    return data
 
 def generate_acf_plot():
     # test the drawing not the processing
@@ -296,11 +309,40 @@ def generate_acf_plot():
     for y in range(0, screen_height - 8):
         data[mode.scale_xpos(320), y] = (0, 255, 0)
     
-    # draw a -60db line from 1000 to 2000 Hz at 100 pixels from the bottom
-    spl_minus_60db  = np.array([255,255,255]) * 10**-60/20
-    for x in range(screen_width//2, screen_width):
-        for y in range(screen_height - 8 - 100, screen_height - 8):
-            data[x, y] = spl_minus_60db
+    return data
+
+import time
+start = time.time()
+def generate_acf_data():
+    
+    samplerate = 48000
+    duration = 1
+    t = np.linspace(0, duration, int(samplerate * duration), endpoint=False)
+    data = np.zeros(t.shape)
+
+    def sine_wave(frequency, db):
+        return 10**(db/20) * np.sin(2 * np.pi * frequency * t)
+
+    def bandpass_noise(f1, f2, db):
+        noise = np.random.normal(0, 1, t.shape)
+        b,a = firwin(101, [f1,f2], pass_zero=False, fs=samplerate), 1
+        filtered_noise = lfilter(b, a, noise)
+        return 10**(db/20) * filtered_noise
+
+    data += sine_wave(320, -60)
+
+    now = time.time()
+    if now - start < 2.0:
+        # generate a 300Hz - 1000Hz noise signal -10db noise signal
+        pass # data += bandpass_noise(300, 1000, -10)
+
+    elif now - start < 4.0:
+        # generate a 2khz - 4khz -40db noise signal
+        pass # data += bandpass_noise(2000, 4000, -40)
+    else:
+        # generate a 40 Hz - 200 Hz -60db noise signal
+        pass #data += bandpass_noise(40, 200, -60)
+
     return data
 
     
@@ -317,8 +359,10 @@ if __name__ == "__main__":
     mode.update_plot()
     pygame.time.wait(1000)
 
-    mode.process_data(generate_acf_data())
-    mode.update_plot()
-    pygame.time.wait(1000)
+    mode.acf_plot = np.zeros((screen_width, screen_height  - 8,3), dtype=np.uint8)
+    while time.time() - start < 6.0:
+        mode.process_data(generate_acf_data())
+        mode.update_plot()
+    pygame.time.wait(2000)
 
     pygame.quit()
