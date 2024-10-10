@@ -40,7 +40,7 @@ class BaseMode:
     def __init__(self):
         mx = self.my = 1
         self.bx = self.by = 0
-    
+
     def setup_plot(self):
         raise NotImplementedError
 
@@ -49,7 +49,7 @@ class BaseMode:
 
     def blank(self):
         screen.fill((0, 0, 0))
-            
+
     def calculate_label_size(self, labels, font):
         width, height = 0, 0
         for label in labels:
@@ -65,10 +65,10 @@ class BaseMode:
 
     def scale_ypos(self, pos):
         return int(pos * self.my + self.by)
-     
+
     def logscale_xpos(self, pos):
         return int(math.log2(pos) * self.mx + self.bx)
-    
+
     def draw_ticks(self, series=[], orientation='x', mode='major'):
         if mode == 'major':
             length = self.major_tick_length
@@ -78,7 +78,7 @@ class BaseMode:
             length = self.minor_tick_length
             width = self.minor_tick_width
             color = self.minor_color
-        
+
         if orientation == 'x':
             screen_min = 0
             screen_max = screen_width
@@ -89,7 +89,7 @@ class BaseMode:
         data_min = min(series)
         data_range = max(series) - data_min
         screen_range = screen_max - screen_min
-        
+
         for tick in series:
             if orientation == 'x':
                 x = self.scale_xpos(tick)
@@ -107,11 +107,11 @@ class BaseMode:
         if labels:
             if len(labels) != len(major):
                 raise ValueError('Length of labels must match length of major ticks')
-        
+
         # Draw major ticks
         if major:
             self.draw_ticks(major, orientation, 'major')
-        
+
         # Draw minor ticks
         if minor:
             self.draw_ticks(minor, orientation, 'minor')
@@ -125,7 +125,7 @@ class SPLMode(BaseMode):
         self.my = -(screen_height - self.major_tick_length)/(12 + 96)
         self.by = -12 * self.my
         self.plot_color = (12, 200, 255)
-        
+
     def setup_plot(self):
         self.blank()
         self.draw_axes()
@@ -147,7 +147,7 @@ class SPLMode(BaseMode):
         spl = round(20 * np.log10(np.where(rms < LOGMIN, LOGMIN, rms)),1)  # Convert to dB
 
         # roll data and push new volume
-        self.spl_plot = np.roll(self.spl_plot, -1)            
+        self.spl_plot = np.roll(self.spl_plot, -1)
         self.spl_plot[-1] = spl
 
     def update_plot(self):
@@ -183,19 +183,19 @@ def print_fft_summary(label, fft_data, freq_bins, height_threshold=-60, prominen
     """
     # Find peaks in the FFT data
     peaks, properties = find_peaks(fft_data, height=height_threshold, prominence=prominence)
-    
+
     # Sort peaks by magnitude
     sorted_peaks = sorted(peaks, key=lambda x: fft_data[x], reverse=True)
-    
+
     # Select the top N peaks
     num_peaks = len(sorted_peaks)
     top_peaks = sorted_peaks[:num_peaks]
-    
+
     # Print the peaks
-    print(f"{label} - Mean: {np.mean(fft_data)}, Min: {np.min(fft_data)}, Max: {np.max(fft_data)}")
-    print(f"{label} - Top {num_peaks} Peaks found:")
-    for peak in top_peaks:
-        print(f"Frequency: {freq_bins[peak]:.2f} Hz, Magnitude: {fft_data[peak]:.2f} dB")
+    print(f"{label} - Mean: {np.mean(fft_data):.1f} db, Min: {np.min(fft_data):.1f} db, Max: {np.max(fft_data):.1f} db")
+    if len(top_peaks) > 0:
+        for peak in top_peaks:
+            print(f"Frequency: {freq_bins[peak]:.2f} Hz, Magnitude: {fft_data[peak]:.2f} dB")
 
 class ACFMode(BaseMode):
     def __init__(self, windowsize, samplerate):
@@ -208,7 +208,7 @@ class ACFMode(BaseMode):
         self.plot_color = (12, 200, 255)
         self.num_folds = 0
         self.lpf = [ firwin(101, 0.83*2**-(n)) for n in range(0,self.num_folds+1)]
-        
+
         def format_hz(hz):
             if hz < 1000:
                 return f'{hz:.0f}'
@@ -222,7 +222,7 @@ class ACFMode(BaseMode):
                 else:
                     return f'{k}k{c:01d}'
 
-        
+
         # last tick is 16.3k but the plot goes to 20k to allow label space
         self.x_major = [(40*2**(f/2)) for f in range(0, 18)]
         self.x_labels = [format_hz(f) for f in self.x_major]
@@ -231,10 +231,10 @@ class ACFMode(BaseMode):
         self.by = screen_height - self.major_tick_length
         self.mx = screen_width / (math.log2(self.x_minor[-1])-math.log2(self.x_major[0]))
         self.bx = -self.mx * math.log2(self.x_major[0])
-        
+
     def scale_xpos(self, pos):
         return int(math.log2(pos) * self.mx + self.bx)
-    
+
     def setup_plot(self):
         self.blank()
         self.draw_axes()
@@ -246,12 +246,12 @@ class ACFMode(BaseMode):
         self.draw_axis(major = self.x_major, labels = self.x_labels, minor = self.x_minor, orientation='x')
 
 
-    
+
     # progressive FFT
     def process_data(self, data):
        # Initial window size
-        initial_window_size = 256
-        
+        initial_window_size = 4096
+
         # Initialize the combined FFT result
         combined_fft = np.zeros(initial_window_size // 2 + 1)
 
@@ -266,29 +266,28 @@ class ACFMode(BaseMode):
 
             # Downsample the signal
             downsampled_data = filtered_data[::2**fold]
-                        
+
             # Compute FFT
             fft_data = np.fft.rfft(downsampled_data, n=initial_window_size)
-            fft_data = np.abs(fft_data)
-            fft_data = np.maximum(fft_data, LOGMIN)
 
             # Add the FFT data to the combined FFT result
-            combined_fft += fft_data
-        
+            combined_fft += np.abs(fft_data)
+
         # Average the combined FFT result
         combined_fft /= (self.num_folds + 1)
 
         # Normalize the FFT data
+        fft_data = np.maximum(combined_fft, LOGMIN)
         normalized_fft = 20 * np.log10(combined_fft / initial_window_size)
 
         # Interpolate FFT data to log-spaced bins
         log_fft_data = np.interp(log_freq_bins, freq_bins, normalized_fft)
-        
+
         print_fft_summary("FFT Data", log_fft_data, log_freq_bins, height_threshold=-60)
 
         # scale data to input range
         combined_fft = np.clip(combined_fft, -96, 12)
-        combined_fft = (combined_fft + 96) * (255 / 108)        
+        combined_fft = (combined_fft + 96) * (255 / 108)
         self.acf_plot = np.roll(self.acf_plot, -1, axis=1)
         self.acf_plot[:, -1, :] = np.stack([log_fft_data]*3, axis=-1)
 
@@ -304,17 +303,17 @@ class ACFMode(BaseMode):
 def generate_acf_plot():
     # test the drawing not the processing
     data = np.zeros((screen_width, screen_height  - 8,3), dtype=np.uint8)
-    
+
     # draw  +12db line at 320 Hz
     for y in range(0, screen_height - 8):
         data[mode.scale_xpos(320), y] = (0, 255, 0)
-    
+
     return data
 
 import time
-start = time.time()
+
 def generate_acf_data():
-    
+    global start
     samplerate = 48000
     duration = 1
     t = np.linspace(0, duration, int(samplerate * duration), endpoint=False)
@@ -329,23 +328,22 @@ def generate_acf_data():
         filtered_noise = lfilter(b, a, noise)
         return 10**(db/20) * filtered_noise
 
-    data += sine_wave(320, -60)
+    data += sine_wave(363, 12)
 
-    now = time.time()
-    if now - start < 2.0:
-        # generate a 300Hz - 1000Hz noise signal -10db noise signal
-        pass # data += bandpass_noise(300, 1000, -10)
-
-    elif now - start < 4.0:
-        # generate a 2khz - 4khz -40db noise signal
-        pass # data += bandpass_noise(2000, 4000, -40)
-    else:
-        # generate a 40 Hz - 200 Hz -60db noise signal
-        pass #data += bandpass_noise(40, 200, -60)
+    # now = time.time()
+    # if now - start > 2.0:
+    #     # generate a 640Hz - 800Hz noise signal 0db noise signal
+    #     data += bandpass_noise(640, 800, 0)
+    # elif now - start < 4.0:
+    #     # generate a 2khz - 2.5khz -10db noise signal
+    #     data += bandpass_noise(2000, 2500, -10)
+    # else:
+    #     # generate a 40 Hz - 80 Hz -30db noise signal
+    #     pass #data += bandpass_noise(40, 80, -30)
 
     return data
 
-    
+
 if __name__ == "__main__":
     # Test SPLMode
     mode = SPLMode()
@@ -359,6 +357,7 @@ if __name__ == "__main__":
     mode.update_plot()
     pygame.time.wait(1000)
 
+    start = time.time()
     mode.acf_plot = np.zeros((screen_width, screen_height  - 8,3), dtype=np.uint8)
     while time.time() - start < 6.0:
         mode.process_data(generate_acf_data())
