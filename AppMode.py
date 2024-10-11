@@ -275,6 +275,12 @@ class ACFMode(BaseMode):
 
         # Average the combined FFT result
         combined_fft /= (self.num_folds + 1)
+        # test data peak at 363 Hz
+        test_x = self.scale_xpos(363)
+        pw = 20
+        # ANSI escape code for bold text
+        bold = "\033[1m"
+        reset = "\033[0m"
 
         # Normalize the FFT data
         fft_data = np.maximum(combined_fft, LOGMIN)
@@ -282,6 +288,12 @@ class ACFMode(BaseMode):
 
         # Interpolate FFT data to log-spaced bins
         log_fft_data = np.interp(log_freq_bins, freq_bins, normalized_fft)
+        # Print combined_fft with test_x in bold
+        print(  log_fft_data[test_x-pw:test_x-1],
+                f'{bold}',
+                log_fft_data[test_x],
+                f'{reset}',
+                log_fft_data[test_x+1:test_x+pw])
 
         print_fft_summary("FFT Data", log_fft_data, log_freq_bins, height_threshold=-60)
 
