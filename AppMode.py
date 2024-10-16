@@ -1,20 +1,10 @@
+#!/usr/bin/env python3
 import matplotlib.pyplot as plt
 import numpy as np
 import os
 import math
-from scipy.signal import firwin, lfilter, freqz, find_peaks
-
-os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
-import pygame
-LOGMIN = 1.584e-5
-
-def is_raspberry_pi():
-    try:
-        with open('/proc/device-tree/model', 'r') as f:
-            return 'Raspberry Pi' in f.read()
-    except FileNotFoundError:
-        return False
-    return False
+from scipy.signal import firwin, lfilter, freqz
+from util import *
 
 if is_raspberry_pi():
     os.environ['SDL_VIDEODRIVER'] = 'kmsdrm'
@@ -22,6 +12,11 @@ if is_raspberry_pi():
     rotate = True
 else:
     rotate = False
+
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
+import pygame
+
+LOGMIN = 1.584e-5
 
 pygame.init()
 screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
@@ -169,34 +164,6 @@ def get_filter_freq(filter, samplerate):
     corner_freq = w[corner_freq_index] * (0.5 * samplerate) / np.pi  # Assuming a sample rate of 48000 Hz
     return corner_freq
 
-def print_fft_summary(label, fft_data, freq_bins, height_threshold=-60, prominence=1):
-    """
-    Print the significant peaks found in the FFT data for debugging.
-
-    Parameters:
-    - label: A label for the FFT data (e.g., "FFT Data").
-    - fft_data: The FFT data in decibels.
-    - freq_bins: The corresponding frequency bins for the FFT data.
-    - height_threshold: The minimum height (in dB) to consider a peak.
-    - prominence: The prominence of the peaks to consider.
-    - num_peaks: The number of top peaks to display.
-    """
-    # Find peaks in the FFT data
-    peaks, properties = find_peaks(fft_data, height=height_threshold, prominence=prominence)
-
-    # Sort peaks by magnitude
-    sorted_peaks = sorted(peaks, key=lambda x: fft_data[x], reverse=True)
-
-    # Select the top N peaks
-    num_peaks = len(sorted_peaks)
-    top_peaks = sorted_peaks[:num_peaks]
-
-    # Print the peaks
-    print(f"{label} - Mean: {np.mean(fft_data):.1f} db, Min: {np.min(fft_data):.1f} db, Max: {np.max(fft_data):.1f} db")
-    if len(top_peaks) > 0:
-        for peak in top_peaks:
-            print(f"Frequency: {freq_bins[peak]:.2f} Hz, Magnitude: {fft_data[peak]:.2f} dB")
-
 class ACFMode(BaseMode):
     def __init__(self, windowsize, samplerate):
         super().__init__()
@@ -275,12 +242,6 @@ class ACFMode(BaseMode):
 
         # Average the combined FFT result
         combined_fft /= (self.num_folds + 1)
-        # test data peak at 363 Hz
-        test_x = self.scale_xpos(363)
-        pw = 20
-        # ANSI escape code for bold text
-        bold = "\033[1m"
-        reset = "\033[0m"
 
         # Normalize the FFT data
         fft_data = np.maximum(combined_fft, LOGMIN)
@@ -288,14 +249,9 @@ class ACFMode(BaseMode):
 
         # Interpolate FFT data to log-spaced bins
         log_fft_data = np.interp(log_freq_bins, freq_bins, normalized_fft)
-        # Print combined_fft with test_x in bold
-        print(  log_fft_data[test_x-pw:test_x-1],
-                f'{bold}',
-                log_fft_data[test_x],
-                f'{reset}',
-                log_fft_data[test_x+1:test_x+pw])
-
-        print_fft_summary("FFT Data", log_fft_data, log_freq_bins, height_threshold=-60)
+        
+        # Print the significant peaks in the FFT data
+        print_fft_summary("FFT Data", log_fft_data, log_freq_bins)
 
         # scale data to input range
         combined_fft = np.clip(combined_fft, -96, 12)
