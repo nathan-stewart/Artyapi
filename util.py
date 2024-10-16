@@ -45,7 +45,7 @@ def print_fft_summary(label, fft_data, freq_bins):
 
     # Print the peaks
     if num_peaks > 0:
-        peak_string = 'Peaks: ' + ', '.join([f'{freq_bins[f]:.1f} Hz' for f in top_peaks])
+        peak_string = 'Peaks: ' + ', '.join([f'{fft_data[f]:+.2f} db @ {freq_bins[f]:.1f} Hz' for f in top_peaks])
         this_print = f'{label} - Mean: {np.mean(fft_data):.1f} db, Min: {np.min(fft_data):.1f} db, Max: {np.max(fft_data):.1f} db' + peak_string
     else:
         this_print = f"{label} - Mean: {np.mean(fft_data):.1f} db, Min: {np.min(fft_data):.1f} db, Max: {np.max(fft_data):.1f} db"
