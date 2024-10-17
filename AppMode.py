@@ -5,6 +5,7 @@ import os
 import math
 from scipy.signal import firwin, lfilter, freqz
 from util import *
+import time
 
 if is_raspberry_pi():
     os.environ['SDL_VIDEODRIVER'] = 'kmsdrm'
@@ -268,17 +269,6 @@ class ACFMode(BaseMode):
         pygame.display.flip()
 
 
-def generate_acf_plot():
-    # test the drawing not the processing
-    data = np.zeros((screen_width, screen_height  - 8,3), dtype=np.uint8)
-
-    # draw  +12db line at 320 Hz
-    for y in range(0, screen_height - 8):
-        data[mode.scale_xpos(320), y] = (0, 255, 0)
-
-    return data
-
-import time
 
 def generate_acf_data():
     global start
@@ -311,8 +301,7 @@ def generate_acf_data():
 
     return data
 
-
-if __name__ == "__main__":
+def test_spl():
     # Test SPLMode
     mode = SPLMode()
     mode.setup_plot()
@@ -320,11 +309,8 @@ if __name__ == "__main__":
     mode.update_plot()
     pygame.time.wait(1000)
 
+def test_acf():
     mode = ACFMode(1024, 48000)
-    mode.acf_plot = generate_acf_plot()
-    mode.update_plot()
-    pygame.time.wait(1000)
-
     start = time.time()
     mode.acf_plot = np.zeros((screen_width, screen_height  - 8,3), dtype=np.uint8)
     while time.time() - start < 6.0:
@@ -332,4 +318,14 @@ if __name__ == "__main__":
         mode.update_plot()
     pygame.time.wait(2000)
 
+if __name__ == "__main__":
+    import sys
+    if len(sys.argv) > 1:
+        if sys.argv[1] == 'spl':
+            test_spl()
+        elif sys.argv[1] == 'acf':
+            test_acf()
+    else:
+        test_spl()
+        test_acf()    
     pygame.quit()
