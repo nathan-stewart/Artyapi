@@ -219,7 +219,7 @@ class ACFMode(BaseMode):
     # progressive FFT
     def process_data(self, data):
        # Initial window size
-        initial_window_size = 4096
+        initial_window_size = len(data)
 
         # Initialize the combined FFT result
         combined_fft = np.zeros(initial_window_size // 2 + 1)
@@ -272,9 +272,9 @@ class ACFMode(BaseMode):
 
 
 def generate_acf_data():
-    global start
+    global start_time
     samplerate = 48000
-    duration = 1
+    duration = 65536 / samplerate
     t = np.linspace(0, duration, int(samplerate * duration), endpoint=False)
     data = np.zeros(t.shape)
 
@@ -287,18 +287,24 @@ def generate_acf_data():
         filtered_noise = lfilter(b, a, noise)
         return 10**(db/20) * filtered_noise
 
-    data += sine_wave(363, 12)
+    # generate a 363 Hz +12db sine wave
+    #data += sine_wave(363, 12)
+    
+    now = time.time()
+    elapsed = now - start_time
 
-    # now = time.time()
-    # if now - start > 2.0:
-    #     # generate a 640Hz - 800Hz noise signal 0db noise signal
-    #     data += bandpass_noise(640, 800, 0)
-    # elif now - start < 4.0:
-    #     # generate a 2khz - 2.5khz -10db noise signal
-    #     data += bandpass_noise(2000, 2500, -10)
-    # else:
-    #     # generate a 40 Hz - 80 Hz -30db noise signal
-    #     pass #data += bandpass_noise(40, 80, -30)
+    if elapsed < 16.0:
+        # sweep sine wave
+        f = 16e3*(elapsed/16.0)
+        data += sine_wave(f, 12)
+    elif elapsed < 18.0:
+        # generate a 640Hz - 800Hz noise signal 0db noise signal
+        data += bandpass_noise(640, 800, 12)
+        data += sine_wave(363, 12)
+    else:
+        # generate a 40 Hz - 80 Hz -30db noise signal
+        data += bandpass_noise(40, 80, 12)
+        data += sine_wave(8e3,0)
 
     return data
 
@@ -311,16 +317,18 @@ def test_spl():
     pygame.time.wait(1000)
 
 def test_acf():
+    global start_time
     mode = ACFMode(1024, 48000)
-    start = time.time()
+    start_time = time.time()
     mode.acf_plot = np.zeros((screen_width, screen_height  - 8,3), dtype=np.uint8)
-    while time.time() - start < 6.0:
+    while time.time() - start_time < 20.0:
         mode.process_data(generate_acf_data())
         mode.update_plot()
-    pygame.time.wait(2000)
+    pygame.time.wait(12000)
 
 if __name__ == "__main__":
     import sys
+    start_time = time.time()
     if len(sys.argv) > 1:
         if sys.argv[1] == 'spl':
             test_spl()
