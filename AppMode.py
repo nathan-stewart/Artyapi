@@ -156,16 +156,17 @@ class SPLMode(BaseMode):
             pygame.draw.line(screen, self.plot_color, p0, p1)
         pygame.display.flip()
 
-def get_filter_freq(filter, samplerate):
-    w,h = freqz(filter)
-    gain_db = 20 * np.log10(np.abs(h))
-
-    # Find the frequency where the gain drops to -3 dB
-    corner_freq_index = np.where(gain_db <= -3)[0][0]
-    corner_freq = w[corner_freq_index] * (0.5 * samplerate) / np.pi  # Assuming a sample rate of 48000 Hz
-    return corner_freq
 
 class ACFMode(BaseMode):
+    def get_filter_freq(filter, samplerate):
+        w,h = freqz(filter)
+        gain_db = 20 * np.log10(np.abs(h))
+
+        # Find the frequency where the gain drops to -3 dB
+        corner_freq_index = np.where(gain_db <= -3)[0][0]
+        corner_freq = w[corner_freq_index] * (0.5 * samplerate) / np.pi  # Assuming a sample rate of 48000 Hz
+        return corner_freq
+
     def __init__(self, windowsize, samplerate):
         super().__init__()
 
