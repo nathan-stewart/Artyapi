@@ -18,6 +18,7 @@ os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
 import pygame
 
 LOGMIN = 1.584e-5
+LOGMAX = 10**5.25
 
 pygame.init()
 screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
@@ -218,6 +219,7 @@ class ACFMode(BaseMode):
 
     # progressive FFT
     def process_data(self, data):
+        global LOGMIN, LOGMAX
        # Initial window size
         initial_window_size = len(data)
 
@@ -238,6 +240,8 @@ class ACFMode(BaseMode):
 
             # Compute FFT
             fft_data = np.fft.rfft(downsampled_data, n=initial_window_size)
+            fft_data = np.abs(fft_data)
+            fft_data = np.clip(fft_data, LOGMIN, LOGMAX)
 
             # Add the FFT data to the combined FFT result
             combined_fft += np.abs(fft_data)
@@ -246,7 +250,6 @@ class ACFMode(BaseMode):
         combined_fft /= (self.num_folds + 1)
 
         # Normalize the FFT data
-        fft_data = np.maximum(combined_fft, LOGMIN)
         normalized_fft = 20 * np.log10(combined_fft / initial_window_size)
 
         # Interpolate FFT data to log-spaced bins
