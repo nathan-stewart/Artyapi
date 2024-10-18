@@ -231,7 +231,7 @@ class ACFMode(BaseMode):
         log_freq_bins = np.logspace(np.log2(self.x_major[0]), np.log2(self.x_minor[-1]), screen_width, base=2)
 
         # Process each octave
-        for fold in range(self.num_folds+1):
+        for fold in range(self.num_folds + 1):
             # Apply anti-aliasing filter before downsampling (if necessary)
             filtered_data =  lfilter(self.lpf[fold], 1, data)
 
@@ -244,7 +244,7 @@ class ACFMode(BaseMode):
             fft_data = np.clip(fft_data, LOGMIN, LOGMAX)
 
             # Add the FFT data to the combined FFT result
-            combined_fft += np.abs(fft_data)
+            combined_fft += fft_data
 
         # Average the combined FFT result
         combined_fft /= (self.num_folds + 1)
@@ -254,15 +254,15 @@ class ACFMode(BaseMode):
 
         # Interpolate FFT data to log-spaced bins
         log_fft_data = np.interp(log_freq_bins, freq_bins, normalized_fft)
-        
+
         # Print the significant peaks in the FFT data
         print_fft_summary("FFT Data", log_fft_data, log_freq_bins)
 
         # scale data to input range
-        combined_fft = np.clip(combined_fft, -96, 12)
-        combined_fft = (combined_fft + 96) * (255 / 108)
+        combined_fft = np.clip((log_fft_data + 96) * (255 / 108), 0, 255)
+
         self.acf_plot = np.roll(self.acf_plot, -1, axis=1)
-        self.acf_plot[:, -1, :] = np.stack([log_fft_data]*3, axis=-1)
+        self.acf_plot[:, -1, :] = np.stack([combined_fft]*3, axis=-1)
 
     def update_plot(self):
         global rotate
@@ -272,45 +272,6 @@ class ACFMode(BaseMode):
         screen.blit(self.plot_surface, (0, self.major_tick_length))
         pygame.display.flip()
 
-
-
-def generate_acf_data():
-    global start_time
-    samplerate = 48000
-    duration = 65536 / samplerate
-    t = np.linspace(0, duration, int(samplerate * duration), endpoint=False)
-    data = np.zeros(t.shape)
-
-    def sine_wave(frequency, db):
-        return 10**(db/20) * np.sin(2 * np.pi * frequency * t)
-
-    def bandpass_noise(f1, f2, db):
-        noise = np.random.normal(0, 1, t.shape)
-        b,a = firwin(101, [f1,f2], pass_zero=False, fs=samplerate), 1
-        filtered_noise = lfilter(b, a, noise)
-        return 10**(db/20) * filtered_noise
-
-    # generate a 363 Hz +12db sine wave
-    #data += sine_wave(363, 12)
-    
-    now = time.time()
-    elapsed = now - start_time
-
-    if elapsed < 16.0:
-        # sweep sine wave
-        f = 16e3*(elapsed/16.0)
-        data += sine_wave(f, 12)
-    elif elapsed < 18.0:
-        # generate a 640Hz - 800Hz noise signal 0db noise signal
-        data += bandpass_noise(640, 800, 12)
-        data += sine_wave(363, 12)
-    else:
-        # generate a 40 Hz - 80 Hz -30db noise signal
-        data += bandpass_noise(40, 80, 12)
-        data += sine_wave(8e3,0)
-
-    return data
-
 def test_spl():
     # Test SPLMode
     mode = SPLMode()
@@ -319,7 +280,72 @@ def test_spl():
     mode.update_plot()
     pygame.time.wait(1000)
 
+
+def test_acf_plot():
+    def generate_data():
+        samplerate = 48000
+        duration = 2**16 / samplerate
+        t = np.linspace(0, duration, int(samplerate * duration), endpoint=False)
+        data = np.zeros(t.shape)
+
+        # Create a linear gradient from -96 dB to +12 dB
+        gradient = np.linspace(-96, 12, len(data))
+        print(gradient[0], gradient[-1])
+
+        # Convert dB values to linear scale (0 to 255)
+        data = (gradient + 96) * (255 / 108)
+
+        return data
+
+
+    global start_time
+    mode = ACFMode(1024, 48000)
+    start_time = time.time()
+    mode.acf_plot = np.zeros((screen_width, screen_height  - 8,3), dtype=np.uint8)
+    while time.time() - start_time < 4.0:
+        mode.process_data(generate_data())
+        mode.update_plot()
+    pygame.time.wait(2000)
+
+
 def test_acf():
+    def generate_acf_data():
+        global start_time
+        samplerate = 48000
+        duration = 65536 / samplerate
+        t = np.linspace(0, duration, int(samplerate * duration), endpoint=False)
+        data = np.zeros(t.shape)
+
+        def sine_wave(frequency, db):
+            return 10**(db/20) * np.sin(2 * np.pi * frequency * t)
+
+        def bandpass_noise(f1, f2, db):
+            noise = np.random.normal(0, 1, t.shape)
+            b,a = firwin(101, [f1,f2], pass_zero=False, fs=samplerate), 1
+            filtered_noise = lfilter(b, a, noise)
+            return 10**(db/20) * filtered_noise
+
+        # generate a 363 Hz +12db sine wave
+        #data += sine_wave(363, 12)
+
+        now = time.time()
+        elapsed = now - start_time
+
+        if elapsed < 16.0:
+            # sweep sine wave
+            f = 16e3*(elapsed/16.0)
+            data += sine_wave(f, 12)
+        elif elapsed < 18.0:
+            # generate a 640Hz - 800Hz noise signal 0db noise signal
+            data += bandpass_noise(640, 800, 12)
+            data += sine_wave(363, 12)
+        else:
+            # generate a 40 Hz - 80 Hz -30db noise signal
+            data += bandpass_noise(40, 80, 12)
+            data += sine_wave(8e3,0)
+
+        return data
+
     global start_time
     mode = ACFMode(1024, 48000)
     start_time = time.time()
@@ -339,5 +365,6 @@ if __name__ == "__main__":
             test_acf()
     else:
         test_spl()
-        test_acf()    
+        test_acf_plot()
+        test_acf()
     pygame.quit()
