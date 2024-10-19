@@ -176,7 +176,7 @@ class ACFMode(BaseMode):
         self.plot_surface = pygame.Surface((screen_width, screen_height - self.major_tick_length))
 
         self.plot_color = (12, 200, 255)
-        self.num_folds = 2
+        self.num_folds = 0
         self.lpf = [ firwin(101, 0.83*2**-(n)) for n in range(0,self.num_folds+1)]
 
         def format_hz(hz):
@@ -226,25 +226,25 @@ class ACFMode(BaseMode):
         # Initialize the combined FFT result
         combined_fft = np.zeros(initial_window_size // 2 + 1)
 
-        # Generate log-spaced frequency bins
-        freq_bins = np.fft.rfftfreq(initial_window_size, 1/self.samplerate)
-        log_freq_bins = np.logspace(np.log2(self.x_major[0]), np.log2(self.x_minor[-1]), screen_width, base=2)
-
         # Process each octave
         for fold in range(self.num_folds + 1):
             # Apply anti-aliasing filter before downsampling (if necessary)
             filtered_data =  lfilter(self.lpf[fold], 1, data)
 
             # Downsample the signal
-            downsampled_data = filtered_data[::2**fold]
+            #downsampled_data = filtered_data[::2**fold]
+            downsample_factor = 2**fold
+            downsampled_data = np.mean(filtered_data[:len(filtered_data) // downsample_factor * downsample_factor].reshape(-1, downsample_factor), axis=1)
+
 
             # Compute FFT
             fft_data = np.fft.rfft(downsampled_data, n=initial_window_size)
             fft_data = np.abs(fft_data)
             fft_data = np.clip(fft_data, LOGMIN, LOGMAX)
 
-            # Add the FFT data to the combined FFT result
-            combined_fft += fft_data
+            # Replace lower resolution values with higher resolution FFT data
+            combined_fft[:len(fft_data)] = np.maximum(combined_fft[:len(fft_data)], fft_data)
+
 
         # Average the combined FFT result
         combined_fft /= (self.num_folds + 1)
@@ -253,6 +253,8 @@ class ACFMode(BaseMode):
         normalized_fft = 20 * np.log10(combined_fft / initial_window_size)
 
         # Interpolate FFT data to log-spaced bins
+        freq_bins = np.fft.rfftfreq(initial_window_size, 1/self.samplerate)
+        log_freq_bins = np.logspace(np.log2(self.x_major[0]), np.log2(self.x_minor[-1]), screen_width, base=2)
         log_fft_data = np.interp(log_freq_bins, freq_bins, normalized_fft)
 
         # Print the significant peaks in the FFT data
@@ -285,7 +287,7 @@ def test_acf():
     def generate_acf_data():
         global start_time
         samplerate = 48000
-        duration = 256 / samplerate
+        duration = 2**16 / samplerate
         t = np.linspace(0, duration, int(samplerate * duration), endpoint=False)
         data = np.zeros(t.shape)
 
@@ -328,7 +330,7 @@ def test_acf():
 
 if __name__ == "__main__":
     import sys
-    
+
     if len(sys.argv) > 1:
         if sys.argv[1] == 'spl':
             test_spl()
