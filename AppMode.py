@@ -168,7 +168,7 @@ class ACFMode(BaseMode):
         corner_freq = w[corner_freq_index] * (0.5 * samplerate) / np.pi  # Assuming a sample rate of 48000 Hz
         return corner_freq
 
-    def __init__(self, windowsize, samplerate):
+    def __init__(self, samplerate):
         super().__init__()
 
         self.samplerate = samplerate
@@ -176,7 +176,7 @@ class ACFMode(BaseMode):
         self.plot_surface = pygame.Surface((screen_width, screen_height - self.major_tick_length))
 
         self.plot_color = (12, 200, 255)
-        self.num_folds = 0
+        self.num_folds = 2
         self.lpf = [ firwin(101, 0.83*2**-(n)) for n in range(0,self.num_folds+1)]
 
         def format_hz(hz):
@@ -256,7 +256,7 @@ class ACFMode(BaseMode):
         log_fft_data = np.interp(log_freq_bins, freq_bins, normalized_fft)
 
         # Print the significant peaks in the FFT data
-        print_fft_summary("FFT Data", log_fft_data, log_freq_bins)
+        #_fft_summary("FFT Data", log_fft_data, log_freq_bins)
 
         # scale data to input range
         combined_fft = np.clip((log_fft_data + 96) * (255 / 108), 0, 255)
@@ -281,38 +281,11 @@ def test_spl():
     pygame.time.wait(1000)
 
 
-def test_acf_plot():
-    def generate_data():
-        samplerate = 48000
-        duration = 2**16 / samplerate
-        t = np.linspace(0, duration, int(samplerate * duration), endpoint=False)
-        data = np.zeros(t.shape)
-
-        # Create a linear gradient from -96 dB to +12 dB
-        gradient = np.linspace(-96, 12, len(data))
-        print(gradient[0], gradient[-1])
-
-        # Convert dB values to linear scale (0 to 255)
-        data = (gradient + 96) * (255 / 108)
-
-        return data
-
-
-    global start_time
-    mode = ACFMode(1024, 48000)
-    start_time = time.time()
-    mode.acf_plot = np.zeros((screen_width, screen_height  - 8,3), dtype=np.uint8)
-    while time.time() - start_time < 4.0:
-        mode.process_data(generate_data())
-        mode.update_plot()
-    pygame.time.wait(2000)
-
-
 def test_acf():
     def generate_acf_data():
         global start_time
         samplerate = 48000
-        duration = 65536 / samplerate
+        duration = 256 / samplerate
         t = np.linspace(0, duration, int(samplerate * duration), endpoint=False)
         data = np.zeros(t.shape)
 
@@ -326,45 +299,50 @@ def test_acf():
             return 10**(db/20) * filtered_noise
 
         # generate a 363 Hz +12db sine wave
-        #data += sine_wave(363, 12)
+        data += sine_wave(363, 12)
 
         now = time.time()
         elapsed = now - start_time
 
-        if elapsed < 16.0:
+        if elapsed < 8.0:
             # sweep sine wave
-            f = 16e3*(elapsed/16.0)
+            f = 16e3*(elapsed/8.0)
             data += sine_wave(f, 12)
-        elif elapsed < 18.0:
+        elif elapsed < 16.0:
             # generate a 640Hz - 800Hz noise signal 0db noise signal
-            data += bandpass_noise(640, 800, 12)
-            data += sine_wave(363, 12)
+            data += bandpass_noise(640, 800, 0)
         else:
-            # generate a 40 Hz - 80 Hz -30db noise signal
-            data += bandpass_noise(40, 80, 12)
+            # generate a 40 Hz - 80 Hz -20db noise signal
+            data += bandpass_noise(40, 80, -20)
             data += sine_wave(8e3,0)
 
         return data
 
     global start_time
-    mode = ACFMode(1024, 48000)
+    mode = ACFMode(48000)
     start_time = time.time()
     mode.acf_plot = np.zeros((screen_width, screen_height  - 8,3), dtype=np.uint8)
     while time.time() - start_time < 20.0:
         mode.process_data(generate_acf_data())
         mode.update_plot()
-    pygame.time.wait(12000)
 
 if __name__ == "__main__":
     import sys
-    start_time = time.time()
+    
     if len(sys.argv) > 1:
         if sys.argv[1] == 'spl':
             test_spl()
         elif sys.argv[1] == 'acf':
             test_acf()
     else:
-        test_spl()
-        test_acf_plot()
-        test_acf()
+        for test in [test_spl, test_acf]:
+            keypress = False
+            test()
+            while True:
+                for event in pygame.event.get():
+                    if event.type == pygame.KEYDOWN:
+                        keypress = True
+                        break
+                if keypress:
+                    break
     pygame.quit()
