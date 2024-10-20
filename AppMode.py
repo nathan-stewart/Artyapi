@@ -178,6 +178,7 @@ class ACFMode(BaseMode):
         self.plot_color = (12, 200, 255)
         self.num_folds = 0
         self.lpf = [ firwin(101, 0.83*2**-(n)) for n in range(0,self.num_folds+1)]
+        self.previous = None
 
         def format_hz(hz):
             if hz < 1000:
@@ -222,6 +223,8 @@ class ACFMode(BaseMode):
         global LOGMIN, LOGMAX
        # Initial window size
         initial_window_size = len(data)
+        if math.log2(initial_window_size) % 1 != 0:
+            raise ValueError("Input data length must be a power of 2")
 
         # Initialize the combined FFT result
         combined_fft = np.zeros(initial_window_size // 2 + 1)
@@ -232,10 +235,8 @@ class ACFMode(BaseMode):
             filtered_data =  lfilter(self.lpf[fold], 1, data)
 
             # Downsample the signal
-            #downsampled_data = filtered_data[::2**fold]
             downsample_factor = 2**fold
             downsampled_data = np.mean(filtered_data[:len(filtered_data) // downsample_factor * downsample_factor].reshape(-1, downsample_factor), axis=1)
-
 
             # Compute FFT
             fft_data = np.fft.rfft(downsampled_data, n=initial_window_size)
@@ -243,8 +244,13 @@ class ACFMode(BaseMode):
             fft_data = np.clip(fft_data, LOGMIN, LOGMAX)
 
             # Replace lower resolution values with higher resolution FFT data
-            combined_fft[:len(fft_data)] = np.maximum(combined_fft[:len(fft_data)], fft_data)
+            half = len(fft_data) // 2
+            combined_fft[:half] = fft_data[:half]
 
+        # Combine the previous and current FFT data
+        if self.previous is not None:
+            combined_fft = (combined_fft + self.previous) / 2
+        self.previous = combined_fft.copy()
 
         # Average the combined FFT result
         combined_fft /= (self.num_folds + 1)
@@ -287,7 +293,7 @@ def test_acf():
     def generate_acf_data():
         global start_time
         samplerate = 48000
-        duration = 2**16 / samplerate
+        duration = 2**20 / samplerate
         t = np.linspace(0, duration, int(samplerate * duration), endpoint=False)
         data = np.zeros(t.shape)
 
