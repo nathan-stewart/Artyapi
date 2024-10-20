@@ -52,3 +52,17 @@ def print_fft_summary(label, fft_data, freq_bins):
     if last_print != this_print:
         print(this_print)
         last_print = this_print
+
+
+def format_hz(hz):
+    if hz < 1000:
+        return f'{hz:.0f}'
+    else:
+        k = int(hz) // 1000
+        c = (int(hz) % 1000) // 100
+        if c == 0:
+            return f'{k}k'
+        elif k < 10:
+            return f'{k}k{c:02d}'
+        else:
+            return f'{k}k{c:01d}'

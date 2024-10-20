@@ -180,20 +180,6 @@ class ACFMode(BaseMode):
         self.lpf = [ firwin(101, 0.83*2**-(n)) for n in range(0,self.num_folds+1)]
         self.previous = None
 
-        def format_hz(hz):
-            if hz < 1000:
-                return f'{hz:.0f}'
-            else:
-                k = int(hz) // 1000
-                c = (int(hz) % 1000) // 100
-                if c == 0:
-                    return f'{k}k'
-                elif k < 10:
-                    return f'{k}k{c:02d}'
-                else:
-                    return f'{k}k{c:01d}'
-
-
         # last tick is 16.3k but the plot goes to 20k to allow label space
         self.x_major = [(40*2**(f/2)) for f in range(0, 18)]
         self.x_labels = [format_hz(f) for f in self.x_major]
@@ -302,8 +288,9 @@ def test_acf():
 
         def bandpass_noise(f1, f2, db):
             noise = np.random.normal(0, 1, t.shape)
-            b,a = firwin(101, [f1,f2], pass_zero=False, fs=samplerate), 1
+            b,a = firwin(400, [f1,f2], pass_zero=False, fs=samplerate), 1
             filtered_noise = lfilter(b, a, noise)
+            filtered_noise = lfilter(b, a, filtered_noise)
             return 10**(db/20) * filtered_noise
 
         # generate a 363 Hz +12db sine wave
@@ -312,16 +299,18 @@ def test_acf():
         now = time.time()
         elapsed = now - start_time
 
-        if elapsed < 8.0:
+        sweep_time = 4.0
+        if elapsed < sweep_time:
             # sweep sine wave
-            f = 16e3*(elapsed/8.0)
+            f = 16e3*(elapsed/sweep_time)
             data += sine_wave(f, 12)
-        elif elapsed < 16.0:
-            # generate a 640Hz - 800Hz noise signal 0db noise signal
-            data += bandpass_noise(640, 800, 0)
         else:
-            # generate a 40 Hz - 80 Hz -20db noise signal
-            data += bandpass_noise(40, 80, -20)
+            # generate bandpass noise - 1 octave wide stepping down 1 octave every 4 seconds
+            fold = (elapsed - sweep_time) // 2  # 1 octave every 4 seconds
+            hf = 20e3 * 2**-fold
+            lf = hf / 2
+            print(lf)
+            data += bandpass_noise(lf,hf,12)
             data += sine_wave(8e3,0)
 
         return data
@@ -330,7 +319,7 @@ def test_acf():
     mode = ACFMode(48000)
     start_time = time.time()
     mode.acf_plot = np.zeros((screen_width, screen_height  - 8,3), dtype=np.uint8)
-    while time.time() - start_time < 20.0:
+    while time.time() - start_time < 24.0:
         mode.process_data(generate_acf_data())
         mode.update_plot()
 
