@@ -167,7 +167,7 @@ class ACFMode(BaseMode):
         self.plot_surface = pygame.Surface((screen_width, screen_height - self.major_tick_length))
 
         self.plot_color = (12, 200, 255)
-        self.num_folds = 1
+        self.num_folds = 3
         self.lpf = [ firwin(101, 0.83*2**-(n)) for n in range(0,self.num_folds+1)]
         self.previous = None
 
@@ -198,7 +198,7 @@ class ACFMode(BaseMode):
     def process_data(self, data):
         global LOGMIN, LOGMAX
        # Initial window size to be a power of 2 up to 1024 but not greater than the input data length
-        initial_window_size = min(1024, 2 ** int(math.log2(len(data))))
+        initial_window_size = min(8192, 2 ** int(math.log2(len(data))))
         if math.log2(initial_window_size) % 1 != 0:
             raise ValueError("Input data length must be a power of 2")
 
@@ -268,7 +268,7 @@ def test_acf():
     def generate_acf_data():
         global start_time
         samplerate = 48000
-        duration = 2**20 / samplerate
+        duration = 2**16 / samplerate
         t = np.linspace(0, duration, int(samplerate * duration), endpoint=False)
         data = np.zeros(t.shape)
 
@@ -295,9 +295,10 @@ def test_acf():
             # what is the frequency discrimination of each fold?
             for f in bin_centers:
                 f1 = 20*2**f 
-                f2 = f1 + 3*2**f
+                f2 = f1 + 1*2**f
                 data += sine_wave(f1, 12)
-                data += sine_wave(f2, 12) 
+                data += sine_wave(f2, 12)
+            # normalize data
         return data
 
     global start_time
