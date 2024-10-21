@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # utility functions for the project
-from scipy.signal import find_peaks
+from scipy.signal import find_peaks, freqz
 import numpy as np
 
 def is_raspberry_pi():
@@ -66,3 +66,13 @@ def format_hz(hz):
             return f'{k}k{c:02d}'
         else:
             return f'{k}k{c:01d}'
+
+
+def get_filter_freq(filter, samplerate):
+    w,h = freqz(filter)
+    gain_db = 20 * np.log10(np.abs(h))
+
+    # Find the frequency where the gain drops to -3 dB
+    corner_freq_index = np.where(gain_db <= -3)[0][0]
+    corner_freq = w[corner_freq_index] * (0.5 * samplerate) / np.pi  # Assuming a sample rate of 48000 Hz
+    return corner_freq

@@ -159,15 +159,6 @@ class SPLMode(BaseMode):
 
 
 class ACFMode(BaseMode):
-    def get_filter_freq(filter, samplerate):
-        w,h = freqz(filter)
-        gain_db = 20 * np.log10(np.abs(h))
-
-        # Find the frequency where the gain drops to -3 dB
-        corner_freq_index = np.where(gain_db <= -3)[0][0]
-        corner_freq = w[corner_freq_index] * (0.5 * samplerate) / np.pi  # Assuming a sample rate of 48000 Hz
-        return corner_freq
-
     def __init__(self, samplerate):
         super().__init__()
 
@@ -188,6 +179,7 @@ class ACFMode(BaseMode):
         self.by = screen_height - self.major_tick_length
         self.mx = screen_width / (math.log2(self.x_minor[-1])-math.log2(self.x_major[0]))
         self.bx = -self.mx * math.log2(self.x_major[0])
+        self.log_freq_bins = np.logspace(np.log2(self.x_major[0]), np.log2(self.x_minor[-1]), screen_width, base=2)
 
     def scale_xpos(self, pos):
         return int(math.log2(pos) * self.mx + self.bx)
@@ -202,13 +194,11 @@ class ACFMode(BaseMode):
         self.text_size = self.calculate_label_size(self.x_labels, font)
         self.draw_axis(major = self.x_major, labels = self.x_labels, minor = self.x_minor, orientation='x')
 
-
-
     # progressive FFT
     def process_data(self, data):
         global LOGMIN, LOGMAX
-       # Initial window size
-        initial_window_size = len(data)
+       # Initial window size to be a power of 2 up to 1024 but not greater than the input data length
+        initial_window_size = min(1024, 2 ** int(math.log2(len(data))))
         if math.log2(initial_window_size) % 1 != 0:
             raise ValueError("Input data length must be a power of 2")
 
@@ -246,8 +236,7 @@ class ACFMode(BaseMode):
 
         # Interpolate FFT data to log-spaced bins
         freq_bins = np.fft.rfftfreq(initial_window_size, 1/self.samplerate)
-        log_freq_bins = np.logspace(np.log2(self.x_major[0]), np.log2(self.x_minor[-1]), screen_width, base=2)
-        log_fft_data = np.interp(log_freq_bins, freq_bins, normalized_fft)
+        log_fft_data = np.interp(self.log_freq_bins, freq_bins, normalized_fft)
 
         # Print the significant peaks in the FFT data
         #_fft_summary("FFT Data", log_fft_data, log_freq_bins)
@@ -279,7 +268,7 @@ def test_acf():
     def generate_acf_data():
         global start_time
         samplerate = 48000
-        duration = 2**10 / samplerate
+        duration = 2**20 / samplerate
         t = np.linspace(0, duration, int(samplerate * duration), endpoint=False)
         data = np.zeros(t.shape)
 
@@ -302,19 +291,13 @@ def test_acf():
             f = 16e3*(elapsed/sweep_time)
             data += sine_wave(f, 12)
         else:
-            sines = [10e3, 5e3, 2.5e3, 1.25e3, 640, 320, 160, 80, 40]
-            for i, f in enumerate(sines):
-                data += sine_wave(f, 12 - i)
-            data -= np.mean(data)
-            data /= np.max(np.abs(data))
-
-            # generate bandpass noise - 1 octave wide stepping down 1 octave every 4 seconds
-            # fold = (elapsed - sweep_time) // 2  # 1 octave every 4 seconds
-            # hf = 20e3 * 2**-fold
-            # lf = hf / 2
-            # print(lf)
-            # data += bandpass_noise(lf,hf,12)
-    
+            bin_centers = [f for f in range(0, 9)]
+            # what is the frequency discrimination of each fold?
+            for f in bin_centers:
+                f1 = 20*2**f 
+                f2 = f1 + 3*2**f
+                data += sine_wave(f1, 12)
+                data += sine_wave(f2, 12) 
         return data
 
     global start_time
