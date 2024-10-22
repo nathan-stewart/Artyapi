@@ -158,9 +158,19 @@ class SPLMode(BaseMode):
             pygame.draw.line(screen, self.plot_color, p0, p1)
         pygame.display.flip()
 
-
+lastmsg = ''
 class ACFMode(BaseMode):
-    def __init__(self, samplerate):
+    def set_numfolds(self, f):
+        global lastmsg
+        f = int(f)
+        self.num_folds = min(max(f,0), 6)
+        self.lpf = [ firwin(201, 0.999*2**-(n)) for n in range(0,self.num_folds+1)]
+        freq = self.samplerate*0.8333333*2**-(self.num_folds+1)
+        msg = f'num_folds = {self.num_folds}, len(lpf) = {len(self.lpf)} freq = {format_hz(freq)}'
+        if msg != lastmsg:
+            print(msg)
+
+    def __init__(self, samplerate):            
         super().__init__()
 
         self.samplerate = samplerate
@@ -168,8 +178,7 @@ class ACFMode(BaseMode):
         self.plot_surface = pygame.Surface((screen_width, screen_height - self.major_tick_length))
 
         self.plot_color = (12, 200, 255)
-        self.num_folds = 1
-        self.lpf = [ firwin(501, 0.999*2**-(n)) for n in range(0,self.num_folds+1)]
+        self.set_numfolds(0)
         self.previous = None
 
         # last tick is 16.3k but the plot goes to 20k to allow label space
@@ -307,10 +316,15 @@ def test_acf():
     mode = ACFMode(48000)
     start_time = time.time()
     mode.acf_plot = np.zeros((screen_width, screen_height  - 8,3), dtype=np.uint8)
-    while time.time() - start_time < 24.0:
-        if time.time() - start_time > 6.0:
-            mode.num_folds = (time.time() - start_time - 6)//2
-            mode.num_folds = 8
+    elapsed = time.time() - start_time
+    previous = None
+    while elapsed < 24.0:
+        elapsed = time.time() - start_time
+        if elapsed > 6.0:
+            f = int((elapsed - 6.0) / 2.0)
+            if f != previous:
+                mode.set_numfolds(f)
+                previous = f
         mode.process_data(generate_acf_data())
         mode.update_plot()
 
