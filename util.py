@@ -55,6 +55,7 @@ def print_fft_summary(label, fft_data, freq_bins):
 
 
 def format_hz(hz):
+    hz = round(hz)
     if hz < 1000:
         return f'{hz:.0f}'
     else:
@@ -73,6 +74,9 @@ def get_filter_freq(filter, samplerate):
     gain_db = 20 * np.log10(np.abs(h))
 
     # Find the frequency where the gain drops to -3 dB
-    corner_freq_index = np.where(gain_db <= -3)[0][0]
-    corner_freq = w[corner_freq_index] * (0.5 * samplerate) / np.pi  # Assuming a sample rate of 48000 Hz
+    if np.any(gain_db <= -3):
+        corner_freq_index = np.where(gain_db <= -3)[0][0]
+        corner_freq = w[corner_freq_index] * (0.5 * samplerate) / np.pi  # Assuming a sample rate of 48000 Hz
+    else:
+        corner_freq = samplerate / 2
     return corner_freq
