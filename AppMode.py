@@ -158,17 +158,18 @@ class SPLMode(BaseMode):
             pygame.draw.line(screen, self.plot_color, p0, p1)
         pygame.display.flip()
 
-lastmsg = ''
+lastmsg = None
 class ACFMode(BaseMode):
     def set_numfolds(self, f):
         global lastmsg
         f = int(f)
         self.num_folds = min(max(f,0), 6)
-        self.lpf = [ firwin(201, 0.999*2**-(n)) for n in range(0,self.num_folds+1)]
+        self.lpf = [ firwin(1024, 0.999*2**-(n)) for n in range(0,self.num_folds+1)]
         freq = self.samplerate*0.8333333*2**-(self.num_folds+1)
         msg = f'num_folds = {self.num_folds}, len(lpf) = {len(self.lpf)} freq = {format_hz(freq)}'
         if msg != lastmsg:
             print(msg)
+            lastmsg = msg
 
     def __init__(self, samplerate):            
         super().__init__()
