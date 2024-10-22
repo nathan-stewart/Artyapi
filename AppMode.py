@@ -167,7 +167,7 @@ class ACFMode(BaseMode):
         self.plot_surface = pygame.Surface((screen_width, screen_height - self.major_tick_length))
 
         self.plot_color = (12, 200, 255)
-        self.num_folds = 3
+        self.num_folds = 2
         self.lpf = [ firwin(101, 0.83*2**-(n)) for n in range(0,self.num_folds+1)]
         self.previous = None
 
@@ -198,7 +198,7 @@ class ACFMode(BaseMode):
     def process_data(self, data):
         global LOGMIN, LOGMAX
        # Initial window size to be a power of 2 up to 1024 but not greater than the input data length
-        initial_window_size = min(8192, 2 ** int(math.log2(len(data))))
+        initial_window_size = min(2**15, 2 ** int(math.log2(len(data))))
         if math.log2(initial_window_size) % 1 != 0:
             raise ValueError("Input data length must be a power of 2")
 
@@ -232,7 +232,7 @@ class ACFMode(BaseMode):
         combined_fft /= (self.num_folds + 1)
 
         # Normalize the FFT data
-        normalized_fft = 20 * np.log10(combined_fft / initial_window_size)
+        normalized_fft = 20 * np.log10(np.clip(combined_fft / initial_window_size, LOGMIN, LOGMAX))
 
         # Interpolate FFT data to log-spaced bins
         freq_bins = np.fft.rfftfreq(initial_window_size, 1/self.samplerate)
@@ -259,7 +259,7 @@ def test_spl():
     # Test SPLMode
     mode = SPLMode()
     mode.setup_plot()
-    mode.spl_plot = np.linspace(-96, 12, 1920)
+    mode.spl_plot = np.linspace(-96, 12, screen_width)
     mode.update_plot()
     pygame.time.wait(1000)
 
@@ -284,20 +284,21 @@ def test_acf():
 
         now = time.time()
         elapsed = now - start_time
-
         sweep_time = 4.0
-        if elapsed < sweep_time:
+        f0 = 40
+        f1 = 20e3
+        if elapsed <= sweep_time:
             # sweep sine wave
-            f = 16e3*(elapsed/sweep_time)
+            f = f0 + (f1 - f0) * (elapsed/sweep_time)
             data += sine_wave(f, 12)
         else:
             bin_centers = [f for f in range(0, 9)]
             # what is the frequency discrimination of each fold?
             for f in bin_centers:
-                f1 = 20*2**f 
-                f2 = f1 + 1*2**f
+                f0 = 20*2**f
+                f1 = f0 + 1*2**f
+                data += sine_wave(f0, 12)
                 data += sine_wave(f1, 12)
-                data += sine_wave(f2, 12)
             # normalize data
         return data
 
