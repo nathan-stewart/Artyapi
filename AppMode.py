@@ -28,6 +28,7 @@ if rotate:
 
 class BaseMode:
     major_color = (255, 255, 255)
+
     minor_color = (127, 127, 127)
     major_tick_length = 8
     minor_tick_length = 4
@@ -167,8 +168,8 @@ class ACFMode(BaseMode):
         self.plot_surface = pygame.Surface((screen_width, screen_height - self.major_tick_length))
 
         self.plot_color = (12, 200, 255)
-        self.num_folds = 2
-        self.lpf = [ firwin(101, 0.83*2**-(n)) for n in range(0,self.num_folds+1)]
+        self.num_folds = 1
+        self.lpf = [ firwin(501, 0.999*2**-(n)) for n in range(0,self.num_folds+1)]
         self.previous = None
 
         # last tick is 16.3k but the plot goes to 20k to allow label space
@@ -221,7 +222,7 @@ class ACFMode(BaseMode):
 
             # Replace lower resolution values with higher resolution FFT data
             half = len(fft_data) // 2
-            combined_fft[:half] = fft_data[:half]
+            combined_fft[0:half] = fft_data[0:half]
 
         # Combine the previous and current FFT data
         if self.previous is not None:
@@ -307,6 +308,9 @@ def test_acf():
     start_time = time.time()
     mode.acf_plot = np.zeros((screen_width, screen_height  - 8,3), dtype=np.uint8)
     while time.time() - start_time < 24.0:
+        if time.time() - start_time > 6.0:
+            mode.num_folds = (time.time() - start_time - 6)//2
+            mode.num_folds = 8
         mode.process_data(generate_acf_data())
         mode.update_plot()
 
