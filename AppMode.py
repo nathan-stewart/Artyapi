@@ -160,18 +160,7 @@ class SPLMode(BaseMode):
 
 lastmsg = None
 class ACFMode(BaseMode):
-    def set_numfolds(self, f):
-        global lastmsg
-        f = int(f)
-        self.num_folds = min(max(f,0), 6)
-        self.lpf = [ firwin(1024, 0.999*2**-(n)) for n in range(0,self.num_folds+1)]
-        freq = self.samplerate*0.8333333*2**-(self.num_folds+1)
-        msg = f'num_folds = {self.num_folds}, len(lpf) = {len(self.lpf)} freq = {format_hz(freq)}'
-        if msg != lastmsg:
-            print(msg)
-            lastmsg = msg
-
-    def __init__(self, samplerate):            
+    def __init__(self, samplerate):
         super().__init__()
 
         self.samplerate = samplerate
@@ -179,6 +168,7 @@ class ACFMode(BaseMode):
         self.plot_surface = pygame.Surface((screen_width, screen_height - self.major_tick_length))
 
         self.plot_color = (12, 200, 255)
+        self.initial_window_size = 1024
         self.set_numfolds(0)
         self.previous = None
 
@@ -191,6 +181,19 @@ class ACFMode(BaseMode):
         self.mx = screen_width / (math.log2(self.x_minor[-1])-math.log2(self.x_major[0]))
         self.bx = -self.mx * math.log2(self.x_major[0])
         self.log_freq_bins = np.logspace(np.log2(self.x_major[0]), np.log2(self.x_minor[-1]), screen_width, base=2)
+
+    def set_numfolds(self, f):
+        global lastmsg
+        f = int(f)
+        self.num_folds = min(max(f,0), 6)
+        self.lpf = [ firwin(1024, 0.999*2**-(n)) for n in range(0,self.num_folds+1)]
+        freq = self.samplerate*0.8333333*2**-(self.num_folds+1)
+        resolution = self.samplerate / (self.initial_window_size * 2**(self.num_folds))
+        r_o = math.log2(resolution / (freq/2))
+        msg = f'num_folds = {self.num_folds}, len(lpf) = {len(self.lpf)} freq = {format_hz(freq)}, resolution = {resolution} Hz ro = {r_o} oct'
+        if msg != lastmsg:
+            print(msg)
+            lastmsg = msg
 
     def scale_xpos(self, pos):
         return int(math.log2(pos) * self.mx + self.bx)
@@ -209,12 +212,12 @@ class ACFMode(BaseMode):
     def process_data(self, data):
         global LOGMIN, LOGMAX
        # Initial window size to be a power of 2 up to 1024 but not greater than the input data length
-        initial_window_size = min(2**15, 2 ** int(math.log2(len(data))))
-        if math.log2(initial_window_size) % 1 != 0:
+        self.initial_window_size = min(2**10, 2 ** int(math.log2(len(data))))
+        if math.log2(self.initial_window_size) % 1 != 0:
             raise ValueError("Input data length must be a power of 2")
 
         # Initialize the combined FFT result
-        combined_fft = np.zeros(initial_window_size // 2 + 1)
+        combined_fft = np.zeros(self.initial_window_size // 2 + 1)
 
         # Process each octave
         for fold in range(self.num_folds + 1):
@@ -226,7 +229,7 @@ class ACFMode(BaseMode):
             downsampled_data = np.mean(filtered_data[:len(filtered_data) // downsample_factor * downsample_factor].reshape(-1, downsample_factor), axis=1)
 
             # Compute FFT
-            fft_data = np.fft.rfft(downsampled_data, n=initial_window_size)
+            fft_data = np.fft.rfft(downsampled_data, n=self.initial_window_size)
             fft_data = np.abs(fft_data)
             fft_data = np.clip(fft_data, LOGMIN, LOGMAX)
 
@@ -243,10 +246,10 @@ class ACFMode(BaseMode):
         combined_fft /= (self.num_folds + 1)
 
         # Normalize the FFT data
-        normalized_fft = 20 * np.log10(np.clip(combined_fft / initial_window_size, LOGMIN, LOGMAX))
+        normalized_fft = 20 * np.log10(np.clip(combined_fft / self.initial_window_size, LOGMIN, LOGMAX))
 
         # Interpolate FFT data to log-spaced bins
-        freq_bins = np.fft.rfftfreq(initial_window_size, 1/self.samplerate)
+        freq_bins = np.fft.rfftfreq(self.initial_window_size, 1/self.samplerate)
         log_fft_data = np.interp(self.log_freq_bins, freq_bins, normalized_fft)
 
         # Print the significant peaks in the FFT data
