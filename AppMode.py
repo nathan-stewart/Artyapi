@@ -185,12 +185,11 @@ class ACFMode(BaseMode):
     def set_numfolds(self, f):
         global lastmsg
         f = int(f)
-        self.num_folds = min(max(f,0), 6)
+        self.num_folds = min(max(f,0), 4)
         self.lpf = [ firwin(1024, 0.999*2**-(n)) for n in range(0,self.num_folds+1)]
         freq = self.samplerate*0.8333333*2**-(self.num_folds+1)
         resolution = self.samplerate / (self.initial_window_size * 2**(self.num_folds))
-        r_o = math.log2(resolution / (freq/2))
-        msg = f'num_folds = {self.num_folds}, len(lpf) = {len(self.lpf)} freq = {format_hz(freq)}, resolution = {resolution} Hz ro = {r_o} oct'
+        msg = f'num_folds = {self.num_folds}, len(lpf) = {len(self.lpf)} freq = {format_hz(freq)}, resolution = {resolution} Hz'
         if msg != lastmsg:
             print(msg)
             lastmsg = msg
