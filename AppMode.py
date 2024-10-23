@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import math
-from scipy.signal import firwin, lfilter, freqz
+from scipy.signal import firwin, lfilter, get_window
 from util import *
 import time
 
@@ -19,6 +19,7 @@ import pygame
 
 LOGMIN = 1.584e-5
 LOGMAX = 10**5.25
+lastmsg = None
 
 pygame.init()
 screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
@@ -158,18 +159,17 @@ class SPLMode(BaseMode):
             pygame.draw.line(screen, self.plot_color, p0, p1)
         pygame.display.flip()
 
-lastmsg = None
+
 class ACFMode(BaseMode):
     def __init__(self, samplerate):
         super().__init__()
-
         self.samplerate = samplerate
         self.acf_plot = np.zeros((screen_width, screen_height  - self.major_tick_length,3), dtype=np.uint8)
         self.plot_surface = pygame.Surface((screen_width, screen_height - self.major_tick_length))
 
         self.plot_color = (12, 200, 255)
-        self.initial_window_size = 1024
-        self.set_numfolds(0)
+        self.window_size = 2048
+        self.set_numfolds(6)
         self.previous = None
 
         # last tick is 16.3k but the plot goes to 20k to allow label space
@@ -185,14 +185,11 @@ class ACFMode(BaseMode):
     def set_numfolds(self, f):
         global lastmsg
         f = int(f)
-        self.num_folds = min(max(f,0), 4)
+        self.num_folds = min(max(f,0), 8)
         self.lpf = [ firwin(1024, 0.999*2**-(n)) for n in range(0,self.num_folds+1)]
-        freq = self.samplerate*0.8333333*2**-(self.num_folds+1)
-        resolution = self.samplerate / (self.initial_window_size * 2**(self.num_folds))
-        msg = f'num_folds = {self.num_folds}, len(lpf) = {len(self.lpf)} freq = {format_hz(freq)}, resolution = {resolution} Hz'
-        if msg != lastmsg:
-            print(msg)
-            lastmsg = msg
+        self.hist_len = self.window_size * 2 ** self.num_folds
+        self.history = np.zeros(self.hist_len)
+        self.window = get_window('hann', self.window_size)
 
     def scale_xpos(self, pos):
         return int(math.log2(pos) * self.mx + self.bx)
@@ -210,46 +207,49 @@ class ACFMode(BaseMode):
     # progressive FFT
     def process_data(self, data):
         global LOGMIN, LOGMAX
-       # Initial window size to be a power of 2 up to 1024 but not greater than the input data length
-        self.initial_window_size = min(2**10, 2 ** int(math.log2(len(data))))
-        if math.log2(self.initial_window_size) % 1 != 0:
-            raise ValueError("Input data length must be a power of 2")
+
+        # Roll the history buffer and push new data
+        roll_len = min(len(data), self.hist_len)
+        self.history = np.roll(self.history, -roll_len)
+        self.history[-roll_len:] = data[-roll_len:]
 
         # Initialize the combined FFT result
-        combined_fft = np.zeros(self.initial_window_size // 2 + 1)
+        combined_fft = np.zeros(self.window_size // 2 + 1)
 
         # Process each octave
         for fold in range(self.num_folds + 1):
+            downsample_len = self.window_size * 2 ** fold
+
             # Apply anti-aliasing filter before downsampling (if necessary)
-            filtered_data =  lfilter(self.lpf[fold], 1, data)
+            filtered_data =  lfilter(self.lpf[fold], 1, self.history[-downsample_len:])
 
             # Downsample the signal
-            downsample_factor = 2**fold
-            downsampled_data = np.mean(filtered_data[:len(filtered_data) // downsample_factor * downsample_factor].reshape(-1, downsample_factor), axis=1)
+            downsampled_data = np.mean(filtered_data[:downsample_len].reshape(-1, 2**fold), axis=1)
+
+            # Apply window function
+            windowed_data = downsampled_data * self.window[:downsample_len]
 
             # Compute FFT
-            fft_data = np.fft.rfft(downsampled_data, n=self.initial_window_size)
+            fft_data = np.fft.rfft(windowed_data, n=self.window_size)
             fft_data = np.abs(fft_data)
             fft_data = np.clip(fft_data, LOGMIN, LOGMAX)
 
-            # Replace lower resolution values with higher resolution FFT data
-            half = len(fft_data) // 2
-            combined_fft[0:half] = fft_data[0:half]
+            # Normalize the FFT data
+            normalized_fft = 20 * np.log10(np.clip(combined_fft / self.window_size, LOGMIN, LOGMAX))
 
-        # Combine the previous and current FFT data
-        if self.previous is not None:
-            combined_fft = (combined_fft + self.previous) / 2
-        self.previous = combined_fft.copy()
+            # Interpolate FFT data to log-spaced bins
+            freq_bins = np.fft.rfftfreq(self.window_size, 1/self.samplerate)
+            log_fft_data = np.interp(self.log_freq_bins, freq_bins, normalized_fft)
+
+            if fold == 0:
+                combined_fft = fft_data
+            else:
+                # Replace lower resolution values with higher resolution FFT data
+                lower_half = len(fft_data) // 2
+                combined_fft[0:lower_half] = fft_data[0:lower_half]
 
         # Average the combined FFT result
         combined_fft /= (self.num_folds + 1)
-
-        # Normalize the FFT data
-        normalized_fft = 20 * np.log10(np.clip(combined_fft / self.initial_window_size, LOGMIN, LOGMAX))
-
-        # Interpolate FFT data to log-spaced bins
-        freq_bins = np.fft.rfftfreq(self.initial_window_size, 1/self.samplerate)
-        log_fft_data = np.interp(self.log_freq_bins, freq_bins, normalized_fft)
 
         # Print the significant peaks in the FFT data
         #_fft_summary("FFT Data", log_fft_data, log_freq_bins)
@@ -302,7 +302,7 @@ def test_acf():
         f1 = 20e3
         if elapsed <= sweep_time:
             # sweep sine wave
-            f = f0 + (f1 - f0) * (elapsed/sweep_time)
+            f = f0 + (f1 - f0) * ((sweep_time - elapsed)/sweep_time)
             data += sine_wave(f, 12)
         else:
             bin_centers = [f for f in range(0, 9)]
