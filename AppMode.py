@@ -40,7 +40,7 @@ class BaseMode:
     def __init__(self):
         mx = self.my = 1
         self.bx = self.by = 0
-        self.font = pygame.font.Font(None, 36)
+        self.font = pygame.font.Font(None, 24)
         self.margin = 50
         self.plot_width = screen_width - 2 * self.margin
         self.plot_height = screen_height - 2 * self.margin
@@ -102,7 +102,7 @@ class BaseMode:
                 end_pos = (x, y + length)
             else:
                 x = self.text_size[0]
-                y = self.scale_ypos(tick)
+                y = self.scale_ypos(tick) + self.margin + self.text_size[1]//2
                 start_pos = (x, y)
                 end_pos = (x + length, y)
             pygame.draw.line(screen, color, start_pos, end_pos, width)
@@ -114,7 +114,7 @@ class BaseMode:
         if orientation == 'x':
             for i, label in enumerate(labels):
                 text = self.font.render(label, True, BaseMode.major_color)
-                x = self.scale_xpos(series[i] - text.get_width()//2)
+                x = self.scale_xpos(series[i] + self.margin + text.get_width()//2)
                 y = self.plot_height - 2 * self.major_tick_length + text.get_height()
                 screen.blit(text, (x, y))
         else:
@@ -194,16 +194,16 @@ class ACFMode(BaseMode):
         self.previous = None
 
         # last tick is 16.3k but the plot goes to 20k to allow label space
-        self.x_major = [(40*2**(f/2)) for f in range(0, 18)]
+        self.x_major = [(40*2**(f/2)) for f in range(0, 18)] + [20e3]
         self.x_labels = [format_hz(f) for f in self.x_major]
         self.x_minor= [(self.x_major[0]*2**(f/6)) for f in range(0, 54) if f % 3 != 0]
         self.text_size = self.calculate_label_size(self.x_labels)
 
         self.my = 1
         self.by = self.plot_height - self.major_tick_length
-        self.mx = self.plot_width / (math.log2(self.x_minor[-1])-math.log2(self.x_major[0]))
+        self.mx = self.plot_width / (math.log2(self.x_major[-1])-math.log2(self.x_major[0]/2))
         self.bx = -self.mx * math.log2(self.x_major[0])
-        self.log_freq_bins = np.logspace(np.log2(self.x_major[0]), np.log2(self.x_minor[-1]), self.plot_width, base=2)
+        self.log_freq_bins = np.logspace(np.log2(self.x_major[0]), np.log2(self.x_major[-1]), self.plot_width, base=2)
 
     def set_numfolds(self, f):
         global lastmsg
