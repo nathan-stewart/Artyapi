@@ -96,13 +96,13 @@ class BaseMode:
 
         for tick in series:
             if orientation == 'x':
-                x = self.scale_xpos(tick)
+                x = self.margin + self.scale_xpos(tick)
                 y = screen_height - self.text_size[1] - self.major_tick_length
                 start_pos = (x, y)
                 end_pos = (x, y + length)
             else:
-                x = self.text_size[0]
-                y = self.scale_ypos(tick) + self.margin + self.text_size[1]//2
+                x = self.margin
+                y = self.scale_ypos(tick) + self.margin//2
                 start_pos = (x, y)
                 end_pos = (x + length, y)
             pygame.draw.line(screen, color, start_pos, end_pos, width)
@@ -114,14 +114,14 @@ class BaseMode:
         if orientation == 'x':
             for i, label in enumerate(labels):
                 text = self.font.render(label, True, BaseMode.major_color)
-                x = self.scale_xpos(series[i] + self.margin + text.get_width()//2)
+                x = self.scale_xpos(series[i] + text.get_width()//2)
                 y = self.plot_height - 2 * self.major_tick_length + text.get_height()
                 screen.blit(text, (x, y))
         else:
             for i, label in enumerate(labels):
                 text = self.font.render(label, True, BaseMode.major_color)
                 x = self.text_size[0]//2
-                y = self.scale_ypos(series[i]) - text.get_height() // 2
+                y = self.margin//2 + self.scale_ypos(series[i]) - text.get_height()//2
                 screen.blit(text, (x, y))
 
     def draw_axis(self, labels=None, major=None, minor=None, orientation='x'):
@@ -189,8 +189,8 @@ class ACFMode(BaseMode):
         self.plot_color = (12, 200, 255)
 
         # FFT parameters
-        self.window_size = 2048
-        self.set_numfolds(6)
+        self.window_size = 8192
+        self.set_numfolds(4)
         self.previous = None
 
         # last tick is 16.3k but the plot goes to 20k to allow label space
@@ -201,7 +201,7 @@ class ACFMode(BaseMode):
 
         self.my = 1
         self.by = self.plot_height - self.major_tick_length
-        self.mx = self.plot_width / (math.log2(self.x_major[-1])-math.log2(self.x_major[0]/2))
+        self.mx = self.plot_width / (math.log2(self.x_major[-1])-math.log2(self.x_major[0]))
         self.bx = -self.mx * math.log2(self.x_major[0])
         self.log_freq_bins = np.logspace(np.log2(self.x_major[0]), np.log2(self.x_major[-1]), self.plot_width, base=2)
 
@@ -286,7 +286,7 @@ class ACFMode(BaseMode):
         self.blank()
         self.draw_axes()
         pygame.surfarray.blit_array(self.plot_surface, self.acf_plot)
-        screen.blit(self.plot_surface, (0, self.major_tick_length))
+        screen.blit(self.plot_surface, (self.margin//2, self.margin//2))
         pygame.display.flip()
 
 def test_spl():
@@ -326,11 +326,12 @@ def test_acf():
             f = f0 + (f1 - f0) * ((sweep_time - elapsed)/sweep_time)
             data += sine_wave(f, 12)
         else:
-            bin_centers = [f for f in range(0, 9)]
+            bin_centers = [f for f in range(1, 8)]
             # what is the frequency discrimination of each fold?
             for f in bin_centers:
-                f0 = 20*2**f
+                f0 = 40*2**f
                 f1 = f0 + 1*2**f
+                print(f0)
                 data += sine_wave(f0, 12)
                 data += sine_wave(f1, 12)
             # normalize data
@@ -350,6 +351,8 @@ def test_acf():
                 mode.set_numfolds(f)
                 previous = f
         mode.process_data(generate_acf_data())
+        mode.acf_plot[max(1,mode.scale_xpos(40))] = (255, 0, 0)
+        mode.acf_plot[min(len(mode.acf_plot),mode.scale_xpos(20e3))-1] = (255, 0, 0)
         mode.update_plot()
 
 if __name__ == "__main__":
