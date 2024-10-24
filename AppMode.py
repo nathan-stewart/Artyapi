@@ -97,11 +97,11 @@ class BaseMode:
         for tick in series:
             if orientation == 'x':
                 x = self.scale_xpos(tick)
-                y = -self.text_size[1]//2
+                y = screen_height - self.text_size[1] - self.major_tick_length
                 start_pos = (x, y)
                 end_pos = (x, y + length)
             else:
-                x = self.text_size[0]*2
+                x = self.text_size[0]
                 y = self.scale_ypos(tick)
                 start_pos = (x, y)
                 end_pos = (x + length, y)
@@ -114,12 +114,8 @@ class BaseMode:
         if orientation == 'x':
             for i, label in enumerate(labels):
                 text = self.font.render(label, True, BaseMode.major_color)
-                x = self.scale_xpos(series[i] - text.get_width() // 2)
+                x = self.scale_xpos(series[i] - text.get_width()//2)
                 y = self.plot_height - 2 * self.major_tick_length + text.get_height()
-                #print(x,y, label)
-
-                # draw rectangle text size at x,y
-                pygame.draw.rect(screen, (255, 255, 255), (x, y, text.get_width(), text.get_height()))
                 screen.blit(text, (x, y))
         else:
             for i, label in enumerate(labels):
