@@ -85,15 +85,15 @@ class BaseMode:
             color = self.minor_color
 
         if orientation == 'x':
-            screen_min = 0
-            screen_max = self.plot_width
+            plot_min = 0
+            plot_max = self.plot_width
         else:
-            screen_min = 0
-            screen_max = self.plot_width
+            plot_min = 0
+            plot_max = self.plot_width
 
         data_min = min(series)
         data_range = max(series) - data_min
-        screen_range = screen_max - screen_min
+        screen_range = plot_max - plot_min
 
         for tick in series:
             if orientation == 'x':
@@ -103,10 +103,10 @@ class BaseMode:
                 start_pos = (x, y)
                 end_pos = (x, y + length)
             else:
-                x = self.x_margin
-                y = self.scale_ypos(tick) + self.y_margin//2 + 2*self.text_size[1]
+                x = self.x_margin + self.text_size[0] + length
+                y = self.scale_ypos(tick) + self.text_size[1]/2 - 1
                 start_pos = (x, y)
-                end_pos = (x + length, y)
+                end_pos = (x - length, y)
             pygame.draw.line(screen, color, start_pos, end_pos, width)
 
     def draw_labels(self, labels, series, orientation='x'):
@@ -142,15 +142,17 @@ class SPLMode(BaseMode):
     def __init__(self):
         super().__init__()
         self.mx = 1.0
-        self.bx = 0
+        self.bx = self.x_margin
         self.my = -(self.plot_height)/(12 + 96)
         self.by = -12 * self.my
         self.plot_color = (12, 200, 255)
         self.y_major = [y for y in range(-96, 13, 12)]
-        self.y_labels = [str(y) for y in self.y_major]
+        self.y_labels = [f'{y:+d}' for y in self.y_major]
+        self.y_labels[-2] = " 0" # fix intentionally broken python behavior
         self.text_size = self.calculate_lable_size(self.y_labels)
         self.y_minor = [y for y in range(-96, 12, 3) if y not in self.y_major]
         self.spl_plot = np.zeros((self.plot_width))
+        self.plot_surface = pygame.Surface((self.plot_width, self.plot_height))
 
     def setup_plot(self):
         self.blank()
@@ -174,11 +176,16 @@ class SPLMode(BaseMode):
     def update_plot(self):
         global rotate
         self.blank()
+    
+        # draw rectangle for the plot
+        pygame.draw.rect(self.plot_surface, (255, 255, 255), (0, 0, self.plot_width, self.plot_height), 1)
+    
         self.draw_axes()
         for x in range(len(self.spl_plot)-1):
             p0 = (self.text_size[0] + self.scale_xpos(x),   self.scale_ypos(self.spl_plot[x  ]))
             p1 = (self.text_size[0] + self.scale_xpos(x+1), self.scale_ypos(self.spl_plot[x+1]))
             pygame.draw.line(screen, self.plot_color, p0, p1)
+        screen.blit(self.plot_surface, (self.x_margin, self.y_margin))
         pygame.display.flip()
 
 
