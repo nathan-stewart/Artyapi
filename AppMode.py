@@ -38,12 +38,13 @@ class BaseMode:
     minor_tick_width = 2
 
     def __init__(self):
-        mx = self.my = 1
+        self.mx = self.my = 1
         self.bx = self.by = 0
         self.font = pygame.font.Font(None, 24)
-        self.margin = 50
-        self.plot_width = screen_width - 2 * self.margin
-        self.plot_height = screen_height - 2 * self.margin
+        self.x_margin = self.calculate_lable_size(['20k'])[0]//2
+        self.y_margin = self.calculate_lable_size(['20k'])[1]//2 + BaseMode.major_tick_length 
+        self.plot_width = screen_width - 2 * self.x_margin
+        self.plot_height = screen_height - self.y_margin - self.calculate_lable_size(['20k'])[1] - BaseMode.major_tick_length
 
     def setup_plot(self):
         raise NotImplementedError
@@ -54,7 +55,7 @@ class BaseMode:
     def blank(self):
         screen.fill((0, 0, 0))
 
-    def calculate_label_size(self, labels):
+    def calculate_lable_size(self, labels):
         width, height = 0, 0
         for label in labels:
             text = self.font.render(label, True, BaseMode.major_color)
@@ -65,13 +66,13 @@ class BaseMode:
         return width, height
 
     def scale_xpos(self, pos):
-        return self.margin + int(pos * self.mx + self.bx)
+        return self.x_margin + int(pos * self.mx + self.bx)
 
     def scale_ypos(self, pos):
-        return self.margin + int(pos * self.my + self.by)
+        return self.y_margin + int(pos * self.my + self.by)
 
     def logscale_xpos(self, pos):
-        return self.margin + int(math.log2(pos) * self.mx + self.bx)
+        return self.x_margin + int(math.log2(pos) * self.mx + self.bx)
 
     def draw_ticks(self, series=[], orientation='x', mode='major'):
         if mode == 'major':
@@ -96,13 +97,14 @@ class BaseMode:
 
         for tick in series:
             if orientation == 'x':
-                x = self.margin + self.scale_xpos(tick)
-                y = screen_height - self.text_size[1] - self.major_tick_length
+                x = self.x_margin//2 + self.scale_xpos(tick)
+                # screen height not plot height - these go outside the plot area
+                y = screen_height - self.text_size[1] - 2*self.major_tick_length
                 start_pos = (x, y)
                 end_pos = (x, y + length)
             else:
-                x = self.margin
-                y = self.scale_ypos(tick) + self.margin//2
+                x = self.x_margin
+                y = self.scale_ypos(tick) + self.y_margin//2 + 2*self.text_size[1]
                 start_pos = (x, y)
                 end_pos = (x + length, y)
             pygame.draw.line(screen, color, start_pos, end_pos, width)
@@ -114,14 +116,14 @@ class BaseMode:
         if orientation == 'x':
             for i, label in enumerate(labels):
                 text = self.font.render(label, True, BaseMode.major_color)
-                x = self.scale_xpos(series[i] + text.get_width()//2)
-                y = self.plot_height - 2 * self.major_tick_length + text.get_height()
+                x = self.scale_xpos(series[i] - text.get_width())
+                y = screen_height - self.text_size[1] 
                 screen.blit(text, (x, y))
         else:
             for i, label in enumerate(labels):
                 text = self.font.render(label, True, BaseMode.major_color)
                 x = self.text_size[0]//2
-                y = self.margin//2 + self.scale_ypos(series[i]) - text.get_height()//2
+                y = self.y_margin//2 + self.scale_ypos(series[i]) - text.get_height()//2
                 screen.blit(text, (x, y))
 
     def draw_axis(self, labels=None, major=None, minor=None, orientation='x'):
@@ -146,7 +148,7 @@ class SPLMode(BaseMode):
         self.plot_color = (12, 200, 255)
         self.y_major = [y for y in range(-96, 13, 12)]
         self.y_labels = [str(y) for y in self.y_major]
-        self.text_size = self.calculate_label_size(self.y_labels)
+        self.text_size = self.calculate_lable_size(self.y_labels)
         self.y_minor = [y for y in range(-96, 12, 3) if y not in self.y_major]
         self.spl_plot = np.zeros((self.plot_width))
 
@@ -184,8 +186,8 @@ class ACFMode(BaseMode):
     def __init__(self, samplerate):
         super().__init__()
         self.samplerate = samplerate
-        self.acf_plot = np.zeros((self.plot_width, self.plot_height  - self.major_tick_length,3), dtype=np.uint8)
-        self.plot_surface = pygame.Surface((self.plot_width, self.plot_height - self.major_tick_length))
+        self.acf_plot = np.zeros((self.plot_width, self.plot_height,3), dtype=np.uint8)
+        self.plot_surface = pygame.Surface((self.plot_width, self.plot_height))
         self.plot_color = (12, 200, 255)
 
         # FFT parameters
@@ -197,10 +199,10 @@ class ACFMode(BaseMode):
         self.x_major = [(40*2**(f/2)) for f in range(0, 18)] + [20e3]
         self.x_labels = [format_hz(f) for f in self.x_major]
         self.x_minor= [(self.x_major[0]*2**(f/6)) for f in range(0, 54) if f % 3 != 0]
-        self.text_size = self.calculate_label_size(self.x_labels)
+        self.text_size = self.calculate_lable_size(self.x_labels)
 
         self.my = 1
-        self.by = self.plot_height - self.major_tick_length
+        self.by = self.plot_height
         self.mx = self.plot_width / (math.log2(self.x_major[-1])-math.log2(self.x_major[0]))
         self.bx = -self.mx * math.log2(self.x_major[0])
         self.log_freq_bins = np.logspace(np.log2(self.x_major[0]), np.log2(self.x_major[-1]), self.plot_width, base=2)
@@ -284,9 +286,11 @@ class ACFMode(BaseMode):
     def update_plot(self):
         global rotate
         self.blank()
-        self.draw_axes()
         pygame.surfarray.blit_array(self.plot_surface, self.acf_plot)
-        screen.blit(self.plot_surface, (self.margin//2, self.margin//2))
+        # draw rectangle for the plot
+        pygame.draw.rect(self.plot_surface, (255, 255, 255), (0, 0, self.plot_width, self.plot_height), 1)
+        screen.blit(self.plot_surface, (self.x_margin, self.y_margin//2))
+        self.draw_axes()
         pygame.display.flip()
 
 def test_spl():
@@ -331,7 +335,6 @@ def test_acf():
             for f in bin_centers:
                 f0 = 40*2**f
                 f1 = f0 + 1*2**f
-                print(f0)
                 data += sine_wave(f0, 12)
                 data += sine_wave(f1, 12)
             # normalize data
@@ -340,7 +343,7 @@ def test_acf():
     global start_time
     mode = ACFMode(48000)
     start_time = time.time()
-    mode.acf_plot = np.zeros((mode.plot_width, mode.plot_height  - 8,3), dtype=np.uint8)
+    mode.acf_plot = np.zeros((mode.plot_width, mode.plot_height,3), dtype=np.uint8)
     elapsed = time.time() - start_time
     previous = None
     while elapsed < 24.0:
@@ -351,8 +354,6 @@ def test_acf():
                 mode.set_numfolds(f)
                 previous = f
         mode.process_data(generate_acf_data())
-        mode.acf_plot[max(1,mode.scale_xpos(40))] = (255, 0, 0)
-        mode.acf_plot[min(len(mode.acf_plot),mode.scale_xpos(20e3))-1] = (255, 0, 0)
         mode.update_plot()
 
 if __name__ == "__main__":
