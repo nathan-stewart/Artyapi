@@ -41,7 +41,7 @@ class BaseMode:
         self.mx = self.my = 1
         self.bx = self.by = 0
         self.font = pygame.font.Font(None, 24)
-        self.x_margin = self.calculate_lable_size(['20k'])[0]//2
+        self.x_margin = self.calculate_lable_size(['20k'])[0]
         self.y_margin = self.calculate_lable_size(['20k'])[1]//2 + BaseMode.major_tick_length 
         self.plot_width = screen_width - 2 * self.x_margin
         self.plot_height = screen_height - self.y_margin - self.calculate_lable_size(['20k'])[1] - BaseMode.major_tick_length
@@ -103,8 +103,8 @@ class BaseMode:
                 start_pos = (x, y)
                 end_pos = (x, y + length)
             else:
-                x = self.x_margin + self.text_size[0] + length
-                y = self.scale_ypos(tick) + self.text_size[1]/2 - 1
+                x = self.x_margin  + length
+                y = self.scale_ypos(tick)
                 start_pos = (x, y)
                 end_pos = (x - length, y)
             pygame.draw.line(screen, color, start_pos, end_pos, width)
@@ -122,8 +122,8 @@ class BaseMode:
         else:
             for i, label in enumerate(labels):
                 text = self.font.render(label, True, BaseMode.major_color)
-                x = self.text_size[0]//2
-                y = self.y_margin//2 + self.scale_ypos(series[i]) - text.get_height()//2
+                x = 0
+                y = self.scale_ypos(series[i]) - self.y_margin//2 
                 screen.blit(text, (x, y))
 
     def draw_axis(self, labels=None, major=None, minor=None, orientation='x'):
@@ -153,6 +153,7 @@ class SPLMode(BaseMode):
         self.y_minor = [y for y in range(-96, 12, 3) if y not in self.y_major]
         self.spl_plot = np.zeros((self.plot_width))
         self.plot_surface = pygame.Surface((self.plot_width, self.plot_height))
+        self.plot_surface.set_colorkey((0, 0, 0))  # Use a transparent color
 
     def setup_plot(self):
         self.blank()
@@ -176,15 +177,14 @@ class SPLMode(BaseMode):
     def update_plot(self):
         global rotate
         self.blank()
-    
-        # draw rectangle for the plot
         pygame.draw.rect(self.plot_surface, (255, 255, 255), (0, 0, self.plot_width, self.plot_height), 1)
     
         self.draw_axes()
+
         for x in range(len(self.spl_plot)-1):
             p0 = (self.text_size[0] + self.scale_xpos(x),   self.scale_ypos(self.spl_plot[x  ]))
             p1 = (self.text_size[0] + self.scale_xpos(x+1), self.scale_ypos(self.spl_plot[x+1]))
-            pygame.draw.line(screen, self.plot_color, p0, p1)
+            pygame.draw.line(self.plot_surface, self.plot_color, p0, p1)
         screen.blit(self.plot_surface, (self.x_margin, self.y_margin))
         pygame.display.flip()
 
