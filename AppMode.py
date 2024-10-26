@@ -97,8 +97,7 @@ class BaseMode:
 
         for tick in series:
             if orientation == 'x':
-                x = self.x_margin//2 + self.scale_xpos(tick)
-                # screen height not plot height - these go outside the plot area
+                x = self.x_margin + self.scale_xpos(tick)
                 y = screen_height - self.text_size[1] - 2*self.major_tick_length
                 start_pos = (x, y)
                 end_pos = (x, y + length)
@@ -116,7 +115,7 @@ class BaseMode:
         if orientation == 'x':
             for i, label in enumerate(labels):
                 text = self.font.render(label, True, BaseMode.major_color)
-                x = self.scale_xpos(series[i] - text.get_width())
+                x = self.scale_xpos(series[i]) + self.x_margin//2
                 y = screen_height - self.text_size[1] 
                 screen.blit(text, (x, y))
         else:
