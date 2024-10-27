@@ -3,6 +3,16 @@
 from scipy.signal import find_peaks, freqz
 import numpy as np
 
+def wait_for_keypress():
+    keypress = None
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.KEYDOWN:
+                keypress = True
+                break
+        if keypress:
+            break
+
 def is_raspberry_pi():
     try:
         with open('/proc/device-tree/model', 'r') as f:

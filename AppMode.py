@@ -299,7 +299,6 @@ class ACFMode(BaseMode):
         self.draw_axes()
         pygame.display.flip()
 
-
 def wait_for_keypress():
     keypress = None
     while True:
@@ -309,7 +308,6 @@ def wait_for_keypress():
                 break
         if keypress:
             break
-
 
 def test_spl():
     # Test SPLMode
