@@ -42,7 +42,7 @@ class BaseMode:
         self.bx = self.by = 0
         self.font = pygame.font.Font(None, 24)
         self.x_margin = self.calculate_lable_size(['20k'])[0]
-        self.y_margin = self.calculate_lable_size(['20k'])[1]//2 + BaseMode.major_tick_length 
+        self.y_margin = self.calculate_lable_size(['20k'])[1]//2 + BaseMode.major_tick_length
         self.plot_width = screen_width - 2 * self.x_margin
         self.plot_height = screen_height - self.y_margin - self.calculate_lable_size(['20k'])[1] - BaseMode.major_tick_length
 
@@ -116,13 +116,13 @@ class BaseMode:
             for i, label in enumerate(labels):
                 text = self.font.render(label, True, BaseMode.major_color)
                 x = self.scale_xpos(series[i]) + self.x_margin//2
-                y = screen_height - self.text_size[1] 
+                y = screen_height - self.text_size[1]
                 screen.blit(text, (x, y))
         else:
             for i, label in enumerate(labels):
                 text = self.font.render(label, True, BaseMode.major_color)
                 x = 0
-                y = self.scale_ypos(series[i]) - self.y_margin//2 
+                y = self.scale_ypos(series[i]) - self.y_margin//2
                 screen.blit(text, (x, y))
 
     def draw_axis(self, labels=None, major=None, minor=None, orientation='x'):
@@ -177,7 +177,7 @@ class SPLMode(BaseMode):
         global rotate
         self.blank()
         pygame.draw.rect(self.plot_surface, (255, 255, 255), (0, 0, self.plot_width, self.plot_height), 1)
-    
+
         self.draw_axes()
 
         for x in range(len(self.spl_plot)-1):
@@ -299,6 +299,18 @@ class ACFMode(BaseMode):
         self.draw_axes()
         pygame.display.flip()
 
+
+def wait_for_keypress():
+    keypress = None
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.KEYDOWN:
+                keypress = True
+                break
+        if keypress:
+            break
+
+
 def test_spl():
     # Test SPLMode
     mode = SPLMode()
@@ -365,20 +377,13 @@ def test_acf():
 if __name__ == "__main__":
     import sys
 
+    tests = [test_spl, test_acf]
     if len(sys.argv) > 1:
         if sys.argv[1] == 'spl':
-            test_spl()
+            tests = [test_spl]
         elif sys.argv[1] == 'acf':
-            test_acf()
-    else:
-        for test in [test_spl, test_acf]:
-            keypress = False
-            test()
-            while True:
-                for event in pygame.event.get():
-                    if event.type == pygame.KEYDOWN:
-                        keypress = True
-                        break
-                if keypress:
-                    break
+            tests = [test_acf]
+    for test in tests:
+        test()
+        wait_for_keypress()
     pygame.quit()
