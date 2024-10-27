@@ -299,24 +299,32 @@ class ACFMode(BaseMode):
         self.draw_axes()
         pygame.display.flip()
 
-def wait_for_keypress():
-    keypress = None
-    while True:
-        for event in pygame.event.get():
-            if event.type == pygame.KEYDOWN:
-                keypress = True
-                break
-        if keypress:
-            break
-
 def test_spl():
     # Test SPLMode
     mode = SPLMode()
     mode.setup_plot()
-    mode.spl_plot = np.linspace(-96, 12, mode.plot_width)
-    mode.update_plot()
-    pygame.time.wait(1000)
+    #mode.spl_plot = np.linspace(-96, 12, mode.plot_width)
+    def generate_spl_data():
+        global start_time
+        samplerate = 48000
+        duration = 2**16 / samplerate
+        t = np.linspace(0, duration, int(samplerate * duration), endpoint=False)
+        data = np.zeros(t.shape)
+        def sine_wave(frequency, db):
+            return 10**(db/20) * np.sin(2 * np.pi * frequency * t)
 
+        now = time.time()
+        elapsed = now - start_time
+        sweep_time = 4.0
+        f = 1e3
+        if elapsed <= sweep_time:
+            # sweep sine wave
+            data += sine_wave(f, 108 * elapsed/sweep_time - 96)
+        return data
+
+    data = generate_spl_data()
+    mode.process_data(data)
+    mode.update_plot()
 
 def test_acf():
     def generate_acf_data():
