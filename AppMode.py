@@ -300,10 +300,7 @@ class ACFMode(BaseMode):
         pygame.display.flip()
 
 def test_spl():
-    # Test SPLMode
-    mode = SPLMode()
-    mode.setup_plot()
-    #mode.spl_plot = np.linspace(-96, 12, mode.plot_width)
+    global start_time
     def generate_spl_data():
         global start_time
         samplerate = 48000
@@ -311,20 +308,27 @@ def test_spl():
         t = np.linspace(0, duration, int(samplerate * duration), endpoint=False)
         data = np.zeros(t.shape)
         def sine_wave(frequency, db):
-            return 10**(db/20) * np.sin(2 * np.pi * frequency * t)
+            return 10**(db/20) * np.sqrt(2) * np.sin(2 * np.pi * frequency * t)
 
         now = time.time()
         elapsed = now - start_time
-        sweep_time = 4.0
+        sweep_time = 6.0
         f = 1e3
         if elapsed <= sweep_time:
-            # sweep sine wave
             data += sine_wave(f, 108 * elapsed/sweep_time - 96)
         return data
 
-    data = generate_spl_data()
-    mode.process_data(data)
-    mode.update_plot()
+    # Test SPLMode
+    mode = SPLMode()
+    mode.setup_plot()
+    start_time = time.time()
+    mode.spl_plot = np.zeros((mode.plot_width), dtype=np.uint8)
+    elapsed = time.time() - start_time
+    previous = None
+    while elapsed < 6.0:
+        elapsed = time.time() - start_time
+        mode.process_data(generate_spl_data())
+        mode.update_plot()
 
 def test_acf():
     def generate_acf_data():
