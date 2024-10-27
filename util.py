@@ -2,6 +2,7 @@
 # utility functions for the project
 from scipy.signal import find_peaks, freqz
 import numpy as np
+import pygame
 
 def wait_for_keypress():
     keypress = None
