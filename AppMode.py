@@ -39,7 +39,7 @@ class BaseMode:
 
     def __init__(self):
         self.font = pygame.font.Font(None, 24)
-        sample_label = self.calculate_lable_size(['20k'])
+        sample_label = self.calculate_label_size(['20k'])
         self.x_margin = sample_label[0] + 2 * BaseMode.major_tick_length
         self.y_margin = sample_label[1] + 2 * BaseMode.major_tick_length
         self.plot_width = screen_width - 2 * self.x_margin
@@ -66,7 +66,7 @@ class BaseMode:
         screen.blit(self.plot_surface, (self.x_margin, self.y_margin))
         pygame.display.flip()
 
-    def calculate_lable_size(self, labels):
+    def calculate_label_size(self, labels):
         width, height = 0, 0
         for label in labels:
             text = self.font.render(label, True, BaseMode.major_color)
@@ -150,7 +150,7 @@ class SPLMode(BaseMode):
         self.y_major = [y for y in range(-96, 13, 12)]
         self.y_labels = [f'{y:+d}' for y in self.y_major]
         self.y_labels[-2] = " 0" # fix intentionally broken python behavior
-        self.text_size = self.calculate_lable_size(self.y_labels)
+        self.text_size = self.calculate_label_size(self.y_labels)
         self.y_minor = [y for y in range(-96, 12, 3) if y not in self.y_major]
         self.spl_plot = np.zeros((self.plot_width))
         self.plot_surface.set_colorkey((0, 0, 0))  # Use a transparent color
@@ -193,7 +193,7 @@ class ACFMode(BaseMode):
         self.x_major = [(40*2**(f/2)) for f in range(0, 18)] + [20e3]
         self.x_labels = [format_hz(f) for f in self.x_major]
         self.x_minor= [(self.x_major[0]*2**(f/6)) for f in range(0, 54) if f % 3 != 0]
-        self.text_size = self.calculate_lable_size(self.x_labels)
+        self.text_size = self.calculate_label_size(self.x_labels)
 
         self.my = -1
         self.by = 0
@@ -271,6 +271,15 @@ class ACFMode(BaseMode):
 
         self.acf_plot = np.roll(self.acf_plot, -1, axis=1)
         self.acf_plot[:, -1, :] = np.stack([combined_fft]*3, axis=-1)
+
+        # Draw the ACF plot to plot_surface
+        self.plot_surface.fill((0,0,0))
+        self.plot_surface.set_colorkey((0, 0, 0))  # Use a transparent color
+        for x in range(self.plot_width-1):
+            p0 = (x,   self.scale_ypos(self.acf_plot[x, -2, 0]))
+            p1 = (x+1, self.scale_ypos(self.acf_plot[x+1, -2, 0]))
+            pygame.draw.line(self.plot_surface, self.plot_color, p0, p1)
+
 
 def test_spl():
     global start_time
