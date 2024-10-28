@@ -38,22 +38,32 @@ class BaseMode:
     minor_tick_width = 2
 
     def __init__(self):
-        self.mx = self.my = 1
-        self.bx = self.by = 0
         self.font = pygame.font.Font(None, 24)
         self.x_margin = self.calculate_lable_size(['20k'])[0]
         self.y_margin = self.calculate_lable_size(['20k'])[1]//2 + BaseMode.major_tick_length
         self.plot_width = screen_width - 2 * self.x_margin
         self.plot_height = screen_height - self.y_margin - self.calculate_lable_size(['20k'])[1] - BaseMode.major_tick_length
+        self.plot_color = (12,200,255)
+        self.plot_surface = pygame.Surface((self.plot_width, self.plot_height))
 
+        self.mx = self.my = 1
+        self.bx = self.by = 0
+        
     def setup_plot(self):
-        raise NotImplementedError
-
-    def update_plot(self, data):
-        raise NotImplementedError
+        screen.fill((0,0,0)) # blank doesn't clear the screen outside of plot_surface
+        self.blank()
+        self.draw_axes()
+        pygame.display.flip()
 
     def blank(self):
-        screen.fill((0, 0, 0))
+        self.plot_surface.fill((0,0,0))
+
+    def update_plot(self):
+        self.blank()
+        pygame.draw.rect(self.plot_surface, (255, 255, 255), (0, 0, self.plot_width, self.plot_height), 1)  # Draw only the outline
+        self.draw_axes()
+        screen.blit(self.plot_surface, (self.x_margin // 2, self.y_margin // 2))
+        pygame.display.flip()
 
     def calculate_lable_size(self, labels):
         width, height = 0, 0
@@ -103,7 +113,7 @@ class BaseMode:
                 end_pos = (x, y + length)
             else:
                 x = self.x_margin  + length
-                y = self.scale_ypos(tick)
+                y = self.scale_ypos(tick) - self.text_size[1]//2 + 1
                 start_pos = (x, y)
                 end_pos = (x - length, y)
             pygame.draw.line(screen, color, start_pos, end_pos, width)
@@ -122,7 +132,7 @@ class BaseMode:
             for i, label in enumerate(labels):
                 text = self.font.render(label, True, BaseMode.major_color)
                 x = 0
-                y = self.scale_ypos(series[i]) - self.y_margin//2
+                y = self.scale_ypos(series[i]) - self.y_margin
                 screen.blit(text, (x, y))
 
     def draw_axis(self, labels=None, major=None, minor=None, orientation='x'):
@@ -151,13 +161,7 @@ class SPLMode(BaseMode):
         self.text_size = self.calculate_lable_size(self.y_labels)
         self.y_minor = [y for y in range(-96, 12, 3) if y not in self.y_major]
         self.spl_plot = np.zeros((self.plot_width))
-        self.plot_surface = pygame.Surface((self.plot_width, self.plot_height))
         self.plot_surface.set_colorkey((0, 0, 0))  # Use a transparent color
-
-    def setup_plot(self):
-        self.blank()
-        self.draw_axes()
-        pygame.display.flip()
 
     def draw_axes(self):
         self.draw_axis(major = self.y_major, labels = self.y_labels, minor = self.y_minor, orientation='y')
@@ -173,19 +177,10 @@ class SPLMode(BaseMode):
         self.spl_plot = np.roll(self.spl_plot, -1)
         self.spl_plot[-1] = spl
 
-    def update_plot(self):
-        global rotate
-        self.blank()
-        pygame.draw.rect(self.plot_surface, (255, 255, 255), (0, 0, self.plot_width, self.plot_height), 1)
-
-        self.draw_axes()
-
         for x in range(len(self.spl_plot)-1):
-            p0 = (self.text_size[0] + self.scale_xpos(x),   self.scale_ypos(self.spl_plot[x  ]))
-            p1 = (self.text_size[0] + self.scale_xpos(x+1), self.scale_ypos(self.spl_plot[x+1]))
+            p0 = (self.scale_xpos(x),   self.scale_ypos(self.spl_plot[x  ]))
+            p1 = (self.scale_xpos(x+1), self.scale_ypos(self.spl_plot[x+1]))
             pygame.draw.line(self.plot_surface, self.plot_color, p0, p1)
-        screen.blit(self.plot_surface, (self.x_margin, self.y_margin))
-        pygame.display.flip()
 
 
 class ACFMode(BaseMode):
@@ -193,7 +188,6 @@ class ACFMode(BaseMode):
         super().__init__()
         self.samplerate = samplerate
         self.acf_plot = np.zeros((self.plot_width, self.plot_height,3), dtype=np.uint8)
-        self.plot_surface = pygame.Surface((self.plot_width, self.plot_height))
         self.plot_color = (12, 200, 255)
 
         # FFT parameters
@@ -224,11 +218,6 @@ class ACFMode(BaseMode):
 
     def scale_xpos(self, pos):
         return int(math.log2(pos) * self.mx + self.bx)
-
-    def setup_plot(self):
-        self.blank()
-        self.draw_axes()
-        pygame.display.flip()
 
     def draw_axes(self):
         self.draw_axis(major = self.x_major, labels = self.x_labels, minor = self.x_minor, orientation='x')
@@ -289,46 +278,22 @@ class ACFMode(BaseMode):
         self.acf_plot = np.roll(self.acf_plot, -1, axis=1)
         self.acf_plot[:, -1, :] = np.stack([combined_fft]*3, axis=-1)
 
-    def update_plot(self):
-        global rotate
-        self.blank()
-        pygame.surfarray.blit_array(self.plot_surface, self.acf_plot)
-        # draw rectangle for the plot
-        pygame.draw.rect(self.plot_surface, (255, 255, 255), (0, 0, self.plot_width, self.plot_height), 1)
-        screen.blit(self.plot_surface, (self.x_margin, self.y_margin//2))
-        self.draw_axes()
-        pygame.display.flip()
-
 def test_spl():
     global start_time
-    def generate_spl_data():
-        global start_time
-        samplerate = 48000
-        duration = 2**16 / samplerate
-        t = np.linspace(0, duration, int(samplerate * duration), endpoint=False)
-        data = np.zeros(t.shape)
-        def sine_wave(frequency, db):
-            return 10**(db/20) * np.sqrt(2) * np.sin(2 * np.pi * frequency * t)
-
-        now = time.time()
-        elapsed = now - start_time
-        sweep_time = 6.0
-        f = 1e3
-        if elapsed <= sweep_time:
-            data += sine_wave(f, 108 * elapsed/sweep_time - 96)
-        return data
-
+    
     # Test SPLMode
     mode = SPLMode()
     mode.setup_plot()
     start_time = time.time()
-    mode.spl_plot = np.zeros((mode.plot_width), dtype=np.uint8)
     elapsed = time.time() - start_time
-    previous = None
+    sine_1khz = sine_generator(0.1, 12)
+
     while elapsed < 6.0:
         elapsed = time.time() - start_time
-        mode.process_data(generate_spl_data())
+        data = next(sine_1khz)
+        mode.process_data(data)
         mode.update_plot()
+    print(mode.spl_plot[::192])
 
 def test_acf():
     def generate_acf_data():
@@ -365,11 +330,11 @@ def test_acf():
                 f1 = f0 + 1*2**f
                 data += sine_wave(f0, 12)
                 data += sine_wave(f1, 12)
-            # normalize data
         return data
 
     global start_time
     mode = ACFMode(48000)
+    mode.setup_plot()
     start_time = time.time()
     mode.acf_plot = np.zeros((mode.plot_width, mode.plot_height,3), dtype=np.uint8)
     elapsed = time.time() - start_time

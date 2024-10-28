@@ -3,13 +3,38 @@
 from scipy.signal import find_peaks, freqz
 import numpy as np
 import pygame
+import time
+
+def sine_generator(frequency, db):
+    ''' 
+    Sine wave generator which prentends to be an audio device filling up a buffer
+    with samples since the last time called
+    '''
+    sample_rate = 48000
+    dt = 1 / sample_rate
+    amplitude = np.sqrt(2) * 10**(db/20)
+    start = time.time()
+    phase = 0
+    while True:
+        now = time.time()
+        elapsed = now - start
+        num_samples = int(sample_rate * elapsed)
+        t = np.linspace(0, elapsed, num_samples, endpoint=False)
+        buffer = amplitude* np.sin(2 * np.pi * frequency * t + phase)
+        
+        phase += 2 * np.pi * frequency * elapsed
+        phase = phase % (2 * np.pi)
+        
+        start = now
+        yield buffer
 
 def wait_for_keypress():
     keypress = None
     while True:
         for event in pygame.event.get():
             if event.type == pygame.KEYDOWN:
-                keypress = True
+                if (event.key == pygame.K_SPACE or event.key == pygame.K_q):
+                    keypress = True
                 break
         if keypress:
             break
