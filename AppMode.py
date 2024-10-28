@@ -169,10 +169,12 @@ class SPLMode(BaseMode):
         self.spl_plot[-1] = spl
 
         self.blank()
-        for x in range(len(self.spl_plot)-1):
+        for x in range(len(self.spl_plot)):
             p0 = (self.scale_xpos(x),   self.scale_ypos(self.spl_plot[x  ]))
-            p1 = (self.scale_xpos(x+1), self.scale_ypos(self.spl_plot[x+1]))
-            pygame.draw.line(self.plot_surface, self.plot_color, p0, p1)
+
+            #p1 = (self.scale_xpos(x+1), self.scale_ypos(self.spl_plot[x+1]))
+            #print(p0,p1)
+            #pygame.draw.line(self.plot_surface, self.plot_color, p0, p1)
 
 class ACFMode(BaseMode):
     def __init__(self, samplerate):
