@@ -49,7 +49,7 @@ class BaseMode:
 
         self.mx = self.my = 1
         self.bx = self.by = 0
-        
+
     def setup_plot(self):
         screen.fill((0,0,0)) # blank doesn't clear the screen outside of plot_surface
         self.blank()
@@ -60,7 +60,6 @@ class BaseMode:
         self.plot_surface.fill((0,0,0))
 
     def update_plot(self):
-        self.blank()
         pygame.draw.rect(self.plot_surface, (255, 255, 255), (0, 0, self.plot_width, self.plot_height), 1)  # Draw only the outline
         self.draw_axes()
         screen.blit(self.plot_surface, (self.x_margin, self.y_margin))
@@ -106,7 +105,7 @@ class BaseMode:
                 start_pos = (x, y)
                 end_pos = (x, y + length)
             else:
-                x = self.x_margin 
+                x = self.x_margin
                 y = self.scale_ypos(tick)
                 start_pos = (x, y)
                 end_pos = (x - length, y)
@@ -118,7 +117,7 @@ class BaseMode:
 
         for label, value in zip(labels, series):
             text = self.font.render(label, True, BaseMode.major_color)
-            if orientation == 'x':                    
+            if orientation == 'x':
                     x = self.scale_xpos(value) + self.x_margin - self.text_size[0]//3
                     y = self.y_margin - 1.5*self.major_tick_length - self.text_size[1]
             else:
@@ -169,13 +168,11 @@ class SPLMode(BaseMode):
         self.spl_plot = np.roll(self.spl_plot, -1)
         self.spl_plot[-1] = spl
 
+        self.blank()
         for x in range(len(self.spl_plot)-1):
             p0 = (self.scale_xpos(x),   self.scale_ypos(self.spl_plot[x  ]))
             p1 = (self.scale_xpos(x+1), self.scale_ypos(self.spl_plot[x+1]))
             pygame.draw.line(self.plot_surface, self.plot_color, p0, p1)
-        
-        pygame.draw.line(self.plot_surface, (255,0,0), (0,0), (1920,1080))
-
 
 class ACFMode(BaseMode):
     def __init__(self, samplerate):
@@ -273,8 +270,7 @@ class ACFMode(BaseMode):
         self.acf_plot[:, -1, :] = np.stack([combined_fft]*3, axis=-1)
 
         # Draw the ACF plot to plot_surface
-        self.plot_surface.fill((0,0,0))
-        self.plot_surface.set_colorkey((0, 0, 0))  # Use a transparent color
+        self.blank()
         for x in range(self.plot_width-1):
             p0 = (x,   self.scale_ypos(self.acf_plot[x, -2, 0]))
             p1 = (x+1, self.scale_ypos(self.acf_plot[x+1, -2, 0]))
@@ -283,7 +279,7 @@ class ACFMode(BaseMode):
 
 def test_spl():
     global start_time
-    
+
     # Test SPLMode
     mode = SPLMode()
     mode.setup_plot()
