@@ -39,10 +39,11 @@ class BaseMode:
 
     def __init__(self):
         self.font = pygame.font.Font(None, 24)
-        self.x_margin = self.calculate_lable_size(['20k'])[0]
-        self.y_margin = self.calculate_lable_size(['20k'])[1]//2 + BaseMode.major_tick_length
+        sample_label = self.calculate_lable_size(['20k'])
+        self.x_margin = sample_label[0] + BaseMode.major_tick_length + 200
+        self.y_margin = sample_label[1] + BaseMode.major_tick_length + 200
         self.plot_width = screen_width - 2 * self.x_margin
-        self.plot_height = screen_height - self.y_margin - self.calculate_lable_size(['20k'])[1] - BaseMode.major_tick_length
+        self.plot_height = screen_height - 2 * self.y_margin
         self.plot_color = (12,200,255)
         self.plot_surface = pygame.Surface((self.plot_width, self.plot_height))
 
@@ -62,7 +63,7 @@ class BaseMode:
         self.blank()
         pygame.draw.rect(self.plot_surface, (255, 255, 255), (0, 0, self.plot_width, self.plot_height), 1)  # Draw only the outline
         self.draw_axes()
-        screen.blit(self.plot_surface, (self.x_margin // 2, self.y_margin // 2))
+        screen.blit(self.plot_surface, (self.x_margin, self.y_margin))
         pygame.display.flip()
 
     def calculate_lable_size(self, labels):
@@ -81,9 +82,6 @@ class BaseMode:
     def scale_ypos(self, pos):
         return self.y_margin + int(pos * self.my + self.by)
 
-    def logscale_xpos(self, pos):
-        return self.x_margin + int(math.log2(pos) * self.mx + self.bx)
-
     def draw_ticks(self, series=[], orientation='x', mode='major'):
         if mode == 'major':
             length = self.major_tick_length
@@ -101,10 +99,6 @@ class BaseMode:
             plot_min = 0
             plot_max = self.plot_width
 
-        data_min = min(series)
-        data_range = max(series) - data_min
-        screen_range = plot_max - plot_min
-
         for tick in series:
             if orientation == 'x':
                 x = self.x_margin + self.scale_xpos(tick)
@@ -112,8 +106,8 @@ class BaseMode:
                 start_pos = (x, y)
                 end_pos = (x, y + length)
             else:
-                x = self.x_margin  + length
-                y = self.scale_ypos(tick) - self.text_size[1]//2 + 1
+                x = self.x_margin 
+                y = self.scale_ypos(tick) 
                 start_pos = (x, y)
                 end_pos = (x - length, y)
             pygame.draw.line(screen, color, start_pos, end_pos, width)
@@ -122,18 +116,17 @@ class BaseMode:
         if len(labels) != len(series):
             raise ValueError('Length of labels must match length of major ticks')
 
-        if orientation == 'x':
-            for i, label in enumerate(labels):
-                text = self.font.render(label, True, BaseMode.major_color)
-                x = self.scale_xpos(series[i]) + self.x_margin//2
-                y = screen_height - self.text_size[1]
-                screen.blit(text, (x, y))
-        else:
-            for i, label in enumerate(labels):
-                text = self.font.render(label, True, BaseMode.major_color)
-                x = 0
-                y = self.scale_ypos(series[i]) - self.y_margin
-                screen.blit(text, (x, y))
+        for i, label in enumerate(labels):
+            value = series[i]
+            text = self.font.render(label, True, BaseMode.major_color)
+            if orientation == 'x':                    
+                    x = self.scale_xpos(value)
+                    y = screen_height - self.text_size[1]
+            else:
+                for i, label in enumerate(labels):
+                    x = 0
+                    y = self.scale_ypos(value) - self.text_size[1]//3
+            screen.blit(text, (x, y))
 
     def draw_axis(self, labels=None, major=None, minor=None, orientation='x'):
         # Draw major ticks
@@ -181,6 +174,8 @@ class SPLMode(BaseMode):
             p0 = (self.scale_xpos(x),   self.scale_ypos(self.spl_plot[x  ]))
             p1 = (self.scale_xpos(x+1), self.scale_ypos(self.spl_plot[x+1]))
             pygame.draw.line(self.plot_surface, self.plot_color, p0, p1)
+        
+        pygame.draw.line(self.plot_surface, (255,0,0), (0,0), (1920,1080))
 
 
 class ACFMode(BaseMode):
@@ -201,8 +196,8 @@ class ACFMode(BaseMode):
         self.x_minor= [(self.x_major[0]*2**(f/6)) for f in range(0, 54) if f % 3 != 0]
         self.text_size = self.calculate_lable_size(self.x_labels)
 
-        self.my = 1
-        self.by = self.plot_height
+        self.my = -1
+        self.by = 0
         self.mx = self.plot_width / (math.log2(self.x_major[-1])-math.log2(self.x_major[0]))
         self.bx = -self.mx * math.log2(self.x_major[0])
         self.log_freq_bins = np.logspace(np.log2(self.x_major[0]), np.log2(self.x_major[-1]), self.plot_width, base=2)
@@ -293,7 +288,6 @@ def test_spl():
         data = next(sine_1khz)
         mode.process_data(data)
         mode.update_plot()
-    print(mode.spl_plot[::192])
 
 def test_acf():
     def generate_acf_data():
