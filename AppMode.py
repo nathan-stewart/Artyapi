@@ -57,9 +57,11 @@ class BaseMode:
         pygame.display.flip()
 
     def blank(self):
-        self.plot_surface.fill((0,0,0))
+        screen.fill((0,0,0)) # blank doesn't clear the screen outside of plot_surface
+        
 
     def update_plot(self):
+        self.blank()
         pygame.draw.rect(self.plot_surface, (255, 255, 255), (0, 0, self.plot_width, self.plot_height), 1)  # Draw only the outline
         self.draw_axes()
         screen.blit(self.plot_surface, (self.x_margin, self.y_margin))
@@ -168,13 +170,16 @@ class SPLMode(BaseMode):
         self.spl_plot = np.roll(self.spl_plot, -1)
         self.spl_plot[-1] = spl
 
-        self.blank()
-        for x in range(len(self.spl_plot)):
-            p0 = (self.scale_xpos(x),   self.scale_ypos(self.spl_plot[x  ]))
+        # draw the SPL plot to plot_surface
+        self.plot_surface.fill((0,0,0))
 
-            #p1 = (self.scale_xpos(x+1), self.scale_ypos(self.spl_plot[x+1]))
-            #print(p0,p1)
-            #pygame.draw.line(self.plot_surface, self.plot_color, p0, p1)
+        for x in range(len(self.spl_plot) -1):
+            p0 = (self.scale_xpos(x),   self.scale_ypos(self.spl_plot[x  ]))
+            p1 = (self.scale_xpos(x+1), self.scale_ypos(self.spl_plot[x+1]))
+            pygame.draw.line(self.plot_surface, self.plot_color, p0, p1)
+
+            # draw pixels instead of lines
+            #self.plot_surface.set_at(p0, self.plot_color)
 
 class ACFMode(BaseMode):
     def __init__(self, samplerate):
@@ -287,11 +292,13 @@ def test_spl():
     mode.setup_plot()
     start_time = time.time()
     elapsed = time.time() - start_time
-    sine_1khz = sine_generator(0.1, 12)
-
-    while elapsed < 6.0:
+    duration = 6.0
+    sine_1khz = sine_generator(1e3, 12)
+    
+    while elapsed < duration:
         elapsed = time.time() - start_time
-        data = next(sine_1khz)
+        # ramp sine from -96db to 12db linearly over duration
+        data = next(sine_1khz) * 10**(elapsed/duration * 12/20)
         mode.process_data(data)
         mode.update_plot()
 
