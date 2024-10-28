@@ -40,8 +40,8 @@ class BaseMode:
     def __init__(self):
         self.font = pygame.font.Font(None, 24)
         sample_label = self.calculate_lable_size(['20k'])
-        self.x_margin = sample_label[0] + BaseMode.major_tick_length + 200
-        self.y_margin = sample_label[1] + BaseMode.major_tick_length + 200
+        self.x_margin = sample_label[0] + 2 * BaseMode.major_tick_length
+        self.y_margin = sample_label[1] + 2 * BaseMode.major_tick_length
         self.plot_width = screen_width - 2 * self.x_margin
         self.plot_height = screen_height - 2 * self.y_margin
         self.plot_color = (12,200,255)
@@ -102,12 +102,12 @@ class BaseMode:
         for tick in series:
             if orientation == 'x':
                 x = self.x_margin + self.scale_xpos(tick)
-                y = screen_height - self.text_size[1] - 2*self.major_tick_length
+                y = self.y_margin - self.major_tick_length
                 start_pos = (x, y)
                 end_pos = (x, y + length)
             else:
                 x = self.x_margin 
-                y = self.scale_ypos(tick) 
+                y = self.scale_ypos(tick)
                 start_pos = (x, y)
                 end_pos = (x - length, y)
             pygame.draw.line(screen, color, start_pos, end_pos, width)
@@ -116,15 +116,14 @@ class BaseMode:
         if len(labels) != len(series):
             raise ValueError('Length of labels must match length of major ticks')
 
-        for i, label in enumerate(labels):
-            value = series[i]
+        for label, value in zip(labels, series):
             text = self.font.render(label, True, BaseMode.major_color)
             if orientation == 'x':                    
-                    x = self.scale_xpos(value)
-                    y = screen_height - self.text_size[1]
+                    x = self.scale_xpos(value) + self.x_margin - self.text_size[0]//3
+                    y = self.y_margin - 1.5*self.major_tick_length - self.text_size[1]
             else:
                 for i, label in enumerate(labels):
-                    x = 0
+                    x = self.x_margin - self.text_size[0] - 1.5*self.major_tick_length
                     y = self.scale_ypos(value) - self.text_size[1]//3
             screen.blit(text, (x, y))
 
