@@ -189,7 +189,7 @@ class ACFMode(BaseMode):
         self.plot_color = (12, 200, 255)
 
         # FFT parameters
-        self.window_size = 8192
+        self.window_size = 32768
         self.set_numfolds(4)
         self.previous = None
 
@@ -206,8 +206,8 @@ class ACFMode(BaseMode):
         self.log_freq_bins = np.logspace(np.log2(self.x_major[0]), np.log2(self.x_major[-1]), self.plot_width, base=2)
 
     def set_numfolds(self, f):
-        global lastmsg
         f = int(f)
+        f = 0
         self.num_folds = min(max(f,0), 8)
         self.lpf = [ firwin(1024, 0.999*2**-(n)) for n in range(0,self.num_folds+1)]
         self.hist_len = self.window_size * 2 ** self.num_folds
@@ -234,16 +234,16 @@ class ACFMode(BaseMode):
 
         # Process each octave
         for fold in range(self.num_folds + 1):
-            downsample_len = self.window_size * 2 ** fold
+            segment_len = self.window_size * 2 ** fold
 
             # Apply anti-aliasing filter before downsampling (if necessary)
-            filtered_data =  lfilter(self.lpf[fold], 1, self.history[-downsample_len:])
+            filtered_data =  lfilter(self.lpf[fold], 1, self.history[-segment_len:])
 
             # Downsample the signal
-            downsampled_data = np.mean(filtered_data[:downsample_len].reshape(-1, 2**fold), axis=1)
+            downsampled_data = np.mean(filtered_data[:segment_len].reshape(-1, 2**fold), axis=1)
 
             # Apply window function
-            windowed_data = downsampled_data * self.window[:downsample_len]
+            windowed_data = downsampled_data * self.window[:segment_len]
 
             # Compute FFT
             fft_data = np.fft.rfft(windowed_data, n=self.window_size)
@@ -264,11 +264,11 @@ class ACFMode(BaseMode):
                 lower_half = len(fft_data) // 2
                 combined_fft[0:lower_half] = fft_data[0:lower_half]
 
+        # Use downsampled data for the next fold
+        self.history[-segment_len:] = downsampled_data
+        
         # Average the combined FFT result
         combined_fft /= (self.num_folds + 1)
-
-        # Print the significant peaks in the FFT data
-        #_fft_summary("FFT Data", log_fft_data, log_freq_bins)
 
         # scale data to input range
         combined_fft = np.clip((log_fft_data + 96) * (255 / 108), 0, 255)
@@ -278,10 +278,8 @@ class ACFMode(BaseMode):
 
         # Draw the ACF plot to plot_surface
         self.blank()
-        for x in range(self.plot_width-1):
-            p0 = (x,   self.scale_ypos(self.acf_plot[x, -2, 0]))
-            p1 = (x+1, self.scale_ypos(self.acf_plot[x+1, -2, 0]))
-            pygame.draw.line(self.plot_surface, self.plot_color, p0, p1)
+        self.acf_plot[:, -1, :] = np.stack([log_fft_data]*3, axis=-1)
+        pygame.surfarray.blit_array(self.plot_surface, self.acf_plot)
 
 
 def test_spl():
@@ -294,7 +292,7 @@ def test_spl():
     elapsed = time.time() - start_time
     duration = 6.0
     sine_1khz = sine_generator(1e3, 12)
-    
+
     while elapsed < duration:
         elapsed = time.time() - start_time
         # ramp sine from -96db to 12db linearly over duration
@@ -312,13 +310,6 @@ def test_acf():
 
         def sine_wave(frequency, db):
             return 10**(db/20) * np.sin(2 * np.pi * frequency * t)
-
-        def bandpass_noise(f1, f2, db):
-            noise = np.random.normal(0, 1, t.shape)
-            b,a = firwin(400, [f1,f2], pass_zero=False, fs=samplerate), 1
-            filtered_noise = lfilter(b, a, noise)
-            filtered_noise = lfilter(b, a, filtered_noise)
-            return 10**(db/20) * filtered_noise
 
         now = time.time()
         elapsed = now - start_time
