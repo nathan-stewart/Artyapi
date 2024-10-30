@@ -153,7 +153,7 @@ class SPLMode(BaseMode):
         self.y_labels[-2] = " 0" # fix intentionally broken python behavior
         self.text_size = self.calculate_label_size(self.y_labels)
         self.y_minor = [y for y in range(-96, 12, 3) if y not in self.y_major]
-        self.spl_plot = np.zeros((self.plot_width))
+        self.spl_plot = np.array([-96] * self.plot_width)
         self.plot_surface.set_colorkey((0, 0, 0))  # Use a transparent color
 
     def draw_axes(self):
@@ -182,14 +182,14 @@ class SPLMode(BaseMode):
             #self.plot_surface.set_at(p0, self.plot_color)
 
 class ACFMode(BaseMode):
-    def __init__(self, samplerate):
+    def __init__(self, windowsize, samplerate):
         super().__init__()
         self.samplerate = samplerate
         self.acf_plot = np.zeros((self.plot_width, self.plot_height,3), dtype=np.uint8)
         self.plot_color = (12, 200, 255)
 
         # FFT parameters
-        self.window_size = 32768
+        self.window_size = 2**(int(math.log2(windowsize)))
         self.set_numfolds(4)
         self.previous = None
 
