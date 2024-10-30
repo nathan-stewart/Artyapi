@@ -58,7 +58,7 @@ class BaseMode:
 
     def blank(self):
         screen.fill((0,0,0)) # blank doesn't clear the screen outside of plot_surface
-        
+
 
     def update_plot(self):
         self.blank()
@@ -210,8 +210,8 @@ class ACFMode(BaseMode):
         f = 0
         self.num_folds = min(max(f,0), 8)
         self.lpf = [ firwin(1024, 0.999*2**-(n)) for n in range(0,self.num_folds+1)]
-        self.hist_len = self.window_size * 2 ** self.num_folds
-        self.history = np.zeros(self.hist_len)
+        self.hist_len = self.window_size * 2
+        self.history = [np.zeros(self.hist_len) for f in range(self.num_folds+1)]
         self.window = get_window('hann', self.window_size)
 
     def scale_xpos(self, pos):
@@ -220,30 +220,29 @@ class ACFMode(BaseMode):
     def draw_axes(self):
         self.draw_axis(major = self.x_major, labels = self.x_labels, minor = self.x_minor, orientation='x')
 
+    def update_history(self, data):
+        # Roll the history buffer and push new data
+        roll_len = min(len(data), self.hist_len)
+        self.history[0] = np.roll(self.history[0], -roll_len)
+        self.history[0][-roll_len:] = data[-roll_len:]
+
+        # Apply low-pass filters to the history buffer and downsample
+        for h in range(1,len(self.history)):
+            filtered = lfilter(self.lpf[h], 1, self.history[h-1][-self.window_size:])
+            self.history[h] = np.mean(filtered.reshape(-1, 2), axis=1)
+
     # progressive FFT
     def process_data(self, data):
         global LOGMIN, LOGMAX
 
-        # Roll the history buffer and push new data
-        roll_len = min(len(data), self.hist_len)
-        self.history = np.roll(self.history, -roll_len)
-        self.history[-roll_len:] = data[-roll_len:]
-
+        self.update_history(data)
         # Initialize the combined FFT result
         combined_fft = np.zeros(self.window_size // 2 + 1)
 
         # Process each octave
         for fold in range(self.num_folds + 1):
-            segment_len = self.window_size * 2 ** fold
-
-            # Apply anti-aliasing filter before downsampling (if necessary)
-            filtered_data =  lfilter(self.lpf[fold], 1, self.history[-segment_len:])
-
-            # Downsample the signal
-            downsampled_data = np.mean(filtered_data[:segment_len].reshape(-1, 2**fold), axis=1)
-
             # Apply window function
-            windowed_data = downsampled_data * self.window[:segment_len]
+            windowed_data = self.history[fold][-self.window_size:] * self.window
 
             # Compute FFT
             fft_data = np.fft.rfft(windowed_data, n=self.window_size)
@@ -264,9 +263,6 @@ class ACFMode(BaseMode):
                 lower_half = len(fft_data) // 2
                 combined_fft[0:lower_half] = fft_data[0:lower_half]
 
-        # Use downsampled data for the next fold
-        self.history[-segment_len:] = downsampled_data
-        
         # Average the combined FFT result
         combined_fft /= (self.num_folds + 1)
 
@@ -280,7 +276,6 @@ class ACFMode(BaseMode):
         self.blank()
         self.acf_plot[:, -1, :] = np.stack([log_fft_data]*3, axis=-1)
         pygame.surfarray.blit_array(self.plot_surface, self.acf_plot)
-
 
 def test_spl():
     global start_time
@@ -331,7 +326,7 @@ def test_acf():
         return data
 
     global start_time
-    mode = ACFMode(48000)
+    mode = ACFMode(windowsize=4096, samplerate=48000)
     mode.setup_plot()
     start_time = time.time()
     mode.acf_plot = np.zeros((mode.plot_width, mode.plot_height,3), dtype=np.uint8)
