@@ -182,7 +182,7 @@ class SPLMode(BaseMode):
             #self.plot_surface.set_at(p0, self.plot_color)
 
 class ACFMode(BaseMode):
-    def __init__(self, windowsize, samplerate):
+    def __init__(self, windowsize=4096, samplerate=48000, numfolds=4):
         super().__init__()
         self.samplerate = samplerate
         self.acf_plot = np.zeros((self.plot_width, self.plot_height,3), dtype=np.uint8)
@@ -190,7 +190,7 @@ class ACFMode(BaseMode):
 
         # FFT parameters
         self.window_size = 2**(int(math.log2(windowsize)))
-        self.set_numfolds(4)
+        self.numfolds(numfolds)
         self.previous = None
 
         # last tick is 16.3k but the plot goes to 20k to allow label space
@@ -205,13 +205,11 @@ class ACFMode(BaseMode):
         self.bx = -self.mx * math.log2(self.x_major[0])
         self.log_freq_bins = np.logspace(np.log2(self.x_major[0]), np.log2(self.x_major[-1]), self.plot_width, base=2)
 
-    def set_numfolds(self, f):
+    def numfolds(self, f):
         f = int(f)
-        f = 0
         self.num_folds = min(max(f,0), 8)
         self.lpf = [ firwin(1024, 0.999*2**-(n)) for n in range(0,self.num_folds+1)]
-        self.hist_len = self.window_size * 2
-        self.history = [np.zeros(self.hist_len) for f in range(self.num_folds+1)]
+        self.history = [np.zeros(self.window_size * 2) for _ in range(self.num_folds + 1)]
         self.window = get_window('hann', self.window_size)
 
     def scale_xpos(self, pos):
@@ -222,22 +220,28 @@ class ACFMode(BaseMode):
 
     def update_history(self, data):
         # Roll the history buffer and push new data
-        roll_len = min(len(data), self.hist_len)
-        self.history[0] = np.roll(self.history[0], -roll_len)
+        roll_len = min(len(data), self.window_size * 2)
+        self.history[0] = np.roll(self.history[0], -roll_len)        
         self.history[0][-roll_len:] = data[-roll_len:]
 
         # Apply low-pass filters to the history buffer and downsample
         for h in range(1,len(self.history)):
-            filtered = lfilter(self.lpf[h], 1, self.history[h-1][-self.window_size:])
-            self.history[h] = np.mean(filtered.reshape(-1, 2), axis=1)
+            filtered = lfilter(self.lpf[h], 1, self.history[h-1])
+            downsampled = np.mean(filtered.reshape(-1, 2), axis=1)
+            self.history[h] = np.roll( self.history[h], -self.window_size)
+            self.history[h][-self.window_size:] = downsampled
 
     # progressive FFT
     def process_data(self, data):
         global LOGMIN, LOGMAX
 
         self.update_history(data)
+
         # Initialize the combined FFT result
         combined_fft = np.zeros(self.window_size // 2 + 1)
+
+        # Interpolate FFT data to log-spaced bins
+        freq_bins = np.fft.rfftfreq(self.window_size, 1/self.samplerate)
 
         # Process each octave
         for fold in range(self.num_folds + 1):
@@ -251,9 +255,6 @@ class ACFMode(BaseMode):
 
             # Normalize the FFT data
             normalized_fft = 20 * np.log10(np.clip(combined_fft / self.window_size, LOGMIN, LOGMAX))
-
-            # Interpolate FFT data to log-spaced bins
-            freq_bins = np.fft.rfftfreq(self.window_size, 1/self.samplerate)
             log_fft_data = np.interp(self.log_freq_bins, freq_bins, normalized_fft)
 
             if fold == 0:
@@ -262,7 +263,8 @@ class ACFMode(BaseMode):
                 # Replace lower resolution values with higher resolution FFT data
                 lower_half = len(fft_data) // 2
                 combined_fft[0:lower_half] = fft_data[0:lower_half]
-
+        
+        print_fft_summary("fft", fft_data, freq_bins)
         # Average the combined FFT result
         combined_fft /= (self.num_folds + 1)
 
@@ -337,7 +339,7 @@ def test_acf():
         if elapsed > 6.0:
             f = int((elapsed - 6.0) / 2.0)
             if f != previous:
-                mode.set_numfolds(f)
+                mode.numfolds(f)
                 previous = f
         mode.process_data(generate_acf_data())
         mode.update_plot()
