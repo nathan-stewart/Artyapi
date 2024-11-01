@@ -181,7 +181,7 @@ class SPLMode(BaseMode):
             #self.plot_surface.set_at(p0, self.plot_color)
 
 class ACFMode(BaseMode):
-    def __init__(self, windowsize=4096, samplerate=48000, numfolds=4):
+    def __init__(self, windowsize=4096, samplerate=48000, numfolds=2):
         super().__init__()
         self.samplerate = samplerate
         self.acf_plot = np.zeros((self.plot_width, self.plot_height,3), dtype=np.uint8)
@@ -254,11 +254,10 @@ class ACFMode(BaseMode):
 
             # Normalize the FFT data
             normalized_fft = 20 * np.log10(np.clip(fft_data / self.window_size, LOGMIN, LOGMAX))
-            print(np.max(normalized_fft))
             log_fft_data = np.interp(self.log_freq_bins, freq_bins, normalized_fft)
-
+            
             # Replace lower resolution values with higher resolution FFT data
-            lower_half = len(log_fft_data) * (2**-fold)
+            lower_half = int(len(log_fft_data) * (2**-fold))
             combined_fft[0:lower_half] = log_fft_data[0:lower_half]
 
         if np.max(fft_data) > 12.0:
@@ -298,7 +297,7 @@ def test_spl():
 
 def test_acf():
     global start_time
-    num_folds = 0
+    num_folds = 4
     mode = ACFMode(windowsize=8192, samplerate=48000, numfolds = num_folds)
     mode.setup_plot()
     start_time = time.time()
@@ -306,26 +305,27 @@ def test_acf():
     elapsed = time.time() - start_time
     duration = 4.0
     sweep = sweep_generator(40, 20e3, duration, 12.0)
-
     while elapsed < duration:
         elapsed = time.time() - start_time
         data = next(sweep)
         mode.process_data(data)
         mode.update_plot()
 
-    duration = 4.0
-    start_time = time.time()
-    elapsed = 0
+    perfold = 4.0
+    num_folds = 6
+    start_time = time.time()    
     discriminator = resolution_generator()
     previous = None
-    while elapsed < duration:
-        elapsed = time.time() - start_time
-        folding = int(num_folds * elapsed / duration)
-        if folding != previous:
-            mode.numfolds(folding)
-            previous = folding
-        mode.process_data(next(discriminator))
-        mode.update_plot()
+    for fold in range(num_folds):
+        elapsed = 0
+        while elapsed < perfold:
+            elapsed = time.time() - start_time
+            folding = int(num_folds * elapsed / duration)
+            if folding != previous:
+                mode.numfolds(folding)
+                previous = folding
+            mode.process_data(next(discriminator))
+            mode.update_plot()
 
 if __name__ == "__main__":
     import sys
