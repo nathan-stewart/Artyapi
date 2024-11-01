@@ -251,18 +251,16 @@ class ACFMode(BaseMode):
             # Compute FFT
             fft_data = np.fft.rfft(windowed_data, n=self.window_size)
             fft_data = np.abs(fft_data)
-            fft_data = np.clip(fft_data, LOGMIN, LOGMAX)
 
             # Normalize the FFT data
-            normalized_fft = 20 * np.log10(np.clip(combined_fft / self.window_size, LOGMIN, LOGMAX))
+            normalized_fft = 20 * np.log10(np.clip(fft_data / self.window_size, LOGMIN, LOGMAX))
+            print(np.max(normalized_fft))
             log_fft_data = np.interp(self.log_freq_bins, freq_bins, normalized_fft)
 
-            if fold == 0:
-                combined_fft = fft_data
-            else:
-                # Replace lower resolution values with higher resolution FFT data
-                lower_half = len(fft_data) // 2
-                combined_fft[0:lower_half] = fft_data[0:lower_half]
+            # Replace lower resolution values with higher resolution FFT data
+            lower_half = len(log_fft_data) * (2**-fold)
+            combined_fft[0:lower_half] = log_fft_data[0:lower_half]
+
         if np.max(fft_data) > 12.0:
             pass # print_fft_summary("fft", fft_data, freq_bins)
 
@@ -299,27 +297,9 @@ def test_spl():
         mode.update_plot()
 
 def test_acf():
-    # def generate_acf_resolve():
-    #     global start_time
-    #     samplerate = 48000
-    #     duration = 2**16 / samplerate
-    #     t = np.linspace(0, duration, int(samplerate * duration), endpoint=False)
-
-    #     f0 = 40
-    #     f1 = 20e3
-    #     bin_centers = [f for f in range(1, 8)]
-    #     # what is the frequency discrimination of each fold?
-    #     for f in bin_centers:
-    #         f0 = 40*2**f
-    #         # chose f1 to show resolving power increasing 
-    #         f1 = f0 + 3.0 * (2 ** f)
-    #         data =  sine_wave(f0, 12, t) / 2
-    #         data += sine_wave(f1, 12, t) / 2
-    #     return data
-
     global start_time
-    num_folds = 4
-    mode = ACFMode(windowsize=4096, samplerate=48000, numfolds = num_folds)
+    num_folds = 0
+    mode = ACFMode(windowsize=8192, samplerate=48000, numfolds = num_folds)
     mode.setup_plot()
     start_time = time.time()
     mode.acf_plot = np.zeros((mode.plot_width, mode.plot_height,3), dtype=np.uint8)
@@ -333,17 +313,19 @@ def test_acf():
         mode.process_data(data)
         mode.update_plot()
 
-    # duration = 4.0
-    # elapsed = time.time() - start_time
-    # while elapsed < duration:
-    #     elapsed = time.time() - start_time
-
-    #     folding = int(elapsed / (duration / num_folds))
-    #     if folding != previous:
-    #         mode.numfolds(folding)
-    #         previous = folding
-    #     mode.process_data(generate_acf_resolve())
-    #     mode.update_plot()
+    duration = 4.0
+    start_time = time.time()
+    elapsed = 0
+    discriminator = resolution_generator()
+    previous = None
+    while elapsed < duration:
+        elapsed = time.time() - start_time
+        folding = int(num_folds * elapsed / duration)
+        if folding != previous:
+            mode.numfolds(folding)
+            previous = folding
+        mode.process_data(next(discriminator))
+        mode.update_plot()
 
 if __name__ == "__main__":
     import sys
@@ -354,6 +336,7 @@ if __name__ == "__main__":
             tests = [test_spl]
         elif sys.argv[1] == 'acf':
             tests = [test_acf]
+    
     for test in tests:
         test()
         wait_for_keypress()
