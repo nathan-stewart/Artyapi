@@ -11,12 +11,11 @@ def sine_generator(frequency, db):
     with samples since the last time called
     '''
     sample_rate = 48000
-    dt = 1 / sample_rate
     amplitude = np.sqrt(2) * 10**(db/20)
     start = time.time()
     phase = 0
+    now = time.time()
     while True:
-        now = time.time()
         elapsed = now - start
         num_samples = int(sample_rate * elapsed)
         t = np.linspace(0, elapsed, num_samples, endpoint=False)
@@ -24,6 +23,35 @@ def sine_generator(frequency, db):
         
         phase += 2 * np.pi * frequency * elapsed
         phase = phase % (2 * np.pi)
+        
+        start = now
+        yield buffer
+
+def sweep_generator(f0, f1, duration, db):
+    ''' 
+    Sine wave generator which pretends to be an audio device filling up a buffer
+    with samples since the last time called
+    '''
+    sample_rate = 48000
+    amplitude = np.sqrt(2) * 10**(db/20)
+    start = time.time()
+    phase = 0
+    sweep = 0
+    while True:
+        now = time.time()
+        elapsed = now - start
+        sweep += elapsed
+        num_samples = int(sample_rate * elapsed)
+        t = np.linspace(0, elapsed, num_samples, endpoint=False)
+        
+        # Linear frequency sweep
+        frequency = f0 + (f1 - f0) * (sweep/duration)
+        
+        # Generate the buffer with the frequency sweep
+        buffer = amplitude * np.sin(2 * np.pi * frequency * t + phase)
+        
+        # Update the phase
+        phase += 2 * np.pi * (f0 * elapsed + 0.5 * (f1 - f0) * (elapsed ** 2) / duration) % (2 * np.pi)
         
         start = now
         yield buffer

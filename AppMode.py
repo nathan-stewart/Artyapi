@@ -220,15 +220,16 @@ class ACFMode(BaseMode):
     def update_history(self, data):
         # Roll the history buffer and push new data
         roll_len = min(len(data), self.window_size * 2)
-        self.history[0] = np.roll(self.history[0], -roll_len)        
-        self.history[0][-roll_len:] = data[-roll_len:]
+        if roll_len > 0:
+            self.history[0] = np.roll(self.history[0], -roll_len)        
+            self.history[0][-roll_len:] = data[-roll_len:]
 
-        # Apply low-pass filters to the history buffer and downsample
-        for h in range(1,len(self.history)):
-            filtered = lfilter(self.lpf[h], 1, self.history[h-1])
-            downsampled = np.mean(filtered.reshape(-1, 2), axis=1)
-            self.history[h] = np.roll( self.history[h], -self.window_size)
-            self.history[h][-self.window_size:] = downsampled
+            # Apply low-pass filters to the history buffer and downsample
+            for h in range(1,len(self.history)):
+                filtered = lfilter(self.lpf[h], 1, self.history[h-1])
+                downsampled = np.mean(filtered.reshape(-1, 2), axis=1)
+                self.history[h] = np.roll( self.history[h], -self.window_size)
+                self.history[h][-self.window_size:] = downsampled
         
     # progressive FFT
     def process_data(self, data):
@@ -263,7 +264,7 @@ class ACFMode(BaseMode):
                 lower_half = len(fft_data) // 2
                 combined_fft[0:lower_half] = fft_data[0:lower_half]
         if np.max(fft_data) > 12.0:
-            print_fft_summary("fft", fft_data, freq_bins)
+            pass # print_fft_summary("fft", fft_data, freq_bins)
 
         # Average the combined FFT result
         combined_fft /= (self.num_folds + 1)
@@ -298,51 +299,51 @@ def test_spl():
         mode.update_plot()
 
 def test_acf():
-    def generate_acf_data():
-        global start_time
-        samplerate = 48000
-        duration = 2**16 / samplerate
-        t = np.linspace(0, duration, int(samplerate * duration), endpoint=False)
-        data = np.zeros(t.shape)
+    # def generate_acf_resolve():
+    #     global start_time
+    #     samplerate = 48000
+    #     duration = 2**16 / samplerate
+    #     t = np.linspace(0, duration, int(samplerate * duration), endpoint=False)
 
-        def sine_wave(frequency, db):
-            return 10**(db/20) * np.sin(2 * np.pi * frequency * t)
-
-        now = time.time()
-        elapsed = now - start_time
-        sweep_time = 4.0
-        f0 = 40
-        f1 = 20e3
-        if elapsed <= sweep_time:
-            # sweep sine wave
-            f = f0 + (f1 - f0) * ((sweep_time - elapsed)/sweep_time)
-            data += sine_wave(f, 12)
-        else:
-            bin_centers = [f for f in range(1, 8)]
-            # what is the frequency discrimination of each fold?
-            for f in bin_centers:
-                f0 = 40*2**f
-                f1 = f0 + 1*2**f
-                data += sine_wave(f0, 12) / 2
-                data += sine_wave(f1, 12) / 2
-        return data
+    #     f0 = 40
+    #     f1 = 20e3
+    #     bin_centers = [f for f in range(1, 8)]
+    #     # what is the frequency discrimination of each fold?
+    #     for f in bin_centers:
+    #         f0 = 40*2**f
+    #         # chose f1 to show resolving power increasing 
+    #         f1 = f0 + 3.0 * (2 ** f)
+    #         data =  sine_wave(f0, 12, t) / 2
+    #         data += sine_wave(f1, 12, t) / 2
+    #     return data
 
     global start_time
-    mode = ACFMode(windowsize=4096, samplerate=48000)
+    num_folds = 4
+    mode = ACFMode(windowsize=4096, samplerate=48000, numfolds = num_folds)
     mode.setup_plot()
     start_time = time.time()
     mode.acf_plot = np.zeros((mode.plot_width, mode.plot_height,3), dtype=np.uint8)
     elapsed = time.time() - start_time
-    previous = None
-    while elapsed < 24.0:
+    duration = 4.0
+    sweep = sweep_generator(40, 20e3, duration, 12.0)
+
+    while elapsed < duration:
         elapsed = time.time() - start_time
-        if elapsed > 6.0:
-            f = int((elapsed - 6.0) / 2.0)
-            if f != previous:
-                mode.numfolds(f)
-                previous = f
-        mode.process_data(generate_acf_data())
+        data = next(sweep)
+        mode.process_data(data)
         mode.update_plot()
+
+    # duration = 4.0
+    # elapsed = time.time() - start_time
+    # while elapsed < duration:
+    #     elapsed = time.time() - start_time
+
+    #     folding = int(elapsed / (duration / num_folds))
+    #     if folding != previous:
+    #         mode.numfolds(folding)
+    #         previous = folding
+    #     mode.process_data(generate_acf_resolve())
+    #     mode.update_plot()
 
 if __name__ == "__main__":
     import sys
