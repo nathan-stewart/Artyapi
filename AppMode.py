@@ -19,7 +19,6 @@ import pygame
 
 LOGMIN = 1.584e-5
 LOGMAX = 10**5.25
-lastmsg = None
 
 pygame.init()
 screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
@@ -230,7 +229,7 @@ class ACFMode(BaseMode):
             downsampled = np.mean(filtered.reshape(-1, 2), axis=1)
             self.history[h] = np.roll( self.history[h], -self.window_size)
             self.history[h][-self.window_size:] = downsampled
-
+        
     # progressive FFT
     def process_data(self, data):
         global LOGMIN, LOGMAX
@@ -263,8 +262,9 @@ class ACFMode(BaseMode):
                 # Replace lower resolution values with higher resolution FFT data
                 lower_half = len(fft_data) // 2
                 combined_fft[0:lower_half] = fft_data[0:lower_half]
-        
-        print_fft_summary("fft", fft_data, freq_bins)
+        if np.max(fft_data) > 12.0:
+            print_fft_summary("fft", fft_data, freq_bins)
+
         # Average the combined FFT result
         combined_fft /= (self.num_folds + 1)
 
@@ -323,8 +323,8 @@ def test_acf():
             for f in bin_centers:
                 f0 = 40*2**f
                 f1 = f0 + 1*2**f
-                data += sine_wave(f0, 12)
-                data += sine_wave(f1, 12)
+                data += sine_wave(f0, 12) / 2
+                data += sine_wave(f1, 12) / 2
         return data
 
     global start_time
