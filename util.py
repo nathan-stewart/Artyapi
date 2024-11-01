@@ -56,6 +56,34 @@ def sweep_generator(f0, f1, duration, db):
         start = now
         yield buffer
 
+def resolution_generator():
+    ''' 
+    Generate f0, f1 sine wave pairs at 40, 46, 80, 92, 160, 184 Hz...
+    '''
+    sample_rate = 48000
+    amplitude = np.sqrt(2) * 10**(12/20)  # Example amplitude for 12 dB
+    frequencies = [(40, 46), (80, 92), (160, 184)]
+    phase = 0
+    start = time.time()
+    
+    while True:
+        now = time.time()
+        elapsed = now - start
+        num_samples = int(sample_rate * elapsed)
+        t = np.linspace(0, elapsed, num_samples, endpoint=False)
+        
+        buffer = np.zeros(num_samples)
+        
+        for f0, f1 in frequencies:
+            buffer += amplitude * np.sin(2 * np.pi * f0 * t + phase)
+            buffer += amplitude * np.sin(2 * np.pi * f1 * t + phase)
+        
+        phase += 2 * np.pi * sample_rate * elapsed
+        phase = phase % (2 * np.pi)
+        
+        start = now
+        yield buffer
+
 def wait_for_keypress():
     keypress = None
     while True:
