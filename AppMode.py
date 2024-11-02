@@ -181,7 +181,7 @@ class SPLMode(BaseMode):
             #self.plot_surface.set_at(p0, self.plot_color)
 
 class ACFMode(BaseMode):
-    def __init__(self, windowsize=4096, samplerate=48000, numfolds=2):
+    def __init__(self, windowsize=16384, samplerate=48000, numfolds=2):
         super().__init__()
         self.samplerate = samplerate
         self.acf_plot = np.zeros((self.plot_width, self.plot_height,3), dtype=np.uint8)
@@ -254,11 +254,12 @@ class ACFMode(BaseMode):
 
             # Normalize the FFT data
             normalized_fft = 20 * np.log10(np.clip(fft_data / self.window_size, LOGMIN, LOGMAX))
-            log_fft_data = np.interp(self.log_freq_bins, freq_bins, normalized_fft)
             
             # Replace lower resolution values with higher resolution FFT data
-            lower_half = int(len(log_fft_data) * (2**-fold))
-            combined_fft[0:lower_half] = log_fft_data[0:lower_half]
+            lower_half = int(len(normalized_fft) * (2**-fold))
+            combined_fft[0:lower_half] = normalized_fft[0:lower_half]
+
+        log_fft_data = np.interp(self.log_freq_bins, freq_bins, normalized_fft)
 
         if np.max(fft_data) > 12.0:
             pass # print_fft_summary("fft", fft_data, freq_bins)
@@ -297,8 +298,8 @@ def test_spl():
 
 def test_acf():
     global start_time
-    num_folds = 4
-    mode = ACFMode(windowsize=8192, samplerate=48000, numfolds = num_folds)
+    num_folds = 0
+    mode = ACFMode(windowsize=2048, samplerate=48000, numfolds = num_folds)
     mode.setup_plot()
     start_time = time.time()
     mode.acf_plot = np.zeros((mode.plot_width, mode.plot_height,3), dtype=np.uint8)
