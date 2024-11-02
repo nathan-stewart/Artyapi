@@ -2,8 +2,10 @@
 # utility functions for the project
 from scipy.signal import find_peaks, freqz
 import numpy as np
-import pygame
 import time
+import os
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
+import pygame
 
 def sine_generator(frequency, db):
     ''' 
