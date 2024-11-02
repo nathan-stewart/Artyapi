@@ -181,7 +181,7 @@ class SPLMode(BaseMode):
             #self.plot_surface.set_at(p0, self.plot_color)
 
 class ACFMode(BaseMode):
-    def __init__(self, windowsize=16384, samplerate=48000, numfolds=2):
+    def __init__(self, windowsize=8192, samplerate=48000, numfolds=4):
         super().__init__()
         self.samplerate = samplerate
         self.acf_plot = np.zeros((self.plot_width, self.plot_height,3), dtype=np.uint8)
@@ -259,23 +259,16 @@ class ACFMode(BaseMode):
             lower_half = int(len(normalized_fft) * (2**-fold))
             combined_fft[0:lower_half] = normalized_fft[0:lower_half]
 
-        log_fft_data = np.interp(self.log_freq_bins, freq_bins, normalized_fft)
-
-        if np.max(fft_data) > 12.0:
-            pass # print_fft_summary("fft", fft_data, freq_bins)
-
-        # Average the combined FFT result
-        combined_fft /= (self.num_folds + 1)
+        log_fft_data = np.interp(self.log_freq_bins, freq_bins, combined_fft)
 
         # scale data to input range
-        combined_fft = np.clip((log_fft_data + 96) * (255 / 108), 0, 255)
+        log_fft_data = np.clip((log_fft_data + 96) * (255 / 108), 0, 255)
 
         self.acf_plot = np.roll(self.acf_plot, -1, axis=1)
-        self.acf_plot[:, -1, :] = np.stack([combined_fft]*3, axis=-1)
+        self.acf_plot[:, -1, :] = np.stack([log_fft_data]*3, axis=-1)
 
         # Draw the ACF plot to plot_surface
         self.blank()
-        self.acf_plot[:, -1, :] = np.stack([log_fft_data]*3, axis=-1)
         pygame.surfarray.blit_array(self.plot_surface, self.acf_plot)
 
 def test_spl():
@@ -299,7 +292,7 @@ def test_spl():
 def test_acf():
     global start_time
     num_folds = 0
-    mode = ACFMode(windowsize=2048, samplerate=48000, numfolds = num_folds)
+    mode = ACFMode(windowsize=8192, samplerate=48000, numfolds = num_folds)
     mode.setup_plot()
     start_time = time.time()
     mode.acf_plot = np.zeros((mode.plot_width, mode.plot_height,3), dtype=np.uint8)
