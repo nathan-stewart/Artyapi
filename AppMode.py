@@ -235,7 +235,11 @@ class ACFMode(BaseMode):
     # progressive FFT
     def process_data(self, data):
         global LOGMIN, LOGMAX
-
+        # Something is definitely up with folding
+        # sweep is disontinuous
+        # I think the issue is related to half of linear vs half of log but I can't
+        # articulate that right now
+        # we need to come up with a way to test the fft folding with synthetic ffts
         self.update_history(data)
 
         # Initialize the combined FFT result
@@ -255,16 +259,21 @@ class ACFMode(BaseMode):
 
             # Normalize the FFT data
             normalized_fft = 20 * np.log10(np.clip(fft_data / self.window_size, LOGMIN, LOGMAX))
-            
+
+            # generate fake data
+            normalized_fft= np.full(len(normalized_fft), -96)
+            for f in  sorted([40 * 2**i for i in range(0,9)] + [43 * 2**i for i in range(0,9)]):
+                index = int(f * self.window_size / self.samplerate)
+                normalized_fft[index] = 1.0
+
             # Replace lower resolution values with higher resolution FFT data
             lower_half = slice(0, int(len(normalized_fft) * (2**-fold)))
             combined_fft[lower_half] = normalized_fft[lower_half]
-
+            
         log_fft_data = np.interp(self.log_freq_bins, freq_bins, combined_fft)
-
+        
         # scale data to input range
         log_fft_data = np.clip((log_fft_data + 96) * (255 / 108), 0, 255)
-
         self.acf_plot = np.roll(self.acf_plot, -1, axis=1)
         self.acf_plot[:, -1, :] = np.stack([log_fft_data]*3, axis=-1)
 
