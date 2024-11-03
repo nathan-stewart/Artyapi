@@ -299,12 +299,12 @@ def test_spl():
 
 def test_acf():
     global start_time
-    mode = ACFMode(windowsize=4096, samplerate=48000, numfolds = 8)
+    mode = ACFMode(windowsize=4096, samplerate=48000, numfolds = 0)
     mode.setup_plot()
     start_time = time.time()
     mode.acf_plot = np.zeros((mode.plot_width, mode.plot_height,3), dtype=np.uint8)
     elapsed = time.time() - start_time
-    duration = 4.0
+    duration = 16.0
     sweep = sweep_generator(40, 20e3, duration, 12.0)
     while elapsed < duration:
         elapsed = time.time() - start_time
@@ -321,10 +321,9 @@ def test_acf():
         elapsed = 0
         while elapsed < perfold:
             elapsed = time.time() - start_time
-            folding = int(num_folds * elapsed / duration)
-            if folding != previous:
-                mode.numfolds(folding)
-                previous = folding
+            if fold != previous:
+                mode.numfolds(fold)
+                previous = fold
             mode.process_data(next(discriminator))
             mode.update_plot()
 
