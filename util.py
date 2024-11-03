@@ -7,17 +7,17 @@ import os
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
 import pygame
 
-def sine_generator(frequency, db):
+def sine_generator(frequency):
     ''' 
     Sine wave generator which prentends to be an audio device filling up a buffer
     with samples since the last time called
     '''
     sample_rate = 48000
-    amplitude = np.sqrt(2) * 10**(db/20)
+    amplitude = np.sqrt(2) * 10**(12/20) # +12 db
     start = time.time()
     phase = 0
-    now = time.time()
     while True:
+        now = time.time()
         elapsed = now - start
         num_samples = int(sample_rate * elapsed)
         t = np.linspace(0, elapsed, num_samples, endpoint=False)
