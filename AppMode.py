@@ -17,8 +17,8 @@ else:
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
 import pygame
 
-LOGMIN = 1.584e-5
-LOGMAX = 10**5.25
+LOGMIN = 10**(-96/20)
+LOGMAX = 10**(12/20)
 
 pygame.init()
 screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
@@ -163,7 +163,8 @@ class SPLMode(BaseMode):
         rms = np.sqrt(np.mean(data ** 2))
         if np.isnan(rms):
             rms = 0
-        spl = round(20 * np.log10(np.where(rms < LOGMIN, LOGMIN, rms)),1)  # Convert to dB
+        rms = max(LOGMIN, min(rms, LOGMAX))
+        spl = round(20 * np.log10(rms), 1)  # Convert to dB
 
         # roll data and push new volume
         self.spl_plot = np.roll(self.spl_plot, -1)
@@ -256,8 +257,8 @@ class ACFMode(BaseMode):
             normalized_fft = 20 * np.log10(np.clip(fft_data / self.window_size, LOGMIN, LOGMAX))
             
             # Replace lower resolution values with higher resolution FFT data
-            lower_half = int(len(normalized_fft) * (2**-fold))
-            combined_fft[0:lower_half] = normalized_fft[0:lower_half]
+            lower_half = slice(0, int(len(normalized_fft) * (2**-fold)))
+            combined_fft[lower_half] = normalized_fft[lower_half]
 
         log_fft_data = np.interp(self.log_freq_bins, freq_bins, combined_fft)
 
@@ -272,27 +273,26 @@ class ACFMode(BaseMode):
         pygame.surfarray.blit_array(self.plot_surface, self.acf_plot)
 
 def test_spl():
-    global start_time
+    global start_time, LOGMIN, LOGMAX
 
     # Test SPLMode
     mode = SPLMode()
     mode.setup_plot()
+    duration = 10.0
+    sine_1khz = sine_generator(frequency = 1e3)
     start_time = time.time()
-    elapsed = time.time() - start_time
-    duration = 6.0
-    sine_1khz = sine_generator(1e3, 12)
-
+    elapsed = 0
     while elapsed < duration:
         elapsed = time.time() - start_time
-        # ramp sine from -96db to 12db linearly over duration
-        data = next(sine_1khz) * 10**(elapsed/duration * 12/20)
-        mode.process_data(data)
+        # ramp sine volume from -96db to 12db linearly over duration
+        scale_factor = 10 ** ((108 * (0.9 * elapsed/duration) -96)/20)
+        scale_factor = min(LOGMAX, max(LOGMIN, scale_factor))
+        mode.process_data(next(sine_1khz) * scale_factor)
         mode.update_plot()
 
 def test_acf():
     global start_time
-    num_folds = 0
-    mode = ACFMode(windowsize=8192, samplerate=48000, numfolds = num_folds)
+    mode = ACFMode(windowsize=1024, samplerate=48000, numfolds = 2)
     mode.setup_plot()
     start_time = time.time()
     mode.acf_plot = np.zeros((mode.plot_width, mode.plot_height,3), dtype=np.uint8)
