@@ -182,7 +182,7 @@ class SPLMode(BaseMode):
             #self.plot_surface.set_at(p0, self.plot_color)
 
 class ACFMode(BaseMode):
-    def __init__(self, windowsize=8192, samplerate=48000, numfolds=4):
+    def __init__(self, windowsize=8192, samplerate=48000, numfolds=8):
         super().__init__()
         self.samplerate = samplerate
         self.acf_plot = np.zeros((self.plot_width, self.plot_height,3), dtype=np.uint8)
@@ -236,6 +236,14 @@ class ACFMode(BaseMode):
     # progressive FFT
     def process_data(self, data):
         global LOGMIN, LOGMAX
+        def fake_fft():
+            # generate fake data
+            normalized_fft = np.zeros(self.window_size // 2 + 1)
+            for f in  sorted([40 * 2**i for i in range(0,9)] + [43 * 2**i for i in range(0,9)]):
+                index = int(f * self.window_size / self.samplerate)
+                normalized_fft[index] = 1.0
+            return normalized_fft
+
         # Something is definitely up with folding
         # sweep is disontinuous
         # I think the issue is related to half of linear vs half of log but I can't
@@ -252,26 +260,20 @@ class ACFMode(BaseMode):
             windowed_data = self.history[fold][-self.window_size:] * self.window
 
             # Compute FFT
-            fft_data = np.fft.rfft(windowed_data, n=self.window_size)
-            fft_data = np.abs(fft_data)
+            fft_data = np.abs(np.fft.rfft(windowed_data, n=self.window_size))
 
             # Normalize the FFT data
-            normalized_fft = 20 * np.log10(np.clip(fft_data / self.window_size, LOGMIN, 1.0))
-
-            # generate fake data
-            normalized_fft = np.full(len(normalized_fft), -96)
-            for f in  sorted([40 * 2**i for i in range(0,9)] + [43 * 2**i for i in range(0,9)]):
-                index = int(f * self.window_size / self.samplerate)
-                normalized_fft[index] = 1.0
+            fft_data = fake_fft()
+            normalized_fft  = np.clip(fft_data, LOGMIN, 1.0)
 
             # Replace lower resolution values with higher resolution FFT data
-            lower_half = slice(0, int(len(normalized_fft) * (2**-fold)))
+            lower_half = slice(0, int(len(normalized_fft) // 2))
             combined_fft[lower_half] = normalized_fft[lower_half]
             
         log_fft_data = np.interp(self.log_freq_bins, self.freq_bins, combined_fft)
         
         # scale data to input range
-        log_fft_data = np.clip((log_fft_data + 96) * (255 / 108), 0, 255)
+        log_fft_data = np.clip(log_fft_data * 255, 0, 255)
         self.acf_plot = np.roll(self.acf_plot, -1, axis=1)
         self.acf_plot[:, -1, :] = np.stack([log_fft_data]*3, axis=-1)
 
@@ -299,7 +301,7 @@ def test_spl():
 
 def test_acf():
     global start_time
-    mode = ACFMode(windowsize=4096, samplerate=48000, numfolds = 4)
+    mode = ACFMode(windowsize=4096, samplerate=48000, numfolds = 8)
     mode.setup_plot()
     start_time = time.time()
     mode.acf_plot = np.zeros((mode.plot_width, mode.plot_height,3), dtype=np.uint8)
