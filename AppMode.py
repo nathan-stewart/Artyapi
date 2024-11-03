@@ -188,11 +188,6 @@ class ACFMode(BaseMode):
         self.acf_plot = np.zeros((self.plot_width, self.plot_height,3), dtype=np.uint8)
         self.plot_color = (12, 200, 255)
 
-        # FFT parameters
-        self.window_size = 2**(int(math.log2(windowsize)))
-        self.numfolds(numfolds)
-        self.previous = None
-
         # last tick is 16.3k but the plot goes to 20k to allow label space
         self.x_major = [(40*2**(f/2)) for f in range(0, 18)] + [20e3]
         self.x_labels = [format_hz(f) for f in self.x_major]
@@ -203,8 +198,14 @@ class ACFMode(BaseMode):
         self.by = 0
         self.mx = self.plot_width / (math.log2(self.x_major[-1])-math.log2(self.x_major[0]))
         self.bx = -self.mx * math.log2(self.x_major[0])
-        self.log_freq_bins = np.logspace(np.log2(self.x_major[0]), np.log2(self.x_major[-1]), self.plot_width, base=2)
 
+        # FFT parameters
+        self.window_size = 2**(int(math.log2(windowsize)))
+        self.numfolds(numfolds)
+        self.previous = None
+        self.freq_bins = np.fft.rfftfreq(self.window_size, 1/self.samplerate)
+        self.log_freq_bins = np.logspace(np.log2(self.x_major[0]), np.log2(self.x_major[-1]), self.plot_width, base=2)
+        
     def numfolds(self, f):
         f = int(f)
         self.num_folds = min(max(f,0), 8)
@@ -245,9 +246,6 @@ class ACFMode(BaseMode):
         # Initialize the combined FFT result
         combined_fft = np.zeros(self.window_size // 2 + 1)
 
-        # Interpolate FFT data to log-spaced bins
-        freq_bins = np.fft.rfftfreq(self.window_size, 1/self.samplerate)
-
         # Process each octave
         for fold in range(self.num_folds + 1):
             # Apply window function
@@ -258,10 +256,10 @@ class ACFMode(BaseMode):
             fft_data = np.abs(fft_data)
 
             # Normalize the FFT data
-            normalized_fft = 20 * np.log10(np.clip(fft_data / self.window_size, LOGMIN, LOGMAX))
+            normalized_fft = 20 * np.log10(np.clip(fft_data / self.window_size, LOGMIN, 1.0))
 
             # generate fake data
-            normalized_fft= np.full(len(normalized_fft), -96)
+            normalized_fft = np.full(len(normalized_fft), -96)
             for f in  sorted([40 * 2**i for i in range(0,9)] + [43 * 2**i for i in range(0,9)]):
                 index = int(f * self.window_size / self.samplerate)
                 normalized_fft[index] = 1.0
@@ -270,7 +268,7 @@ class ACFMode(BaseMode):
             lower_half = slice(0, int(len(normalized_fft) * (2**-fold)))
             combined_fft[lower_half] = normalized_fft[lower_half]
             
-        log_fft_data = np.interp(self.log_freq_bins, freq_bins, combined_fft)
+        log_fft_data = np.interp(self.log_freq_bins, self.freq_bins, combined_fft)
         
         # scale data to input range
         log_fft_data = np.clip((log_fft_data + 96) * (255 / 108), 0, 255)
@@ -301,7 +299,7 @@ def test_spl():
 
 def test_acf():
     global start_time
-    mode = ACFMode(windowsize=1024, samplerate=48000, numfolds = 2)
+    mode = ACFMode(windowsize=4096, samplerate=48000, numfolds = 4)
     mode.setup_plot()
     start_time = time.time()
     mode.acf_plot = np.zeros((mode.plot_width, mode.plot_height,3), dtype=np.uint8)
@@ -315,7 +313,7 @@ def test_acf():
         mode.update_plot()
 
     perfold = 4.0
-    num_folds = 6
+    num_folds = 4
     start_time = time.time()    
     discriminator = resolution_generator()
     previous = None
