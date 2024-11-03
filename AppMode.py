@@ -82,7 +82,8 @@ class BaseMode:
     def scale_ypos(self, pos):
         return self.y_margin + int(pos * self.my + self.by)
 
-    def draw_ticks(self, series=[], orientation='x', mode='major'):
+    def draw_ticks(self
+    , series=[], orientation='x', mode='major'):
         if mode == 'major':
             length = self.major_tick_length
             width = self.major_tick_width
@@ -235,13 +236,12 @@ class ACFMode(BaseMode):
         
     # progressive FFT
     def process_data(self, data):
-        global LOGMIN, LOGMAX
         def fake_fft():
             # generate fake data
             normalized_fft = np.zeros(self.window_size // 2 + 1)
             for f in  sorted([40 * 2**i for i in range(0,9)] + [43 * 2**i for i in range(0,9)]):
                 index = int(f * self.window_size / self.samplerate)
-                normalized_fft[index] = 1.0
+                normalized_fft[index] = self.window_size
             return normalized_fft
 
         # Something is definitely up with folding
@@ -256,22 +256,20 @@ class ACFMode(BaseMode):
 
         # Process each octave
         for fold in range(self.num_folds + 1):
-            # Apply window function
             windowed_data = self.history[fold][-self.window_size:] * self.window
-
-            # Compute FFT
             fft_data = np.abs(np.fft.rfft(windowed_data, n=self.window_size))
-
-            # Normalize the FFT data
-            fft_data = fake_fft()
-            normalized_fft  = np.clip(fft_data, LOGMIN, 1.0)
-
+            normalized_fft  = np.clip(fft_data / self.window_size, 0, 1)
+            
             # Replace lower resolution values with higher resolution FFT data
             lower_half = slice(0, int(len(normalized_fft) // 2))
             combined_fft[lower_half] = normalized_fft[lower_half]
-            
+        
+        # Interpolate the FFT data to the log frequency bins
         log_fft_data = np.interp(self.log_freq_bins, self.freq_bins, combined_fft)
         
+        # Convert to log scale
+        log_fft_data = np.log2(1 + 100 * log_fft_data)
+
         # scale data to input range
         log_fft_data = np.clip(log_fft_data * 255, 0, 255)
         self.acf_plot = np.roll(self.acf_plot, -1, axis=1)
