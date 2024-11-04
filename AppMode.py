@@ -204,8 +204,8 @@ class ACFMode(BaseMode):
         self.window_size = 2**(int(math.log2(windowsize)))
         self.numfolds(numfolds)
         self.previous = None
-        self.freq_bins = np.fft.rfftfreq(self.window_size, 1/self.samplerate)
         self.log_freq_bins = np.logspace(np.log2(self.x_major[0]), np.log2(self.x_major[-1]), self.plot_width, base=2)
+        self.fake = False
         
     def numfolds(self, f):
         f = int(f)
@@ -257,18 +257,23 @@ class ACFMode(BaseMode):
         # Process each octave
         for fold in range(self.num_folds + 1):
             windowed_data = self.history[fold][-self.window_size:] * self.window
-            fft_data = np.abs(np.fft.rfft(windowed_data, n=self.window_size))
+            if self.fake:
+                fft_data = fake_fft()
+            else:
+                fft_data = np.abs(np.fft.rfft(windowed_data, n=self.window_size))            
             normalized_fft  = np.clip(fft_data / self.window_size, 0, 1)
             
+            # Interpolate the FFT data to the log frequency bins7
+            fold_freq_bins = np.fft.rfftfreq(self.window_size, (2 ** -fold) / self.samplerate)
+            interpolated_fft = np.interp(self.log_freq_bins, fold_freq_bins, normalized_fft)
+
             # Replace lower resolution values with higher resolution FFT data
-            lower_half = slice(0, int(len(normalized_fft) // 2))
-            combined_fft[lower_half] = normalized_fft[lower_half]
+            split_point = int(len(combined_fft) / 2 ** fold) 
+            combined_fft[:split_point] = interpolated_fft[:split_point]
         
-        # Interpolate the FFT data to the log frequency bins
-        log_fft_data = np.interp(self.log_freq_bins, self.freq_bins, combined_fft)
         
         # Convert to log scale
-        log_fft_data = np.log2(1 + 100 * log_fft_data)
+        log_fft_data = np.log2(1 + 100 * combined_fft)
 
         # scale data to input range
         log_fft_data = np.clip(log_fft_data * 255, 0, 255)
@@ -299,12 +304,12 @@ def test_spl():
 
 def test_acf():
     global start_time
-    mode = ACFMode(windowsize=4096, samplerate=48000, numfolds = 0)
+    mode = ACFMode(windowsize=8192, samplerate=48000, numfolds = 0)
     mode.setup_plot()
     start_time = time.time()
     mode.acf_plot = np.zeros((mode.plot_width, mode.plot_height,3), dtype=np.uint8)
     elapsed = time.time() - start_time
-    duration = 16.0
+    duration = 10.0
     sweep = sweep_generator(40, 20e3, duration, 12.0)
     while elapsed < duration:
         elapsed = time.time() - start_time
@@ -317,6 +322,7 @@ def test_acf():
     start_time = time.time()    
     discriminator = resolution_generator()
     previous = None
+    mode.fake = True
     for fold in range(num_folds):
         elapsed = 0
         while elapsed < perfold:
