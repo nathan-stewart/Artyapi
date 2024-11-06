@@ -210,7 +210,8 @@ class ACFMode(BaseMode):
     def numfolds(self, f):
         f = int(f)
         self.num_folds = min(max(f,0), 8)
-        self.lpf = [ firwin(1024, 0.999*2**-(n)) for n in range(0,self.num_folds+1)]
+        lpfscale = 2*20e3/self.samplerate
+        self.lpf = [ firwin(1024, lpfscale*2**-(n)) for n in range(0,self.num_folds+1)]
         self.history = [np.zeros(self.window_size * 2) for _ in range(self.num_folds + 1)]
         self.window = get_window('hann', self.window_size)
 
@@ -256,23 +257,26 @@ class ACFMode(BaseMode):
 
         # Process each octave
         for fold in range(self.num_folds + 1):
+            effective_sample_rate = self.samplerate * 2**-fold
             windowed_data = self.history[fold][-self.window_size:] * self.window
+            
             if self.fake:
                 fft_data = fake_fft()
             else:
-                fft_data = np.abs(np.fft.rfft(windowed_data, n=self.window_size))            
+                fft_data = np.abs(np.fft.rfft(windowed_data, n=self.window_size))
+
             normalized_fft  = np.clip(fft_data / self.window_size, 0, 1)
             
             # Interpolate the FFT data to the log frequency bins7
-            fold_freq_bins = np.fft.rfftfreq(self.window_size, (2 ** -fold) / self.samplerate)
+            fold_freq_bins = np.fft.rfftfreq(self.window_size, 1 / effective_sample_rate)
             interpolated_fft = np.interp(self.log_freq_bins, fold_freq_bins, normalized_fft)
 
             # Replace lower resolution values with higher resolution FFT data
-            split_point = self.log_freq_bins.searchsorted(20e3 * 2 ** -fold)
-            combined_fft[:split_point] = interpolated_fft[:split_point]
-            print(f'fold = {fold}, copying from 0 - {20e3 * 2 ** -fold}')
-        
-        
+            split_frequency = 20e3 * (2 ** -fold)
+            split_idx = self.log_freq_bins.searchsorted(split_frequency)
+            combined_fft[:split_idx] = interpolated_fft[:split_idx]
+            print(f"Fold: {fold}, Effective Sample Rate: {effective_sample_rate}, Split Index: {split_idx} covers {0} to {split_frequency}, lpf = {get_filter_freq(self.lpf[1], effective_sample_rate):}")
+            
         # Convert to log scale
         log_fft_data = np.log2(1 + 100 * combined_fft)
 
@@ -305,7 +309,7 @@ def test_spl():
 
 def test_acf():
     global start_time
-    mode = ACFMode(windowsize=4096, samplerate=48000, numfolds = 4)
+    mode = ACFMode(windowsize=4096, samplerate=48000, numfolds = 2)
     mode.setup_plot()
     start_time = time.time()
     elapsed = time.time() - start_time
@@ -322,7 +326,7 @@ def test_acf():
     start_time = time.time()    
     discriminator = resolution_generator()
     previous = None
-    mode.fake = False
+    mode.fake = True
     for fold in range(num_folds):
         elapsed = 0
         while elapsed < perfold:
