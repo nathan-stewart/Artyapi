@@ -165,12 +165,13 @@ def format_hz(hz):
 
 def get_filter_freq(filter, samplerate):
     w,h = freqz(filter)
-    gain_db = 20 * np.log10(np.abs(h))
+    epsilon = 1e-10
+    gain_db = 20 * np.log10(np.abs(h) + epsilon)
 
     # Find the frequency where the gain drops to -3 dB
     if np.any(gain_db <= -3):
         corner_freq_index = np.where(gain_db <= -3)[0][0]
-        corner_freq = w[corner_freq_index] * (0.5 * samplerate) / np.pi  # Assuming a sample rate of 48000 Hz
+        corner_freq = w[corner_freq_index] * (0.5 * samplerate) / np.pi
     else:
         corner_freq = samplerate / 2
     return corner_freq
