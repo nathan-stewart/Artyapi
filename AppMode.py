@@ -205,7 +205,7 @@ class ACFMode(BaseMode):
         self.previous = None
         self.log_freq_bins = np.logspace(np.log2(self.x_major[0]), np.log2(self.x_major[-1]), self.plot_width, base=2)
         self.fake = False
-        
+
     def numfolds(self, f):
         f = int(f)
         self.num_folds = min(max(f,0), 8)
@@ -228,9 +228,9 @@ class ACFMode(BaseMode):
         # Roll the history buffer and push new data
         roll_len = min(len(data), self.window_size)
         if roll_len > 0:
-            self.history = np.roll(self.history, -roll_len)        
+            self.history = np.roll(self.history, -roll_len)
             self.history[-roll_len:] = data[-roll_len:]
-        
+
     # progressive FFT
     def process_data(self, data):
         def fake_fft():
@@ -263,7 +263,7 @@ class ACFMode(BaseMode):
             # Downsample the filtered data
             if fold > 0:
                 filtered = np.mean(filtered.reshape(-1, 2**fold), axis=1)
-                
+
             if len(filtered) != self.window_size:
                 raise ValueError(f'filtered size {len(filtered)} != window size {self.window_size}')
 
@@ -273,7 +273,7 @@ class ACFMode(BaseMode):
                 fft_data = np.abs(np.fft.rfft(windowed_data, n=self.window_size))
 
             normalized_fft  = np.clip(fft_data / self.window_size, 0, 1)
-            
+
             # Interpolate the FFT data to the log frequency bins7
             fold_freq_bins = np.fft.rfftfreq(self.window_size, 1 / effective_sample_rate)
             interpolated_fft = np.interp(self.log_freq_bins, fold_freq_bins, normalized_fft)
@@ -282,21 +282,14 @@ class ACFMode(BaseMode):
             split_frequency = 20e3 * (2 ** -fold)
             split_idx = self.log_freq_bins.searchsorted(split_frequency)
             combined_fft[:split_idx] = interpolated_fft[:split_idx]
-            
+
         # Convert to log scale
         log_fft_data = np.log2(1 + 100 * combined_fft)
 
         # scale data to input range
         log_fft_data = np.clip(log_fft_data * 255, 0, 255)
         self.acf_plot = np.roll(self.acf_plot, -1, axis=1)
-        #self.acf_plot[:, -1, :] = np.stack([log_fft_data]*3, axis=-1)
-        colored_data = np.array([log_fft_data * self.plot_color[i] for i in range(3)]).transpose(1,0)
-        print(self.acf_plot.shape)
-        print(log_fft_data.shape)
-        print(colored_data.shape)
-        print()
-        self.acf_plot[:, -1, :] == colored_data
-
+        self.acf_plot[:, -1, :] = np.array([log_fft_data * self.plot_color[i]/255 for i in range(3)]).transpose(1,0).astype(np.uint8)
 
         # Draw the ACF plot to plot_surface
         self.blank()
@@ -339,7 +332,7 @@ def test_acf():
 
     perfold = 4.0
     num_folds = 8
-    start_time = time.time()    
+    start_time = time.time()
     discriminator = resolution_generator()
     mode.fake = True
     for fold in range(num_folds):
@@ -359,7 +352,7 @@ if __name__ == "__main__":
             tests = [test_spl]
         elif sys.argv[1] == 'acf':
             tests = [test_acf]
-    
+
     for test in tests:
         test()
         wait_for_keypress()
