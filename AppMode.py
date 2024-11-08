@@ -320,15 +320,16 @@ def test_acf():
     mode.setup_plot()
     duration = 4.0
     plot_color = make_color_palette(num_folds)
-
+    mode = ACFMode(windowsize=1024, samplerate=48000)
     for f in range(num_folds):
         # Sweep Test
         mode.numfolds(f)
+        mode.history = np.zeros(mode.window_size * 2**f)
         mode.plot_color = plot_color[f]
+        mode.fake = False
         start_time = time.time()
         elapsed = time.time() - start_time
         sweep = sweep_generator(40, 20e3, duration, 12.0)
-        mode.fake = False
         while elapsed < duration:
             elapsed = time.time() - start_time
             data = next(sweep)
@@ -337,9 +338,12 @@ def test_acf():
 
         start_time = time.time()
         elapsed = 0
+
         # Resolution test
         perfold = 4.0
         discriminator = resolution_generator()
+        mode.history = np.zeros(mode.window_size * 2**f)
+        mode.plot_color = plot_color[f]
         mode.fake = True
         while elapsed < perfold:
             elapsed = time.time() - start_time
