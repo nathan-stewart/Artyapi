@@ -42,7 +42,7 @@ class BaseMode:
         self.y_margin = sample_label[1] + 2 * BaseMode.major_tick_length
         self.plot_width = screen_width - 2 * self.x_margin
         self.plot_height = screen_height - 2 * self.y_margin
-        self.plot_color = (12,200,255)
+        self.plot_color = (255, 0, 255)
         self.plot_surface = pygame.Surface((self.plot_width, self.plot_height))
 
         self.mx = self.my = 1
@@ -146,7 +146,7 @@ class SPLMode(BaseMode):
         self.bx = self.x_margin
         self.my = -(self.plot_height)/(12 + 96)
         self.by = -12 * self.my
-        self.plot_color = (12, 200, 255)
+        self.plot_color = (0, 200, 200)
         self.y_major = [y for y in range(-96, 13, 12)]
         self.y_labels = [f'{y:+d}' for y in self.y_major]
         self.y_labels[-2] = " 0" # fix intentionally broken python behavior
@@ -186,7 +186,7 @@ class ACFMode(BaseMode):
         super().__init__()
         self.samplerate = samplerate
         self.acf_plot = np.zeros((self.plot_width, self.plot_height,3), dtype=np.uint8)
-        self.plot_color = (125, 200, 255)
+        self.plot_color = (0, 0, 255)
 
         # last tick is 16.3k but the plot goes to 20k to allow label space
         self.x_major = [(40*2**(f/2)) for f in range(0, 18)] + [20e3]
@@ -315,15 +315,18 @@ def test_spl():
 
 def test_acf():
     global start_time
-    mode = ACFMode(windowsize=512, samplerate=48000)
+    mode = ACFMode(windowsize=1024, samplerate=48000)
     mode.setup_plot()
-
     duration = 4.0
+    even = (255, 255, 0)
+    odd = (0, 255, 255)
+
     for f in range(6):
         mode.numfolds(f)
         start_time = time.time()
         elapsed = time.time() - start_time
         sweep = sweep_generator(40, 20e3, duration, 12.0)
+
         while elapsed < duration:
             elapsed = time.time() - start_time
             data = next(sweep)
@@ -331,13 +334,17 @@ def test_acf():
             mode.update_plot()
 
     perfold = 4.0
-    num_folds = 8
-    start_time = time.time()
+    num_folds = 4
     discriminator = resolution_generator()
     mode.fake = True
     for fold in range(num_folds):
+        start_time = time.time()
         elapsed = 0
         mode.numfolds(fold)
+        if fold % 2 == 0:
+            mode.plot_color = even
+        else:
+            mode.plot_color = odd
         while elapsed < perfold:
             elapsed = time.time() - start_time
             mode.process_data(next(discriminator))
