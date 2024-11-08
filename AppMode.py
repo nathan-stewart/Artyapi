@@ -211,12 +211,13 @@ class ACFMode(BaseMode):
         f = int(f)
         self.num_folds = min(max(f,0), 8)
         self.lpf = [None] * (self.num_folds + 1)
+        self.hpf = firwin(1023, 20e3/self.samplerate, pass_zero=False)
         for f in range(0, self.num_folds+1):
             frequency = 20e3 * 2**-f
             effective_samplerate = self.samplerate * 2**-f
             self.lpf[f] = firwin(1024, 2*frequency/effective_samplerate)
-        self.history = [np.zeros(self.window_size * 2) for _ in range(self.num_folds + 1)]
-        self.window = get_window('hann', self.window_size)
+        self.history = np.zeros(self.window_size * 2**self.num_folds)
+        self.window = [get_window('hann', self.window_size * 2**f) for f in range(self.num_folds+1)]
 
     def scale_xpos(self, pos):
         return int(math.log2(pos) * self.mx + self.bx)
@@ -226,17 +227,10 @@ class ACFMode(BaseMode):
 
     def update_history(self, data):
         # Roll the history buffer and push new data
-        roll_len = min(len(data), self.window_size * 2)
+        roll_len = min(len(data), self.window_size)
         if roll_len > 0:
-            self.history[0] = np.roll(self.history[0], -roll_len)        
-            self.history[0][-roll_len:] = data[-roll_len:]
-
-            # Apply low-pass filters to the history buffer and downsample
-            for h in range(1,len(self.history)):
-                filtered = lfilter(self.lpf[h], 1, self.history[h-1])
-                downsampled = np.mean(filtered.reshape(-1, 2), axis=1)
-                self.history[h] = np.roll( self.history[h], -self.window_size)
-                self.history[h][-self.window_size:] = downsampled
+            self.history = np.roll(self.history, -roll_len)        
+            self.history[-roll_len:] = data[-roll_len:]
         
     # progressive FFT
     def process_data(self, data):
@@ -260,9 +254,25 @@ class ACFMode(BaseMode):
 
         # Process each octave
         for fold in range(self.num_folds + 1):
-            effective_sample_rate = self.samplerate * 2**-fold
-            windowed_data = self.history[fold][-self.window_size:] * self.window
-            
+            self.effective_window_size = int(self.window_size * 2**fold)
+            effective_sample_rate = int(self.samplerate * 2**-fold)
+
+            # Apply the window to the history buffer
+            windowed_data = self.history[-self.effective_window_size:] * self.window[fold]
+
+            # Apply high-pass filter to the windowed data
+            filtered = lfilter(self.hpf, 1, windowed_data)
+
+            # Apply low-pass filters to the history buffer
+            filtered = lfilter(self.lpf[fold], 1, filtered)
+
+            # Downsample the filtered data
+            if fold > 0:
+                filtered = np.mean(filtered.reshape(-1, 2**fold), axis=1)
+                
+            if len(filtered) != self.window_size:
+                raise ValueError(f'filtered size {len(filtered)} != window size {self.window_size}')
+
             if self.fake:
                 fft_data = fake_fft()
             else:
@@ -278,7 +288,6 @@ class ACFMode(BaseMode):
             split_frequency = 20e3 * (2 ** -fold)
             split_idx = self.log_freq_bins.searchsorted(split_frequency)
             combined_fft[:split_idx] = interpolated_fft[:split_idx]
-            #print(f"Fold: {fold}, ESR: {effective_sample_rate}, f1={split_frequency}, lpf = {get_filter_freq(self.lpf[1], effective_sample_rate):}")
             
         # Convert to log scale
         log_fft_data = np.log2(1 + 100 * combined_fft)
@@ -312,31 +321,31 @@ def test_spl():
 
 def test_acf():
     global start_time
-    mode = ACFMode(windowsize=4096, samplerate=48000, numfolds = 2)
+    mode = ACFMode(windowsize=512, samplerate=48000)
     mode.setup_plot()
-    start_time = time.time()
-    elapsed = time.time() - start_time
-    duration = 10.0
-    sweep = sweep_generator(40, 20e3, duration, 12.0)
-    while elapsed < duration:
+
+    duration = 4.0
+    for f in range(6):
+        mode.numfolds(f)
+        start_time = time.time()
         elapsed = time.time() - start_time
-        data = next(sweep)
-        mode.process_data(data)
-        mode.update_plot()
+        sweep = sweep_generator(40, 20e3, duration, 12.0)
+        while elapsed < duration:
+            elapsed = time.time() - start_time
+            data = next(sweep)
+            mode.process_data(data)
+            mode.update_plot()
 
     perfold = 4.0
     num_folds = 8
     start_time = time.time()    
     discriminator = resolution_generator()
-    previous = None
     mode.fake = True
     for fold in range(num_folds):
         elapsed = 0
+        mode.numfolds(fold)
         while elapsed < perfold:
             elapsed = time.time() - start_time
-            if fold != previous:
-                mode.numfolds(fold)
-                previous = fold
             mode.process_data(next(discriminator))
             mode.update_plot()
 
