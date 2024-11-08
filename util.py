@@ -3,7 +3,6 @@
 from scipy.signal import find_peaks, freqz
 import numpy as np
 import time
-import random
 import colorsys
 import os
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
@@ -181,7 +180,7 @@ def get_filter_freq(filter, samplerate):
 def make_color_palette(n):
     grc = 0.61803398875
     colors = []
-    hue = random.random()
+    hue = 0
     for c in range(n):
         hue = (hue + grc) % 1
         print(hue)
