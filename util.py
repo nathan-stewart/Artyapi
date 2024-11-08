@@ -183,7 +183,6 @@ def make_color_palette(n):
     hue = 0
     for c in range(n):
         hue = (hue + grc) % 1
-        print(hue)
         lightness = 0.5
         saturation = 0.9
         rgs = colorsys.hls_to_rgb(hue, lightness, saturation)
