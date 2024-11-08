@@ -316,35 +316,31 @@ def test_spl():
 def test_acf():
     global start_time
     mode = ACFMode(windowsize=1024, samplerate=48000)
+    num_folds = 8
     mode.setup_plot()
     duration = 4.0
-    even = (255, 255, 0)
-    odd = (0, 255, 255)
+    plot_color = make_color_palette(num_folds)
 
-    for f in range(6):
+    for f in range(num_folds):
+        # Sweep Test
         mode.numfolds(f)
+        mode.plot_color = plot_color[f]
         start_time = time.time()
         elapsed = time.time() - start_time
         sweep = sweep_generator(40, 20e3, duration, 12.0)
-
+        mode.fake = False
         while elapsed < duration:
             elapsed = time.time() - start_time
             data = next(sweep)
             mode.process_data(data)
             mode.update_plot()
 
-    perfold = 4.0
-    num_folds = 4
-    discriminator = resolution_generator()
-    mode.fake = True
-    for fold in range(num_folds):
         start_time = time.time()
         elapsed = 0
-        mode.numfolds(fold)
-        if fold % 2 == 0:
-            mode.plot_color = even
-        else:
-            mode.plot_color = odd
+        # Resolution test
+        perfold = 4.0
+        discriminator = resolution_generator()
+        mode.fake = True
         while elapsed < perfold:
             elapsed = time.time() - start_time
             mode.process_data(next(discriminator))

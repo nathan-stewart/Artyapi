@@ -3,12 +3,14 @@
 from scipy.signal import find_peaks, freqz
 import numpy as np
 import time
+import random
+import colorsys
 import os
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
 import pygame
 
 def sine_generator(frequency):
-    ''' 
+    '''
     Sine wave generator which prentends to be an audio device filling up a buffer
     with samples since the last time called
     '''
@@ -22,15 +24,15 @@ def sine_generator(frequency):
         num_samples = int(sample_rate * elapsed)
         t = np.linspace(0, elapsed, num_samples, endpoint=False)
         buffer = amplitude* np.sin(2 * np.pi * frequency * t + phase)
-        
+
         phase += 2 * np.pi * frequency * elapsed
         phase = phase % (2 * np.pi)
-        
+
         start = now
         yield buffer
 
 def sweep_generator(f0, f1, duration, db):
-    ''' 
+    '''
     Sine wave generator which pretends to be an audio device filling up a buffer
     with samples since the last time called
     '''
@@ -45,21 +47,21 @@ def sweep_generator(f0, f1, duration, db):
         sweep += elapsed
         num_samples = int(sample_rate * elapsed)
         t = np.linspace(0, elapsed, num_samples, endpoint=False)
-        
+
         # Linear frequency sweep
         frequency = f0 + (f1 - f0) * (sweep/duration)
-        
+
         # Generate the buffer with the frequency sweep
         buffer = amplitude * np.sin(2 * np.pi * frequency * t + phase)
-        
+
         # Update the phase
         phase += 2 * np.pi * (f0 * elapsed + 0.5 * (f1 - f0) * (elapsed ** 2) / duration) % (2 * np.pi)
-        
+
         start = now
         yield buffer
 
 def resolution_generator():
-    ''' 
+    '''
     Generate f0, f1 sine wave pairs at 40, 46, 80, 92, 160, 184 Hz...
     '''
     sample_rate = 48000
@@ -67,22 +69,22 @@ def resolution_generator():
     frequencies = [(40, 46), (80, 92), (160, 184)]
     phase = 0
     start = time.time()
-    
+
     while True:
         now = time.time()
         elapsed = now - start
         num_samples = int(sample_rate * elapsed)
         t = np.linspace(0, elapsed, num_samples, endpoint=False)
-        
+
         buffer = np.zeros(num_samples)
-        
+
         for f0, f1 in frequencies:
             buffer += amplitude * np.sin(2 * np.pi * f0 * t + phase)
             buffer += amplitude * np.sin(2 * np.pi * f1 * t + phase)
-        
+
         phase += 2 * np.pi * sample_rate * elapsed
         phase = phase % (2 * np.pi)
-        
+
         start = now
         yield buffer
 
@@ -175,3 +177,17 @@ def get_filter_freq(filter, samplerate):
     else:
         corner_freq = samplerate / 2
     return corner_freq
+
+def make_color_palette(n):
+    grc = 0.61803398875
+    colors = []
+    hue = random.random()
+    for c in range(n):
+        hue = (hue + grc) % 1
+        print(hue)
+        lightness = 0.5
+        saturation = 0.9
+        rgs = colorsys.hls_to_rgb(hue, lightness, saturation)
+        rgb = tuple([int(255 * x) for x in rgs])
+        colors.append(rgb)
+    return colors
