@@ -29,7 +29,6 @@ if rotate:
 
 class BaseMode:
     major_color = (255, 255, 255)
-
     minor_color = (127, 127, 127)
     major_tick_length = 8
     minor_tick_length = 4
@@ -61,7 +60,7 @@ class BaseMode:
 
     def update_plot(self):
         self.blank()
-        pygame.draw.rect(self.plot_surface, (255, 255, 255), (0, 0, self.plot_width, self.plot_height), 1)  # Draw only the outline
+        pygame.draw.rect(self.plot_surface, self.plot_color, (0, 0, self.plot_width, self.plot_height), 1)  # Draw only the outline
         self.draw_axes()
         screen.blit(self.plot_surface, (self.x_margin, self.y_margin))
         pygame.display.flip()
@@ -187,7 +186,7 @@ class ACFMode(BaseMode):
         super().__init__()
         self.samplerate = samplerate
         self.acf_plot = np.zeros((self.plot_width, self.plot_height,3), dtype=np.uint8)
-        self.plot_color = (12, 200, 255)
+        self.plot_color = (125, 200, 255)
 
         # last tick is 16.3k but the plot goes to 20k to allow label space
         self.x_major = [(40*2**(f/2)) for f in range(0, 18)] + [20e3]
@@ -242,11 +241,6 @@ class ACFMode(BaseMode):
                 normalized_fft[index] = self.window_size
             return normalized_fft
 
-        # Something is definitely up with folding
-        # sweep is disontinuous
-        # I think the issue is related to half of linear vs half of log but I can't
-        # articulate that right now
-        # we need to come up with a way to test the fft folding with synthetic ffts
         self.update_history(data)
 
         # Initialize the combined FFT result
@@ -295,7 +289,14 @@ class ACFMode(BaseMode):
         # scale data to input range
         log_fft_data = np.clip(log_fft_data * 255, 0, 255)
         self.acf_plot = np.roll(self.acf_plot, -1, axis=1)
-        self.acf_plot[:, -1, :] = np.stack([log_fft_data]*3, axis=-1)
+        #self.acf_plot[:, -1, :] = np.stack([log_fft_data]*3, axis=-1)
+        colored_data = np.array([log_fft_data * self.plot_color[i] for i in range(3)]).transpose(1,0)
+        print(self.acf_plot.shape)
+        print(log_fft_data.shape)
+        print(colored_data.shape)
+        print()
+        self.acf_plot[:, -1, :] == colored_data
+
 
         # Draw the ACF plot to plot_surface
         self.blank()
