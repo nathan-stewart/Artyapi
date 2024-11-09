@@ -253,10 +253,8 @@ class ACFMode(BaseMode):
         # Process each octave
         for fold in range(self.num_folds + 1):
             self.effective_window_size = int(self.window_size * 2**fold)
-            effective_sample_rate = int(self.samplerate * 2**-fold)
 
             # Apply the window to the history buffer
-            print(f'fold = {fold}, effective_window_size = {self.effective_window_size} self.window = {len(self.window)}')
             windowed_data = self.history[-self.effective_window_size:] * self.window[fold]
 
             # Apply high-pass filter to the windowed data
@@ -277,7 +275,7 @@ class ACFMode(BaseMode):
             normalized_fft  = np.clip(fft_data / self.window_size, 0, 1)
 
             # Interpolate the FFT data to the log frequency bins7
-            fold_freq_bins = np.fft.rfftfreq(self.window_size, 1 / effective_sample_rate)
+            fold_freq_bins = np.fft.rfftfreq(self.window_size, 1 / self.samplerate)
             interpolated_fft = np.interp(self.log_freq_bins, fold_freq_bins, normalized_fft)
 
             # Replace lower resolution values with higher resolution FFT data
