@@ -201,23 +201,27 @@ class ACFMode(BaseMode):
 
         # FFT parameters
         self.window_size = 2**(int(math.log2(windowsize)))
-        self.numfolds(numfolds)
-        self.previous = None
         self.log_freq_bins = np.logspace(np.log2(self.x_major[0]), np.log2(self.x_major[-1]), self.plot_width, base=2)
+        self.numfolds(numfolds)
         self.fake = False
 
-    def numfolds(self, f):
-        f = int(f)
-        self.num_folds = min(max(f,0), 8)
-        self.lpf = [None] * (self.num_folds + 1)
-        self.hpf = firwin(1023, 20e3/self.samplerate, pass_zero=False)
-        for f in range(0, self.num_folds+1):
-            frequency = 20e3 * 2**-f
-            effective_samplerate = self.samplerate * 2**-f
-            self.lpf[f] = firwin(1024, 2*frequency/effective_samplerate)
+    def numfolds(self, nf):
+        nf = int(nf)
+        self.num_folds = min(max(nf,0), 8)
         self.history = np.zeros(self.window_size * 2**self.num_folds)
-        self.window = [get_window('hann', self.window_size * 2**f) for f in range(self.num_folds+1)]
-
+        self.hpf = firwin(1023, 2*40/self.samplerate, pass_zero=False)
+        self.lpf             = [None] * (nf + 1)
+        self.split_frequency = [None] * (nf + 1)
+        self.split_idx       = [None] * (nf + 1)
+        self.window          = [None] * (nf + 1)
+            
+        for f in range(0, self.num_folds + 1):
+            self.window[f] = get_window('hann', self.window_size * 2**f)
+            sf = 20e3 * 2**-f
+            self.split_frequency[f] = sf
+            self.lpf[f] = firwin(1024, 2 * sf / self.samplerate)
+            self.split_idx[f] = self.log_freq_bins.searchsorted(sf)
+            
     def scale_xpos(self, pos):
         return int(math.log2(pos) * self.mx + self.bx)
 
@@ -252,6 +256,7 @@ class ACFMode(BaseMode):
             effective_sample_rate = int(self.samplerate * 2**-fold)
 
             # Apply the window to the history buffer
+            print(f'fold = {fold}, effective_window_size = {self.effective_window_size} self.window = {len(self.window)}')
             windowed_data = self.history[-self.effective_window_size:] * self.window[fold]
 
             # Apply high-pass filter to the windowed data
@@ -263,9 +268,6 @@ class ACFMode(BaseMode):
             # Downsample the filtered data
             if fold > 0:
                 filtered = np.mean(filtered.reshape(-1, 2**fold), axis=1)
-
-            if len(filtered) != self.window_size:
-                raise ValueError(f'filtered size {len(filtered)} != window size {self.window_size}')
 
             if self.fake:
                 fft_data = fake_fft()
@@ -279,9 +281,10 @@ class ACFMode(BaseMode):
             interpolated_fft = np.interp(self.log_freq_bins, fold_freq_bins, normalized_fft)
 
             # Replace lower resolution values with higher resolution FFT data
-            split_frequency = 20e3 * (2 ** -fold)
-            split_idx = self.log_freq_bins.searchsorted(split_frequency)
-            combined_fft[:split_idx] = interpolated_fft[:split_idx]
+            sp = self.split_idx[fold]
+            combined_fft[:sp] = interpolated_fft[:sp]
+            
+            print(f'split_frequency = {self.split_frequency[fold]}, split_idx = {sp}')
 
         # Convert to log scale
         log_fft_data = np.log2(1 + 100 * combined_fft)
@@ -316,11 +319,11 @@ def test_spl():
 def test_acf():
     global start_time
     mode = ACFMode(windowsize=1024, samplerate=48000)
-    num_folds = 8
+    num_folds = 4
     mode.setup_plot()
-    duration = 4.0
+    duration = 8.0
     plot_color = make_color_palette(num_folds)
-    mode = ACFMode(windowsize=1024, samplerate=48000)
+    mode = ACFMode(windowsize=2048, samplerate=48000)
     for f in range(num_folds):
         # Sweep Test
         mode.numfolds(f)
@@ -340,7 +343,7 @@ def test_acf():
         elapsed = 0
 
         # Resolution test
-        perfold = 4.0
+        perfold = 2.0
         discriminator = resolution_generator()
         mode.history = np.zeros(mode.window_size * 2**f)
         mode.plot_color = plot_color[f]
