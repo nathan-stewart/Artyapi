@@ -20,7 +20,6 @@ import pygame
 LOGMIN = 10**(-96/20)
 LOGMAX = 10**(12/20)
 
-pygame.init()
 screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
 screen_width, screen_height = screen.get_size()
 
@@ -52,7 +51,7 @@ class BaseMode:
         screen.fill((0,0,0)) # blank doesn't clear the screen outside of plot_surface
         self.blank()
         self.draw_axes()
-        pygame.display.flip()
+        # pygame.display.flip()
 
     def blank(self):
         screen.fill((0,0,0)) # blank doesn't clear the screen outside of plot_surface
@@ -63,7 +62,7 @@ class BaseMode:
         pygame.draw.rect(self.plot_surface, self.plot_color, (0, 0, self.plot_width, self.plot_height), 1)  # Draw only the outline
         self.draw_axes()
         screen.blit(self.plot_surface, (self.x_margin, self.y_margin))
-        pygame.display.flip()
+        # pygame.display.flip()
 
     def calculate_label_size(self, labels):
         width, height = 0, 0
@@ -329,6 +328,7 @@ def test_spl():
         scale_factor = min(LOGMAX, max(LOGMIN, scale_factor))
         mode.process_data(next(sine_1khz) * scale_factor)
         mode.update_plot()
+        pygame.display.flip()
 
 def test_acf():
     global start_time
@@ -352,6 +352,7 @@ def test_acf():
             data = next(sweep)
             mode.process_data(data)
             mode.update_plot()
+            pygame.display.flip()
 
         start_time = time.time()
         elapsed = 0
@@ -366,9 +367,11 @@ def test_acf():
             elapsed = time.time() - start_time
             mode.process_data(next(discriminator))
             mode.update_plot()
+            pygame.display.flip()
 
 if __name__ == "__main__":
     import sys
+    pygame.init()
 
     tests = [test_spl, test_acf]
     if len(sys.argv) > 1:

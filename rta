@@ -35,6 +35,8 @@ next(audio_source) # read a chunk and discard - this is necessary to initialize 
 
 
 import pygame
+pygame.init()
+pygame.display.set_caption('Audio Visualizer')
 
 class AudioVisualizer:
     def __init__(self):
@@ -46,27 +48,42 @@ class AudioVisualizer:
         self.switch_mode(args.mode)
 
     def switch_mode(self, mode_name):
+        previous = self.current_mode
         if mode_name == 'acf':
+            print(f'switching modes from {self.current_mode} to acf')
             self.current_mode = self.acf_mode
             self.current_mode.setup_plot()
         elif mode_name == 'spl':
+            print(f'switching modes from {self.current_mode} to spl')
             self.current_mode = self.spl_mode
             self.current_mode.setup_plot()
         else:
-            raise ValueError(f"Invalid mode: {mode_name}")
+            if self.current_mode == self.spl_mode:
+                print(f'switching modes from {self.current_mode} to acf')
+                self.current_mode = self.acf_mode
+            else:
+                print(f'switching modes from {self.current_mode} to spl')
+                self.current_mode = self.spl_mode
+        print(f'previous mode: {previous}, current mode: {self.current_mode}')
         self.redraw()
 
     def redraw(self):
         self.current_mode.setup_plot()
 
     def process_audio_chunk(self, audio_chunk):
-        self.spl_mode.process_data(audio_chunk)
-        #self.acf_mode.process_data(audio_chunk)
+        if self.spl_mode is not None:
+            self.spl_mode.process_data(audio_chunk)
+        if self.acf_mode is not None:
+            self.acf_mode.process_data(audio_chunk)
         self.current_mode.update_plot()
 
 def scan_buttons():
-    # Simulate scanning for button presses
-    return None
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            raise KeyboardInterrupt
+        elif event.type == pygame.KEYDOWN:
+            return event.key
+    return False
 
 if __name__ == '__main__':
     visualizer = AudioVisualizer()
@@ -74,13 +91,15 @@ if __name__ == '__main__':
         while True:
             button_press = scan_buttons()
             if button_press:
-                pass
-                #visualizer.switch_mode(button_press)
+                print('got keypress')
+                visualizer.switch_mode(button_press)
             chunk = next(audio_source)
             visualizer.process_audio_chunk(chunk)
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     raise KeyboardInterrupt
+            pygame.display.flip()
+            pygame.time.wait(10)
     except KeyboardInterrupt:
         print('Goodbye')
     finally:
