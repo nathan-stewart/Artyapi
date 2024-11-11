@@ -245,6 +245,13 @@ class ACFMode(BaseMode):
                 normalized_fft[index] = self.window_size
             return normalized_fft
 
+        def colorize(intensity, autocorr):
+            r = np.clip(255*autocorr, 0, 255)
+            g = np.clip(255*intensity, 0, 255)
+            b = intensity*(255-g)
+            return np.array([r,g,b]).transpose(1,0).astype(np.uint8)
+        
+        
         self.update_history(data)
 
         # Initialize the combined FFT result
@@ -281,16 +288,25 @@ class ACFMode(BaseMode):
             # Replace lower resolution values with higher resolution FFT data
             sp = self.split_idx[fold]
             combined_fft[:sp] = interpolated_fft[:sp]
-            
-            print(f'split_frequency = {self.split_frequency[fold]}, split_idx = {sp}')
 
         # Convert to log scale
-        log_fft_data = np.log2(1 + 100 * combined_fft)
+        log_fft_data = np.log2(1 + 100 * combined_fft)/6.64
 
-        # scale data to input range
-        log_fft_data = np.clip(log_fft_data * 255, 0, 255)
+        # autocorrelate and normalize
+        #autocorr = np.correlate(log_fft_data, log_fft_data, mode='full')
+        #autocorr = autocorr / np.max(autocorr)
+        autocorr = np.zeros_like(log_fft_data)
+
+        # map autocorrelation to log_bins so we can combine it with fft
+        #autocorr = np.interp(self.log_freq_bins, np.linspace(0, len(autocorr), len(autocorr)), autocorr)
+
+
+        # roll data and push new volume
         self.acf_plot = np.roll(self.acf_plot, -1, axis=1)
+
         self.acf_plot[:, -1, :] = np.array([log_fft_data * self.plot_color[i]/255 for i in range(3)]).transpose(1,0).astype(np.uint8)
+        #print(f'acf_plot = {np.min(self.acf_plot)}, {np.max(self.acf_plot)}')
+        self.acf_plot[:, -1, :] = colorize(log_fft_data, autocorr)
 
         # Draw the ACF plot to plot_surface
         self.blank()
