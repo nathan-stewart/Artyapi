@@ -201,6 +201,7 @@ class ACFMode(BaseMode):
 
         # FFT parameters
         self.window_size = 2**(int(math.log2(windowsize)))
+        self.linear_freq_bins = np.fft.rfftfreq(self.window_size, 1 / self.samplerate)
         self.log_freq_bins = np.logspace(np.log2(self.x_major[0]), np.log2(self.x_major[-1]), self.plot_width, base=2)
         self.fake = False
 
@@ -208,8 +209,14 @@ class ACFMode(BaseMode):
         self.hpf = firwin(1023, 2*40/self.samplerate, pass_zero=False)
         self.lpf = firwin(1023, 2*20e3/self.samplerate, pass_zero=True)
         self.window = get_window('hann', self.window_size)
-        self.acf_mask = int(130 * self.window_size / self.samplerate)
-            
+        acf_hpf_idx = np.argmax(self.linear_freq_bins > 200)
+        f0 = acf_hpf_idx // 2
+        self.acf_mask = np.array([
+            0.0                       if f < f0 else 
+            (f - f0) / (f0) if f < acf_hpf_idx  else 
+            1.0
+            for f in range(len(self.linear_freq_bins)//2)])
+
     def scale_xpos(self, pos):
         return int(math.log2(pos) * self.mx + self.bx)
 
@@ -223,7 +230,6 @@ class ACFMode(BaseMode):
             self.history = np.roll(self.history, -roll_len)
             self.history[-roll_len:] = data[-roll_len:]
 
-    # progressive FFT
     def process_data(self, data):
         def fake_fft():
             # generate fake data
@@ -252,8 +258,7 @@ class ACFMode(BaseMode):
         normalized_fft  = np.clip(fft_data / self.window_size, 0, 1)
 
         # Interpolate the FFT data to the log frequency bins
-        linear_freq_bins = np.fft.rfftfreq(self.window_size, 1 / self.samplerate)
-        interpolated_fft = np.interp(self.log_freq_bins, linear_freq_bins, normalized_fft)
+        interpolated_fft = np.interp(self.log_freq_bins, self.linear_freq_bins, normalized_fft)
 
         # Convert to log scale
         log_fft_data = np.log2(1 + 100 * interpolated_fft)/6.64
@@ -261,18 +266,17 @@ class ACFMode(BaseMode):
         # autocorrelate and normalize
         autocorr = np.fft.ifft(np.abs(np.fft.fft(log_fft_data))**2).real
         autocorr = autocorr[:len(autocorr)//2] # keep only positive lags
-        autocorr = autocorr / np.max(autocorr)
+        
+        # roll off low frequency correlation
+        #autocorr *= self.acf_mask
         autocorr = np.clip(autocorr, 0, 1)
-
-        # roll off autocorr below 150 hz
-        autocorr[:self.acf_mask] = 0
         
         # suppress bins with low correlation
-        autocorr = np.where(autocorr > 0.6, autocorr, 0)
+        #autocorr = np.where(autocorr > 0.5, autocorr, 0)
 
+        
         # map autocorrelation to log_bins so we can combine it with fft
         autocorr = np.interp(self.log_freq_bins, np.linspace(0, len(autocorr), len(autocorr)), autocorr)
-
 
         # roll data and push new volume
         self.acf_plot = np.roll(self.acf_plot, -1, axis=1)
