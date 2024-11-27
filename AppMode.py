@@ -258,12 +258,16 @@ class ACFMode(BaseMode):
         log_fft_data = np.log2(1 + 100 * interpolated_fft)/6.64
         
         # autocorrelate and normalize
-        autocorr = np.correlate(log_fft_data, log_fft_data, mode='full')
+        autocorr = np.fft.ifft(np.abs(np.fft.fft(log_fft_data))**2).real
+        autocorr = autocorr[:len(autocorr)//2] # keep only positive lags
         autocorr = autocorr / np.max(autocorr)
-        autocorr = np.zeros_like(log_fft_data)
+        
+        autocorr = np.clip(autocorr, 0, 1)
+        # suppress bins with low correlation
+        autocorr = np.where(autocorr > 0.6, autocorr, 0)
 
         # map autocorrelation to log_bins so we can combine it with fft
-        #autocorr = np.interp(self.log_freq_bins, np.linspace(0, len(autocorr), len(autocorr)), autocorr)
+        autocorr = np.interp(self.log_freq_bins, np.linspace(0, len(autocorr), len(autocorr)), autocorr)
 
 
         # roll data and push new volume
