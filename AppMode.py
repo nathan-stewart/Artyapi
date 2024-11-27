@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 import matplotlib.pyplot as plt
 import numpy as np
-import pyfftw
 import os
 import math
+from fftw3 import *
 from scipy.signal import firwin, lfilter, get_window
 from util import *
 import time
@@ -208,6 +208,7 @@ class ACFMode(BaseMode):
         self.hpf = firwin(1023, 2*40/self.samplerate, pass_zero=False)
         self.lpf = firwin(1023, 2*20e3/self.samplerate, pass_zero=True)
         self.window = get_window('hann', self.window_size)
+        self.acf_mask = int(130 * self.window_size / self.samplerate)
             
     def scale_xpos(self, pos):
         return int(math.log2(pos) * self.mx + self.bx)
@@ -246,7 +247,7 @@ class ACFMode(BaseMode):
         if self.fake:
             fft_data = fake_fft()
         else:
-            fft_data = np.abs(pyfftw.interfaces.numpy_fft.rfft(windowed_data, n=self.window_size))
+            fft_data = np.abs(fftw_rfft(windowed_data))
 
         normalized_fft  = np.clip(fft_data / self.window_size, 0, 1)
 
@@ -261,8 +262,11 @@ class ACFMode(BaseMode):
         autocorr = np.fft.ifft(np.abs(np.fft.fft(log_fft_data))**2).real
         autocorr = autocorr[:len(autocorr)//2] # keep only positive lags
         autocorr = autocorr / np.max(autocorr)
-        
         autocorr = np.clip(autocorr, 0, 1)
+
+        # roll off autocorr below 150 hz
+        autocorr[:self.acf_mask] = 0
+        
         # suppress bins with low correlation
         autocorr = np.where(autocorr > 0.6, autocorr, 0)
 
