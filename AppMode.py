@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import matplotlib.pyplot as plt
 import numpy as np
+import pyfftw
 import os
 import math
 from scipy.signal import firwin, lfilter, get_window
@@ -181,7 +182,7 @@ class SPLMode(BaseMode):
             #self.plot_surface.set_at(p0, self.plot_color)
 
 class ACFMode(BaseMode):
-    def __init__(self, windowsize=8192, samplerate=48000, numfolds=8):
+    def __init__(self, windowsize=16384, samplerate=48000):
         super().__init__()
         self.samplerate = samplerate
         self.acf_plot = np.zeros((self.plot_width, self.plot_height,3), dtype=np.uint8)
@@ -201,25 +202,12 @@ class ACFMode(BaseMode):
         # FFT parameters
         self.window_size = 2**(int(math.log2(windowsize)))
         self.log_freq_bins = np.logspace(np.log2(self.x_major[0]), np.log2(self.x_major[-1]), self.plot_width, base=2)
-        self.numfolds(numfolds)
         self.fake = False
 
-    def numfolds(self, nf):
-        nf = int(nf)
-        self.num_folds = min(max(nf,0), 8)
-        self.history = np.zeros(self.window_size * 2**self.num_folds)
+        self.history = np.zeros(self.window_size)
         self.hpf = firwin(1023, 2*40/self.samplerate, pass_zero=False)
-        self.lpf             = [None] * (nf + 1)
-        self.split_frequency = [None] * (nf + 1)
-        self.split_idx       = [None] * (nf + 1)
-        self.window          = [None] * (nf + 1)
-            
-        for f in range(0, self.num_folds + 1):
-            self.window[f] = get_window('hann', self.window_size * 2**f)
-            sf = 20e3 * 2**-f
-            self.split_frequency[f] = sf
-            self.lpf[f] = firwin(1024, 2 * sf / self.samplerate)
-            self.split_idx[f] = self.log_freq_bins.searchsorted(sf)
+        self.lpf = firwin(1023, 2*20e3/self.samplerate, pass_zero=True)
+        self.window = get_window('hann', self.window_size)
             
     def scale_xpos(self, pos):
         return int(math.log2(pos) * self.mx + self.bx)
@@ -246,43 +234,28 @@ class ACFMode(BaseMode):
         
         self.update_history(data)
 
-        # Initialize the combined FFT result
-        combined_fft = np.zeros_like(self.log_freq_bins)
+        # Apply the window to the history buffer
+        windowed_data = self.history[-self.window_size:] * self.window
 
-        # Process each octave
-        for fold in range(self.num_folds + 1):
-            self.effective_window_size = int(self.window_size * 2**fold)
+        # Apply high-pass filter to the windowed data
+        filtered = lfilter(self.hpf, 1, windowed_data)
 
-            # Apply the window to the history buffer
-            windowed_data = self.history[-self.effective_window_size:] * self.window[fold]
+        # Apply low-pass filters to the history buffer
+        filtered = lfilter(self.lpf, 1, filtered)
 
-            # Apply high-pass filter to the windowed data
-            filtered = lfilter(self.hpf, 1, windowed_data)
+        if self.fake:
+            fft_data = fake_fft()
+        else:
+            fft_data = np.abs(pyfftw.interfaces.numpy_fft.rfft(windowed_data, n=self.window_size))
 
-            # Apply low-pass filters to the history buffer
-            filtered = lfilter(self.lpf[fold], 1, filtered)
+        normalized_fft  = np.clip(fft_data / self.window_size, 0, 1)
 
-            # Downsample the filtered data
-            if fold > 0:
-                filtered = np.mean(filtered.reshape(-1, 2**fold), axis=1)
-
-            if self.fake:
-                fft_data = fake_fft()
-            else:
-                fft_data = np.abs(np.fft.rfft(windowed_data, n=self.window_size))
-
-            normalized_fft  = np.clip(fft_data / self.window_size, 0, 1)
-
-            # Interpolate the FFT data to the log frequency bins7
-            fold_freq_bins = np.fft.rfftfreq(self.window_size, 1 / self.samplerate)
-            interpolated_fft = np.interp(self.log_freq_bins, fold_freq_bins, normalized_fft)
-
-            # Replace lower resolution values with higher resolution FFT data
-            sp = self.split_idx[fold]
-            combined_fft[:sp] = interpolated_fft[:sp]
+        # Interpolate the FFT data to the log frequency bins
+        linear_freq_bins = np.fft.rfftfreq(self.window_size, 1 / self.samplerate)
+        interpolated_fft = np.interp(self.log_freq_bins, linear_freq_bins, normalized_fft)
 
         # Convert to log scale
-        log_fft_data = np.log2(1 + 100 * combined_fft)/6.64
+        log_fft_data = np.log2(1 + 100 * interpolated_fft)/6.64
         
         # autocorrelate and normalize
         autocorr = np.correlate(log_fft_data, log_fft_data, mode='full')
@@ -322,42 +295,38 @@ def test_spl():
 
 def test_acf():
     global start_time
-    mode = ACFMode(windowsize=1024, samplerate=48000)
-    num_folds = 4
-    mode.setup_plot()
     duration = 8.0
-    plot_color = make_color_palette(num_folds)
-    mode = ACFMode(windowsize=2048, samplerate=48000)
-    for f in range(num_folds):
-        # Sweep Test
-        mode.numfolds(f)
-        mode.history = np.zeros(mode.window_size * 2**f)
-        mode.plot_color = plot_color[f]
-        mode.fake = False
-        start_time = time.time()
+    plot_color = make_color_palette(1)
+    mode = ACFMode(windowsize=32768, samplerate=48000)
+    mode.setup_plot()
+    
+    # Sweep Test
+    mode.history = np.zeros(mode.window_size)
+    mode.plot_color = plot_color[0]
+    mode.fake = False
+    start_time = time.time()
+    elapsed = time.time() - start_time
+    sweep = sweep_generator(40, 20e3, duration, 12.0)
+    while elapsed < duration:
         elapsed = time.time() - start_time
-        sweep = sweep_generator(40, 20e3, duration, 12.0)
-        while elapsed < duration:
-            elapsed = time.time() - start_time
-            data = next(sweep)
-            mode.process_data(data)
-            mode.update_plot()
-            pygame.display.flip()
+        data = next(sweep)
+        mode.process_data(data)
+        mode.update_plot()
+        pygame.display.flip()
 
-        start_time = time.time()
-        elapsed = 0
+    start_time = time.time()
+    elapsed = 0
 
-        # Resolution test
-        perfold = 2.0
-        discriminator = resolution_generator()
-        mode.history = np.zeros(mode.window_size * 2**f)
-        mode.plot_color = plot_color[f]
-        mode.fake = True
-        while elapsed < perfold:
-            elapsed = time.time() - start_time
-            mode.process_data(next(discriminator))
-            mode.update_plot()
-            pygame.display.flip()
+    # Resolution test
+    discriminator = resolution_generator()
+    mode.history = np.zeros(mode.window_size)
+    mode.plot_color = plot_color[0]
+    mode.fake = True
+    while elapsed < 2.0:
+        elapsed = time.time() - start_time
+        mode.process_data(next(discriminator))
+        mode.update_plot()
+        pygame.display.flip()
 
 if __name__ == "__main__":
     import sys

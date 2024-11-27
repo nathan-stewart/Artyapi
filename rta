@@ -11,7 +11,7 @@ import AudioSource
 argparse = argparse.ArgumentParser(description='Audio Visualizer')
 argparse.add_argument('--mode', choices=['spl', 'acf'], default="", help='Mode to run the visualizer in')
 argparse.add_argument('--source', type=str, help='Use test data instead of real-time audio')
-argparse.add_argument('--windowsize', type=int, default=512, help='Window size for FFT')
+argparse.add_argument('--windowsize', type=int, default=16384, help='Window size for FFT')
 argparse.add_argument('--rotate', choices=['true','false','True','False'], default=None)
 
 args = argparse.parse_args()

@@ -191,9 +191,10 @@ def make_color_palette(n):
     return colors
 
 def colorize(intensity, autocorr):
+    bp = 0.02
     r = np.clip(255*autocorr, 0, 255)
     g = np.clip(255*intensity, 0, 255)
-    b = np.clip(255 * (1 - np.exp(-10 * (intensity-0.1))), 0, 255)
-    b = np.clip(b-g,0,255)
+    b = np.clip(255 * (1 - np.exp(-np.log(2) / bp * intensity)), 0, 255)
+    b = np.clip(b-g, 0, 255)
     #print(f'{r[0]:.3f}  {g[0]:.3f}   {b[0]:.3f}')
     return np.array([r,g,b]).transpose(1,0).astype(np.uint8)
