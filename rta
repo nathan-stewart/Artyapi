@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 import numpy as np
 import soundfile as sf
-import os
-from scipy.signal import resample
 import argparse
 from AudioSource import  RealTimeAudioSource, FileAudioSource
 import AudioSource
