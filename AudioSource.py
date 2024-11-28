@@ -23,12 +23,13 @@ def list_audio_devices():
             continue
         print(f"Device {dev['name']} ({i})")
 
-def RealTimeAudioSource(source, chunksize=16384, readbufsize=16384):
+def RealTimeAudioSource(source):
     global p, samplerate
     # Initialize audio capture
     os.environ['PA_ALSA_PLUGHW'] = '1'
     os.environ['PYTHONWARNINGS'] = 'ignore'
-    
+    bufflen = 2**16    
+
     def get_audio_device_index(name):
         for i in range(p.get_device_count()):
             dev = p.get_device_info_by_index(i)
@@ -52,7 +53,7 @@ def RealTimeAudioSource(source, chunksize=16384, readbufsize=16384):
         while not stop_flag:
             try:
                 # Capture new audio data
-                data = stream.read(readbufsize, exception_on_overflow=False)
+                data = stream.read(bufflen, exception_on_overflow=False)
                 new_data = np.frombuffer(data, dtype=np.int16)
 
                 # Safely update the buffer in a thread-safe manner (circular buffer)
@@ -84,7 +85,7 @@ def RealTimeAudioSource(source, chunksize=16384, readbufsize=16384):
     stream = p.open(format=pyaudio.paInt16, channels=1, rate=samplerate, input=True, frames_per_buffer=readbufsize, input_device_index=source)
 
     # Initialize circular buffer and threading
-    buffer = np.zeros(chunksize, dtype=np.int16)
+    buffer = np.zeros(bufflen, dtype=np.int16)
     write_index = 0
     lock = threading.Lock()
     stop_flag = False
@@ -98,7 +99,7 @@ def RealTimeAudioSource(source, chunksize=16384, readbufsize=16384):
         # Safely access the buffer and return the last `chunksize` samples
         with lock:
             # Return a copy of the circular buffer, starting from the correct point
-            if write_index == chunksize:
+            if write_index == bufflen:
                 chunk = buffer.copy()  # No wrapping needed
             else:
                 # Return the last `chunksize` samples in proper order (handle wrap-around)
@@ -106,9 +107,10 @@ def RealTimeAudioSource(source, chunksize=16384, readbufsize=16384):
 
         yield chunk
 
-def FileAudioSource(testdir, chunksize):
+def FileAudioSource(testdir):
     global samplerate
     files = os.listdir(testdir)
+    bufflen = 2**16
     while True:
         for f in files:
             fullpath = os.path.join(testdir, f)
@@ -120,19 +122,15 @@ def FileAudioSource(testdir, chunksize):
                 n_samples = len(audio_file)
                 t0 = time.time()
                 position = 0
-
                 while position < n_samples:
                     running_time = time.time() - t0
                     position = int(running_time * samplerate)
                     audio_file.seek(position)
-                    chunk = audio_file.read(chunksize, dtype='float32')
+                    chunk = audio_file.read(bufflen, dtype='float32')
 
                     # Convert to mono if necessary
                     if len(chunk.shape) == 2:
                         chunk = chunk.mean(axis=1)
-
-                    if len(chunk) < chunksize:
-                        chunk = np.pad(chunk, (0, chunksize - len(chunk)), mode='constant')
 
                     yield chunk
 

@@ -25,12 +25,12 @@ if args.rotate:
 
 windowsize = int(args.windowsize)
 if args.source == 'testdata':
-    audio_source = FileAudioSource('testdata', chunksize=windowsize)
+    audio_source = FileAudioSource('testdata')
 elif args.source == "-l":
     AudioSource.list_audio_devices()
     exit()
 else:
-    audio_source = RealTimeAudioSource(source=args.source, chunksize=windowsize)
+    audio_source = RealTimeAudioSource(source=args.source)
 next(audio_source) # read a chunk and discard - this is necessary to initialize samplerate
 
 
