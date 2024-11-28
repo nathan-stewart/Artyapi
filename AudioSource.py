@@ -110,7 +110,6 @@ def RealTimeAudioSource(source):
 def FileAudioSource(testdir):
     global samplerate
     files = os.listdir(testdir)
-    bufflen = 2**16
     while True:
         for f in files:
             fullpath = os.path.join(testdir, f)
@@ -121,12 +120,14 @@ def FileAudioSource(testdir):
                 samplerate = audio_file.samplerate
                 n_samples = len(audio_file)
                 t0 = time.time()
-                position = 0
-                while position < n_samples:
-                    running_time = time.time() - t0
-                    position = int(running_time * samplerate)
-                    audio_file.seek(position)
-                    chunk = audio_file.read(bufflen, dtype='float32')
+                p0 = 0
+                p1 = 0
+                while p1 < n_samples:
+                    now = time.time()
+                    p0 = p1
+                    p1 = int((now - t0) * samplerate)
+                    audio_file.seek(p0)
+                    chunk = audio_file.read(p1 - p0, dtype='float32')
 
                     # Convert to mono if necessary
                     if len(chunk.shape) == 2:
