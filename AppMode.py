@@ -24,6 +24,7 @@ LOGMAX = 10**(12/20)
 screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
 screen_width, screen_height = screen.get_size()
 
+# rotate just transpose the plot line before adding to plot history
 if rotate:
     screen_width, screen_height = screen_height, screen_width
 
@@ -154,6 +155,8 @@ class SPLMode(BaseMode):
         self.y_minor = [y for y in range(-96, 12, 3) if y not in self.y_major]
         self.spl_plot = np.array([-96] * self.plot_width)
         self.plot_surface.set_colorkey((0, 0, 0))  # Use a transparent color
+        self.min_spl = 100
+        self.max_spl = -100
 
     def draw_axes(self):
         self.draw_axis(major = self.y_major, labels = self.y_labels, minor = self.y_minor, orientation='y')
@@ -169,7 +172,9 @@ class SPLMode(BaseMode):
         # roll data and push new volume
         self.spl_plot = np.roll(self.spl_plot, -1)
         self.spl_plot[-1] = spl
-
+        self.min_spl = min(self.min_spl, spl)
+        self.max_spl = max(self.max_spl, spl)
+        
         # draw the SPL plot to plot_surface
         self.plot_surface.fill((0,0,0))
 
@@ -182,6 +187,14 @@ class SPLMode(BaseMode):
             #self.plot_surface.set_at(p0, self.plot_color)
 
 class ACFMode(BaseMode):
+    def colorize(intensity, autocorr):
+        blue_point = 0.02
+        r = np.clip(255*autocorr, 0, 255)
+        g = np.clip(255*intensity, 0, 255)
+        b = np.clip(255 * (1 - np.exp(-np.log(2) / blue_point * intensity)), 0, 255)
+        b = np.clip(b-g, 0, 255)
+        return np.array([r,g,b]).transpose(1,0).astype(np.uint8)
+
     def __init__(self, windowsize=16384, samplerate=48000):
         super().__init__()
         self.samplerate = samplerate
@@ -216,6 +229,12 @@ class ACFMode(BaseMode):
             (f - f0) / (f0) if f < acf_hpf_idx  else 
             1.0
             for f in range(len(self.linear_freq_bins)//2)])
+        
+        self.min_fft = 0
+        self.max_fft = 0
+        self.min_acf = 0
+        self.max_acf = 0
+
 
     def scale_xpos(self, pos):
         return int(math.log2(pos) * self.mx + self.bx)
@@ -261,18 +280,16 @@ class ACFMode(BaseMode):
         interpolated_fft = np.interp(self.log_freq_bins, self.linear_freq_bins, normalized_fft)
 
         # Convert to log scale
-        log_fft_data = np.log2(1 + 100 * interpolated_fft)/6.64
+        log_fft_data = np.log2(1 + 100 * interpolated_fft) / np.log2(101)
         
         # autocorrelate and normalize
         autocorr = np.fft.ifft(np.abs(np.fft.fft(log_fft_data))**2).real
         autocorr = autocorr[:len(autocorr)//2] # keep only positive lags
         
-        # roll off low frequency correlation
-        #autocorr *= self.acf_mask
         autocorr = np.clip(autocorr, 0, 1)
         
         # suppress bins with low correlation
-        #autocorr = np.where(autocorr > 0.5, autocorr, 0)
+        autocorr = np.where(autocorr > 0.4, autocorr, 0)
 
         
         # map autocorrelation to log_bins so we can combine it with fft
@@ -280,7 +297,13 @@ class ACFMode(BaseMode):
 
         # roll data and push new volume
         self.acf_plot = np.roll(self.acf_plot, -1, axis=1)
-        self.acf_plot[:, -1, :] = colorize(log_fft_data, autocorr)
+        self.min_fft = max(self.min_fft, np.min(log_fft_data))
+        self.max_fft = max(self.max_fft, np.max(log_fft_data))
+        self.min_acf = min(self.min_acf, np.min(autocorr))
+        self.max_acf = max(self.max_acf, np.max(autocorr))
+
+        print(f"min_fft: {self.min_fft}, max_fft: {self.max_fft}, min_acf: {self.min_acf}, max_acf: {self.max_acf}")
+        self.acf_plot[:, -1, :] = ACFMode.colorize(log_fft_data, autocorr)
 
         # Draw the ACF plot to plot_surface
         self.blank()
