@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import cProfile
+import pstats
 import numpy as np
 import soundfile as sf
 import argparse
@@ -83,22 +85,25 @@ def scan_buttons():
             return event.key
     return False
 
-if __name__ == '__main__':
+def main():
     visualizer = AudioVisualizer()
-    try:
-        while True:
+    run = True
+    while run:
+        try:
             button_press = scan_buttons()
             if button_press:
                 print('got keypress')
                 visualizer.switch_mode(button_press)
             chunk = next(audio_source)
             visualizer.process_audio_chunk(chunk)
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    raise KeyboardInterrupt
             pygame.display.flip()
             pygame.time.wait(10)
-    except KeyboardInterrupt:
-        print('Goodbye')
-    finally:
-        pygame.quit()
+        except KeyboardInterrupt:
+            run = False
+
+if __name__ == '__main__':
+    cProfile.run('main()', 'rta')
+    p = pstats.Stats('rta')
+    p.strip_dirs().sort_stats('cumulative').print_stats(20)
+    p.sort_stats('time').print_stats(20)
+
