@@ -174,7 +174,7 @@ class SPLMode(BaseMode):
         self.spl_plot[-1] = spl
         self.min_spl = min(self.min_spl, spl)
         self.max_spl = max(self.max_spl, spl)
-        
+
         # draw the SPL plot to plot_surface
         self.plot_surface.fill((0,0,0))
 
@@ -225,11 +225,11 @@ class ACFMode(BaseMode):
         acf_hpf_idx = np.argmax(self.linear_freq_bins > 200)
         f0 = acf_hpf_idx // 2
         self.acf_mask = np.array([
-            0.0                       if f < f0 else 
-            (f - f0) / (f0) if f < acf_hpf_idx  else 
+            0.0                       if f < f0 else
+            (f - f0) / (f0) if f < acf_hpf_idx  else
             1.0
             for f in range(len(self.linear_freq_bins)//2)])
-        
+
         self.min_fft = 0
         self.max_fft = 0
         self.min_acf = 0
@@ -256,8 +256,8 @@ class ACFMode(BaseMode):
             for f in  sorted([40 * 2**i for i in range(0,9)] + [43 * 2**i for i in range(0,9)]):
                 index = int(f * self.window_size / self.samplerate)
                 normalized_fft[index] = self.window_size
-            return normalized_fft        
-        
+            return normalized_fft
+
         self.update_history(data)
 
         # Apply the window to the history buffer
@@ -281,17 +281,17 @@ class ACFMode(BaseMode):
 
         # Convert to log scale
         log_fft_data = np.log2(1 + 100 * interpolated_fft) / np.log2(101)
-        
+
         # autocorrelate and normalize
         autocorr = np.fft.ifft(np.abs(np.fft.fft(log_fft_data))**2).real
         autocorr = autocorr[:len(autocorr)//2] # keep only positive lags
-        
+
         autocorr = np.clip(autocorr, 0, 1)
-        
+
         # suppress bins with low correlation
         autocorr = np.where(autocorr > 0.4, autocorr, 0)
 
-        
+
         # map autocorrelation to log_bins so we can combine it with fft
         autocorr = np.interp(self.log_freq_bins, np.linspace(0, len(autocorr), len(autocorr)), autocorr)
 
@@ -334,7 +334,7 @@ def test_acf():
     plot_color = make_color_palette(1)
     mode = ACFMode(windowsize=32768, samplerate=48000)
     mode.setup_plot()
-    
+
     # Sweep Test
     mode.history = np.zeros(mode.window_size)
     mode.plot_color = plot_color[0]
