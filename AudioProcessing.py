@@ -13,45 +13,50 @@ LOGMIN = 10**(-96/20)
 LOGMAX = 10**(12/20)
 
 class AudioProcessor:
-    def __init__(self, window_size=65536, samplerate = 48000, plot_duration = 30.0):
-        self.plot_duration = plot_duration
+    def __init__(self, window_size=65536, samplerate = 48000):
         self.samplerate = samplerate
 
+        kernel_size = 401
         # FFT parameters
         self.window_size = 2**(round(math.log2(window_size)))
         self.f0 = 40
         self.f1 = 20e3
         self.linear_freq_bins = np.fft.rfftfreq(self.window_size, 1 / self.samplerate)
 
-        self.window = get_window('hann', self.window_size)
-        self.target_fps = 20
-        self.hpf = firwin(1023, 2 * self.f0 / self.samplerate, pass_zero=False)
-        self.lpf = firwin(1023, 2 * self.f1 / self.samplerate, pass_zero=True)
+        window = get_window('hann', self.window_size)
+        bpf = firwin(kernel_size, [self.f0, self.f1], fs=self.samplerate, pass_zero=False)
+        self.windowed_bpf = bpf * window[:kernel_size]
         self.raw = np.zeros(self.window_size)
-        self.history_len = int(self.target_fps * self.plot_duration)
-        self.volume = np.zeros(self.history_len)
+        self.c_idx = 0
         self.bincount = self.window_size // 2 + 1
-        self.fft = np.zeros((self.bincount, self.history_len, 2))
-
+        
+        
     def update_history(self, data):
-        roll_len = min(len(data), self.history_len)
+        roll_len = min(len(data), self.window_size)
         if roll_len == 0:
             return
-        self.raw = np.roll(self.raw, -roll_len)
-        self.raw[-roll_len:] = data[-roll_len:]
+        
+        e_idx = (self.c_idx + roll_len) % self.window_size
+        if e_idx == self.c_idx: # if roll_len is exactly windowsize - replace the whole buffer
+            self.raw[:] = data[:self.window_size]
+        elif e_idx < self.c_idx: # wrap around case
+            self.raw[self.c_idx:] = data[:self.window_size - self.c_idx]
+            self.raw[:e_idx] = data[self.window_size - self.c_idx:]
+        else: # normal case
+            print(self.c_idx, e_idx, len(data), self.window_size)
+            self.raw[self.c_idx:e_idx] = data[:roll_len]
+        self.c_idx = e_idx
+
 
     def process_data(self, data):
         self.update_history(data)
 
-        # Compute the RMS volume of the signal
-        self.volume = np.roll(self.volume, -1)
-        self.volume[-1] = np.sqrt(np.mean(data ** 2))
+        # Compute the RMS volume of the current batch of data
+        rms = np.sqrt(np.mean(data ** 2))
 
-        # Compute the FFT of the signal
-        windowed_data = self.raw[-self.window_size:] * self.window
-        filtered = lfilter(self.hpf, 1, windowed_data)
-        filtered = lfilter(self.lpf, 1, filtered)
-        fft_data = np.abs(fftw_rfft(windowed_data))
+        # Compute the FFT of the signal on the windowed data
+        filtered = lfilter(self.windowed_bpf, 1, self.raw)
+        fft_data = np.abs(fftw_rfft(filtered))
         normalized_fft  = np.clip(fft_data / self.window_size, 0, 1)
         log_fft_data = np.log2(1 + 100 * normalized_fft) / np.log2(101)
 
@@ -61,7 +66,4 @@ class AudioProcessor:
         autocorr = np.clip(autocorr, 0, 1)
         autocorr = np.where(autocorr > 0.4, autocorr, 0) # suppress bins with low correlation
         
-        self.fft = np.roll(self.fft, -1, axis=1)
-        self.fft[:, -1, 0] = log_fft_data
-        self.fft[:, -1, 1] = autocorr
 

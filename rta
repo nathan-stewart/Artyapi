@@ -31,7 +31,7 @@ next(audio_source) # read a chunk and discard - this is necessary to initialize 
 
 import time
 def main():
-    ap = AudioProcessor(window_size = args.windowsize, samplerate = AudioSource.samplerate, plot_duration = 30.0)
+    ap = AudioProcessor(window_size = args.windowsize, samplerate = AudioSource.samplerate)
     data = np.random.randn(65536)  # Example data
     t0 = time.time()
     count = 100
