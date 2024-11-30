@@ -6,11 +6,10 @@ import math
 from fftw3 import *
 from scipy.signal import firwin, lfilter, get_window
 from util import *
-import time
-
 
 LOGMIN = 10**(-96/20)
 LOGMAX = 10**(12/20)
+
 
 class AudioProcessor:
     def __init__(self, window_size=65536, samplerate = 48000):
@@ -32,6 +31,7 @@ class AudioProcessor:
         
         
     def update_history(self, data):
+        
         roll_len = min(len(data), self.window_size)
         if roll_len == 0:
             return
@@ -43,17 +43,18 @@ class AudioProcessor:
             self.raw[self.c_idx:] = data[:self.window_size - self.c_idx]
             self.raw[:e_idx] = data[self.window_size - self.c_idx:]
         else: # normal case
-            print(self.c_idx, e_idx, len(data), self.window_size)
             self.raw[self.c_idx:e_idx] = data[:roll_len]
         self.c_idx = e_idx
 
 
     def process_data(self, data):
+        if data is None:
+            return
         self.update_history(data)
 
         # Compute the RMS volume of the current batch of data
         rms = np.sqrt(np.mean(data ** 2))
-
+        
         # Compute the FFT of the signal on the windowed data
         filtered = lfilter(self.windowed_bpf, 1, self.raw)
         fft_data = np.abs(fftw_rfft(filtered))

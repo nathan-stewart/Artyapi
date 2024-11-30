@@ -5,8 +5,6 @@ import argparse
 from AudioSource import  RealTimeAudioSource, FileAudioSource
 import AudioSource
 from AudioProcessing import AudioProcessor
-import cProfile
-import pstats
 
 # setup argparse before opening pygame
 argparse = argparse.ArgumentParser(description='Audio Visualizer')
@@ -14,6 +12,7 @@ argparse.add_argument('--mode', choices=['spl', 'acf'], default="", help='Mode t
 argparse.add_argument('--source', type=str, help='Use test data instead of real-time audio')
 argparse.add_argument('--windowsize', type=int, default=65536, help='Window size for FFT')
 argparse.add_argument('--rotate', choices=['true','false','True','False'], default=None)
+argparse.add_argument('--profile', action='store_true', help='Profile the code')
 
 args = argparse.parse_args()
 if args.rotate:
@@ -31,21 +30,34 @@ next(audio_source) # read a chunk and discard - this is necessary to initialize 
 
 import time
 def main():
+    global args
+    global audio_source
+    
+    run = True
     ap = AudioProcessor(window_size = args.windowsize, samplerate = AudioSource.samplerate)
-    data = np.random.randn(65536)  # Example data
-    t0 = time.time()
-    count = 100
-    for _ in range(100):
-        ap.process_data(data)
-    t1 = time.time()
-    print(f'{count/(t1-t0)} FPS')
+    if args.profile:
+        count = 100
+        t0 = time.time()
+        for _ in range(count):
+            ap.process_data(ap.process_data(next(audio_source)))
+        t1 = time.time()
+        print(f'{count/(t1-t0):.1f} fps')
+    else:
+        while run:
+            t0 = time.time()
+            ap.process_data(next(audio_source))
+            t1 = time.time()
+            print(f'{1/(t1-t0):.1f} fps')
 
 if __name__ == "__main__":
-    profiler = cProfile.Profile()
-    profiler.enable()
+    if args.profile:
+        import cProfile, pstats
+        profiler = cProfile.Profile()
+        profiler.enable()
     main()
-    profiler.disable()
-    with open('profile_output.txt', 'w') as f:
-        ps = pstats.Stats(profiler, stream=f)
-        ps.strip_dirs().sort_stats('cumulative').print_stats(20)
-    print("Profiling data saved to 'profile_output.txt'")
+    if args.profile:
+        profiler.disable()
+        with open('profile_output.txt', 'w') as f:
+            ps = pstats.Stats(profiler, stream=f)
+            ps.strip_dirs().sort_stats('cumulative').print_stats(20)
+        print("Profiling data saved to 'profile_output.txt'")
