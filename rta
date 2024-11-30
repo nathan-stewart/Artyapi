@@ -4,22 +4,20 @@ import soundfile as sf
 import argparse
 from AudioSource import  RealTimeAudioSource, FileAudioSource
 import AudioSource
-import AudioProcessing
+from AudioProcessing import AudioProcessor
+import cProfile
+import pstats
 
 # setup argparse before opening pygame
 argparse = argparse.ArgumentParser(description='Audio Visualizer')
 argparse.add_argument('--mode', choices=['spl', 'acf'], default="", help='Mode to run the visualizer in')
 argparse.add_argument('--source', type=str, help='Use test data instead of real-time audio')
-argparse.add_argument('--windowsize', type=int, default=4096, help='Window size for FFT')
+argparse.add_argument('--windowsize', type=int, default=65536, help='Window size for FFT')
 argparse.add_argument('--rotate', choices=['true','false','True','False'], default=None)
 
 args = argparse.parse_args()
 if args.rotate:
     args.rotate = args.rotate.lower()
-    if args.rotate == 'true':
-        AppMode.rotate = True
-    elif args.rotate == 'false':
-        AppMode.rotate = False
 
 windowsize = int(args.windowsize)
 if args.source == 'testdata':
@@ -31,36 +29,23 @@ else:
     audio_source = RealTimeAudioSource(source=args.source)
 next(audio_source) # read a chunk and discard - this is necessary to initialize samplerate
 
-class AudioVisualizer:
-    def __init__(self):
-        if AudioSource.samplerate is None:
-            raise RuntimeError("Samplerate not set")
-        self.processor = AudioProcessing(window_size = args.windowsize, samplerate = AudioSource.samplerate, plot_duration = 30.0)
+import time
+def main():
+    ap = AudioProcessor(window_size = args.windowsize, samplerate = AudioSource.samplerate, plot_duration = 30.0)
+    data = np.random.randn(65536)  # Example data
+    t0 = time.time()
+    count = 100
+    for _ in range(100):
+        ap.process_data(data)
+    t1 = time.time()
+    print(f'{count/(t1-t0)} FPS')
 
-def scan_buttons():
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            raise KeyboardInterrupt
-        elif event.type == pygame.KEYDOWN:
-            return event.key
-    return False
-
-if __name__ == '__main__':
-    visualizer = AudioVisualizer()
-    try:
-        while True:
-            button_press = scan_buttons()
-            if button_press:
-                print('got keypress')
-                visualizer.switch_mode(button_press)
-            chunk = next(audio_source)
-            visualizer.process_audio_chunk(chunk)
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    raise KeyboardInterrupt
-            pygame.display.flip()
-            pygame.time.wait(10)
-    except KeyboardInterrupt:
-        print('Goodbye')
-    finally:
-        pygame.quit()
+if __name__ == "__main__":
+    profiler = cProfile.Profile()
+    profiler.enable()
+    main()
+    profiler.disable()
+    with open('profile_output.txt', 'w') as f:
+        ps = pstats.Stats(profiler, stream=f)
+        ps.strip_dirs().sort_stats('cumulative').print_stats(20)
+    print("Profiling data saved to 'profile_output.txt'")
