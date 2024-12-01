@@ -6,13 +6,15 @@ import soundfile as sf
 import argparse
 from AudioSource import  RealTimeAudioSource, FileAudioSource
 import AudioSource
+import os
 
 # setup argparse before opening pygame
 argparse = argparse.ArgumentParser(description='Audio Visualizer')
 argparse.add_argument('--mode', choices=['spl', 'acf'], default="", help='Mode to run the visualizer in')
 argparse.add_argument('--source', type=str, help='Use test data instead of real-time audio')
-argparse.add_argument('--windowsize', type=int, default=4096, help='Window size for FFT')
+argparse.add_argument('--windowsize', type=int, default=65536, help='Window size for FFT')
 argparse.add_argument('--rotate', choices=['true','false','True','False'], default=None)
+argparse.add_argument('--profile', action='store_true', help='Profile the code')
 
 args = argparse.parse_args()
 import AppMode
@@ -24,8 +26,8 @@ if args.rotate:
         AppMode.rotate = False
 
 windowsize = int(args.windowsize)
-if args.source == 'testdata':
-    audio_source = FileAudioSource('testdata')
+if os.path.exists(args.source):
+    audio_source = FileAudioSource(args.source) 
 elif args.source == "-l":
     AudioSource.list_audio_devices()
     exit()
@@ -101,9 +103,15 @@ def main():
         except KeyboardInterrupt:
             run = False
 
-if __name__ == '__main__':
-    cProfile.run('main()', 'rta')
-    p = pstats.Stats('rta')
-    p.strip_dirs().sort_stats('cumulative').print_stats(20)
-    p.sort_stats('time').print_stats(20)
-
+if __name__ == "__main__":
+    if args.profile:
+        import cProfile, pstats
+        profiler = cProfile.Profile()
+        profiler.enable()
+    main()
+    if args.profile:
+        profiler.disable()
+        with open('profile_output.txt', 'w') as f:
+            ps = pstats.Stats(profiler, stream=f)
+            ps.strip_dirs().sort_stats('cumulative').print_stats(20)
+        print("Profiling data saved to 'profile_output.txt'")

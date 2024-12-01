@@ -243,7 +243,7 @@ class ACFMode(BaseMode):
         self.draw_axis(major = self.x_major, labels = self.x_labels, minor = self.x_minor, orientation='x')
 
     def update_history(self, data):
-        # Roll the history buffer and push new data
+        # Roll the history buffer and push new data        
         roll_len = min(len(data), self.window_size)
         if roll_len > 0:
             self.history = np.roll(self.history, -roll_len)
@@ -262,6 +262,9 @@ class ACFMode(BaseMode):
 
         # Apply the window to the history buffer
         windowed_data = self.history[-self.window_size:] * self.window
+        
+        # work from normalized data|
+        windowed_data = windowed_data / np.max(windowed_data)
 
         # Apply high-pass filter to the windowed data
         filtered = lfilter(self.hpf, 1, windowed_data)
@@ -302,7 +305,7 @@ class ACFMode(BaseMode):
         self.min_acf = min(self.min_acf, np.min(autocorr))
         self.max_acf = max(self.max_acf, np.max(autocorr))
 
-        print(f"min_fft: {self.min_fft}, max_fft: {self.max_fft}, min_acf: {self.min_acf}, max_acf: {self.max_acf}")
+        # print(f"min_fft: {self.min_fft}, max_fft: {self.max_fft}, min_acf: {self.min_acf}, max_acf: {self.max_acf}")
         self.acf_plot[:, -1, :] = ACFMode.colorize(log_fft_data, autocorr)
 
         # Draw the ACF plot to plot_surface

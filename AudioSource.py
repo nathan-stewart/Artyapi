@@ -82,7 +82,7 @@ def RealTimeAudioSource(source):
         raise RuntimeError('No audio input device found')
 
     samplerate = get_preferred_samplerate(source)
-    stream = p.open(format=pyaudio.paInt16, channels=1, rate=samplerate, input=True, frames_per_buffer=readbufsize, input_device_index=source)
+    stream = p.open(format=pyaudio.paInt16, channels=1, rate=samplerate, input=True, frames_per_buffer=1024, input_device_index=source)
 
     # Initialize circular buffer and threading
     buffer = np.zeros(bufflen, dtype=np.int16)
