@@ -2,6 +2,7 @@
 import numpy as np
 import soundfile as sf
 import argparse
+import os
 from AudioSource import  RealTimeAudioSource, FileAudioSource
 import AudioSource
 from AudioProcessing import AudioProcessor
@@ -19,8 +20,8 @@ if args.rotate:
     args.rotate = args.rotate.lower()
 
 windowsize = int(args.windowsize)
-if args.source == 'testdata':
-    audio_source = FileAudioSource('testdata')
+if os.path.exists(args.source):
+    audio_source = FileAudioSource(args.source)
 elif args.source == "-l":
     AudioSource.list_audio_devices()
     exit()
