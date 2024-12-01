@@ -56,7 +56,8 @@ class AudioProcessor:
         rms = np.sqrt(np.mean(data ** 2))
         
         # Compute the FFT of the signal on the windowed data
-        filtered = lfilter(self.windowed_bpf, 1, self.raw)
+        normalized = np.clip(self.raw / self.window_size, 0, 1)
+        filtered = lfilter(self.windowed_bpf, 1, normalized)
         fft_data = np.abs(fftw_rfft(filtered))
         normalized_fft  = np.clip(fft_data / self.window_size, 0, 1)
         log_fft_data = np.log2(1 + 100 * normalized_fft) / np.log2(101)
