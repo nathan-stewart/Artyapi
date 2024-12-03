@@ -17,6 +17,8 @@ class Plotting:
         self.FFT_BINS = width
         self.FFT_HISTORY_LENGTH = height
         self.fft_data = np.zeros((self.FFT_HISTORY_LENGTH, self.FFT_BINS, 3))  # RGB channels
+        self.logspace = np.logspace(np.log2(f0), np.log2(f1), self.FFT_BINS)
+        self.linspace = np.linspace(f0, f1, 32768)
 
         # Create figure and axes
         self.fig, self.ax_fft = plt.subplots(figsize=(width / self.dpi, height / self.dpi))
@@ -31,6 +33,9 @@ class Plotting:
         # Set x-axis properties
         self.ax_fft.xaxis.set_label_position('top')
         ticks = [int(round(f0 * 2 ** (i/3),0)) for i in range(27)]
+        if f1 not in ticks:
+            ticks.append(int(f1))
+            
         self.ax_fft.set_xscale('log', base=2)
         self.ax_fft.set_xlim(f0, f1)
         self.ax_fft.set_xticks(ticks)
@@ -39,10 +44,6 @@ class Plotting:
         
         self.ax_fft.yaxis.set_visible(False)
 
-        # FFT bins need interpolation
-        self.fft_logspace = np.logspace(np.log2(f0), np.log2(f1), self.FFT_BINS)
-        self.fft_bins = np.fft.rfftfreq(self.FFT_BINS, 1 / 48000)
-        
         # Frame rate counter
         self.frame_count = 0
         self.start_time = time.time()
@@ -70,8 +71,11 @@ class Plotting:
 
     def update(self, frame):
         # Simulate FFT data (replace with actual data processing)
-        new_fft = np.random.rand(self.FFT_BINS)
-        autocorr = np.random.rand(self.FFT_BINS)
+        new_fft = np.random.rand(32768)
+        autocorr = np.random.rand(32768)
+
+        new_fft = np.interp(self.logspace, self.linspace, new_fft)
+        autocorr = np.interp(self.logspace, self.linspace, autocorr) 
 
         # Colorize FFT data
         colored_fft = self.colorize(new_fft, autocorr)
