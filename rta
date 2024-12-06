@@ -6,7 +6,7 @@ import os
 from AudioSource import  RealTimeAudioSource, FileAudioSource
 import AudioSource
 from AudioProcessing import AudioProcessor
-from Plotting import Plotter
+from Plotting import Plotting
 
 # setup argparse before opening pygame
 argparse = argparse.ArgumentParser(description='Audio Visualizer')
@@ -37,23 +37,21 @@ def main():
     
     run = True
     ap = AudioProcessor(window_size = args.windowsize, samplerate = AudioSource.samplerate)
-    plt = Plotter(ap, mode=args.mode, rotate=args.rotate)
-    plt.start()
-    
-    if args.profile:
-        count = 100
-        t0 = time.time()
-        for _ in range(count):
-            rms, fft = ap.process_data(ap.process_data(next(audio_source)))
+    plt = Plotting(width=1920, height=480, f0=40, f1=20e3)
+    plt.show()
 
+    
+    loop_count = 100
+    t0 = time.time()
+    
+    while loop_count > 0:
+        t0 = time.time()
+        rms,fft = ap.process_data(next(audio_source))
+        plt.update_data(rms, fft)
         t1 = time.time()
-        print(f'{count/(t1-t0):.1f} fps')
-    else:
-        while run:
-            t0 = time.time()
-            ap.process_data(next(audio_source))
-            t1 = time.time()
-            print(f'{1/(t1-t0):.1f} fps')
+        print(f'{1/(t1-t0):.1f} fps')
+        if args.profile:
+            loop_count -= 1 
 
 if __name__ == "__main__":
     if args.profile:
