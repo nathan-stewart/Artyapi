@@ -43,9 +43,13 @@ class Plotting:
 
         # Create figure and axes for RMS display
         self.fig_rms, self.ax_rms = plt.subplots(figsize=(width / self.dpi, height / self.dpi))
-        self.im_rms = self.ax_rms.imshow(self.rms_data, aspect='auto', interpolation='none', norm=mcolors.Normalize(vmin=0, vmax=1))
+        self.line_rms = self.ax_rms.plot(self.rms_data)
         self.ax_rms.set_title('SPL')
         self.ax_rms.set_ylim(-96, 12)
+        self.ax_rms.set_yticks(range(-96, 13, 6))
+        self.ax_rms.yaxis.ymin = -96
+        self.ax_rms.yaxis.ymax = 12
+        self.ax_rms.xaxis.set_visible(False)
 
         # Frame rate counter
         self.frame_count = 0
@@ -53,14 +57,15 @@ class Plotting:
 
     def update_data(self, rms, fft):
         # Update RMS data
-        self.rms_data = np.roll(self.rms_data, 1, axis=0)
-        self.rms_data[0] = rms
-        self.im_rms.set_data(self.rms_data)
+        self.rms_data = np.roll(self.rms_data, -1)
+        self.rms_data[-1] = rms
+        self.line_rms[0].set_ydata(self.rms_data)
 
-        # Update FFT data
+       # Update FFT data
         self.fft_data = np.roll(self.fft_data, 1, axis=0)
         self.fft_data[0] = fft
         self.im_fft.set_data(self.fft_data)
+        print(np.max(self.fft_data[:, :, 0]), np.max(self.fft_data[:, :, 1]), np.max(self.fft_data[:, :, 2]))
         plt.pause(0.001)
         return [self.im_fft]
 

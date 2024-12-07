@@ -23,6 +23,7 @@ class AudioProcessor:
         self.f1 = 20e3
         self.linear_freq_bins = np.fft.rfftfreq(self.window_size, 1 / self.samplerate)
         self.log_freq_bins = np.logspace(np.log2(self.f0), np.log2(self.f1), FFTBINS)
+        self.maxrms = -100
 
         window = get_window('hann', self.window_size)
         bpf = firwin(kernel_size, [self.f0, self.f1], fs=self.samplerate, pass_zero=False)
@@ -30,6 +31,8 @@ class AudioProcessor:
         self.raw = np.zeros(self.window_size)
         self.c_idx = 0
         self.bincount = self.window_size // 2 + 1
+
+        self.mic_gain = 15.0 # make full scale +12db
         
         
     def update_history(self, data):
@@ -73,7 +76,9 @@ class AudioProcessor:
         self.update_history(data)
 
         # Compute the RMS volume of the current batch of data
-        rms = np.sqrt(np.mean(data ** 2))
+        rms = 20 * np.log10(np.sqrt(np.mean(data ** 2)) + LOGMIN) + self.mic_gain
+        self.maxrms = max(rms, self.maxrms)
+        # print(self.maxrms)
         
         # Compute the FFT of the signal on the windowed data
         normalized = np.clip(self.raw / self.window_size, 0, 1)
