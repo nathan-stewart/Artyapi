@@ -21,11 +21,9 @@ class Plotting:
         self.RMS_LENGTH = width
         self.RMS_HEIGHT = height
         self.fft_data = np.zeros((self.FFT_HISTORY_LENGTH, self.FFT_BINS, 3))  # RGB channels
-        self.rms_data = np.zeros((self.RMS_LENGTH, self.RMS_HEIGHT))
-        self.latest_rms = np.zeros(self.RMS_HEIGHT)
-        self.latest_fft = np.zeros((self.FFT_BINS, 3))
-        
-        # Create figure and axes for FFT display
+        self.rms_data = np.full((self.RMS_LENGTH), -96)
+
+        # # Create figure and axes for FFT display
         self.fig_fft, self.ax_fft = plt.subplots(figsize=(width / self.dpi, height / self.dpi))
         self.im_fft = self.ax_fft.imshow(self.fft_data, aspect='auto', interpolation='none', norm=mcolors.Normalize(vmin=0, vmax=1))
         self.ax_fft.set_title('FFT Display')
@@ -57,9 +55,12 @@ class Plotting:
 
     def update_data(self, rms, fft):
         # Update RMS data
-        self.rms_data = np.roll(self.rms_data, -1)
-        self.rms_data[-1] = rms
-        self.line_rms[0].set_ydata(self.rms_data)
+        if not np.isnan(rms):
+            self.rms_data = np.roll(self.rms_data, -1)
+            self.rms_data[-1] = rms
+            self.line_rms[0].set_ydata(self.rms_data)
+            self.fig_rms.canvas.draw()
+            self.fig_rms.canvas.flush_events()
 
        # Update FFT data
         self.fft_data = np.roll(self.fft_data, 1, axis=0)
@@ -67,7 +68,6 @@ class Plotting:
         self.im_fft.set_data(self.fft_data)
         print(np.max(self.fft_data[:, :, 0]), np.max(self.fft_data[:, :, 1]), np.max(self.fft_data[:, :, 2]))
         plt.pause(0.001)
-        return [self.im_fft]
 
     def show(self):
         plt.show(block=False)
@@ -81,7 +81,7 @@ if __name__ == "__main__":
     profiler.enable()
 
     plotter.start_both()
-    
+
     profiler.disable()
     with open('profile_output.txt', 'w') as f:
         ps = pstats.Stats(profiler, stream=f)

@@ -2,6 +2,7 @@
 import numpy as np
 import soundfile as sf
 import argparse
+import time
 import os
 from AudioProcessing import AudioProcessor
 from Plotting import Plotting
@@ -28,15 +29,18 @@ else:
         list_audio_devices()
         exit()
     audio_source = RealTimeAudioSource(source=args.source)
-next(audio_source) # read a chunk and discard - this is necessary to initialize samplerate
+if isinstance(audio_source, tuple):
+    audio_source, samplerate = audio_source
+else:
+    samplerate = 48000
+next(audio_source)
 
-import time
 def main():
     global args
     global audio_source
 
     run = True
-    ap = AudioProcessor(window_size = args.windowsize, samplerate = AudioSource.samplerate)
+    ap = AudioProcessor(window_size = args.windowsize, samplerate = samplerate)
     plt = Plotting(width=1920, height=480, f0=40, f1=20e3)
     plt.show()
 
@@ -49,7 +53,7 @@ def main():
         rms,fft = ap.process_data(next(audio_source))
         plt.update_data(rms, fft)
         t1 = time.time()
-        print(f'{1/(t1-t0):.1f} fps')
+        # print(f'{1/(t1-t0):.1f} fps\r')
         if args.profile:
             loop_count -= 1
 

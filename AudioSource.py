@@ -9,8 +9,6 @@ import logging
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
 
-samplerate = None
-
 def list_audio_devices():
     import pyaudio
     p = pyaudio.PyAudio()
@@ -21,8 +19,6 @@ def list_audio_devices():
         print(f"Device {dev['name']} ({i})")
 
 def RealTimeAudioSource(source):
-    global samplerate
-
     # Initialize audio capture
     os.environ['PA_ALSA_PLUGHW'] = '1'
     os.environ['PYTHONWARNINGS'] = 'ignore'
@@ -92,7 +88,7 @@ def RealTimeAudioSource(source):
     stop_flag = False
     capture_thread = threading.Thread(target=_capture_audio)
     capture_thread.start()
-
+    first_call = True
     # Generator to yield the latest audio data
     while True:
         t0 = time.time()
@@ -106,11 +102,15 @@ def RealTimeAudioSource(source):
                 # Return the last `chunksize` samples in proper order (handle wrap-around)
                 chunk = np.concatenate((buffer[write_index:], buffer[:write_index]))
 
-        yield chunk
+        if first_call:
+            first_call = False
+            yield chunk, samplerate
+        else:
+            yield chunk
 
 def FileAudioSource(testdir):
-    global samplerate
     files = os.listdir(testdir)
+    first_call = True
     while True:
         for f in files:
             fullpath = os.path.join(testdir, f)
@@ -134,6 +134,10 @@ def FileAudioSource(testdir):
                     if len(chunk.shape) == 2:
                         chunk = chunk.mean(axis=1)
 
-                    yield chunk
+                    if first_call:
+                        first_call = False
+                        yield chunk, samplerate
+                    else:
+                        yield chunk
 
         files = os.listdir(testdir)
