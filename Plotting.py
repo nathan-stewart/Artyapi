@@ -35,7 +35,7 @@ class Plotting:
         self.line_rms = None
         self.im_fft = None
         # Create figure and axes for RMS display
-        #self.create_rms_plot(width, height)
+        # self.create_rms_plot(width, height)
         self.create_fft_plot(width=width, height=height, f0=f0, f1=f1)
 
         # Frame rate counter
@@ -60,8 +60,6 @@ class Plotting:
         self.fig_rms.patch.set_facecolor('black')
         self.ax_rms.patch.set_facecolor('black')
         self.line_rms = self.ax_rms.plot(self.rms_data, color='white')
-        self.ax_rms.set_title('SPL', color='white')
-        self.ax_rms.spines['top'].set_color('white')
         self.ax_rms.spines['right'].set_color('white')
         self.ax_rms.spines['bottom'].set_color('white')
         self.ax_rms.spines['left'].set_color('white')
@@ -74,6 +72,7 @@ class Plotting:
         self.ax_rms.yaxis.ymax = 12
         self.ax_rms.set_xlim(0, self.RMS_LENGTH)
         self.ax_rms.xaxis.set_visible(False)
+        self.fig_rms.subplots_adjust(left=0.005, right=0.97, top=0.97, bottom=0.02)
 
         # Set monospace font for y-axis labels
         monospace_font = FontProperties(family='monospace')
