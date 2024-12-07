@@ -149,21 +149,6 @@ def print_fft_summary(label, fft_data, freq_bins):
         last_print = this_print
 
 
-def format_hz(hz):
-    hz = round(hz) 
-    if hz < 100:
-        return f'{hz:d}'
-    elif hz < 1000:
-        return f'{round(hz / 10) * 10:d}'
-    elif hz < 10000:
-        k = hz // 1000
-        c = round((hz % 1000) / 100)
-        return f'{k}k{c}'
-    else:
-        k = hz // 1000
-        return f'{k}k'
-
-
 def get_filter_freq(filter, samplerate):
     w,h = freqz(filter)
     epsilon = 1e-10

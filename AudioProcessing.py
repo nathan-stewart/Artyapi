@@ -93,6 +93,5 @@ class AudioProcessor:
         ls_fft = np.interp(self.log_freq_bins, self.linear_freq_bins, log_fft_data)
         ls_autocorr = np.interp(self.log_freq_bins, self.linear_freq_bins, autocorr)
         colored_fft = self.colorize(ls_fft, ls_autocorr)
-        print(colored_fft.shape)
         return rms, colored_fft
 

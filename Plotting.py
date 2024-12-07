@@ -9,11 +9,19 @@ from matplotlib.font_manager import FontProperties
 LOGMIN = 10**(-96/20)
 LOGMAX = 10**(12/20)
 
-def format_hz(x):
-    if x >= 1000:
-        return f'{x/1000:.1f}kHz'
+def format_hz(hz):
+    hz = round(hz) 
+    if hz < 100:
+        return f'{hz:d}'
+    elif hz < 1000:
+        return f'{round(hz / 10) * 10:d}'
+    elif hz < 10000:
+        k = hz // 1000
+        c = round((hz % 1000) / 100)
+        return f'{k}k{c}'
     else:
-        return f'{x}Hz'
+        k = hz // 1000
+        return f'{k}k'
 
 class Plotting:
     def __init__(self, width=1920, height=480, f0=40, f1=20e3):
@@ -27,8 +35,8 @@ class Plotting:
         self.line_rms = None
         self.im_fft = None
         # Create figure and axes for RMS display
-        self.create_rms_plot(width, height)
-        #self.create_fft_plot(width=width, height=height, f0=f0, f1=f1)
+        #self.create_rms_plot(width, height)
+        self.create_fft_plot(width=width, height=height, f0=f0, f1=f1)
 
         # Frame rate counter
         self.frame_count = 0
@@ -75,8 +83,9 @@ class Plotting:
     def create_fft_plot(self, width=1920, height=480, f0=40, f1=20e3):
         # Create figure and axes for FFT display
         self.fig_fft, self.ax_fft = plt.subplots(figsize=(width / self.dpi, height / self.dpi))
+        self.fig_fft.patch.set_facecolor('black')
+        self.ax_fft.patch.set_facecolor('black')
         self.im_fft = self.ax_fft.imshow(self.fft_data, aspect='auto', interpolation='none', norm=mcolors.Normalize(vmin=0, vmax=1))
-        self.ax_fft.set_title('FFT Display')
         self.ax_fft.xaxis.set_label_position('top')
         octaves = ceil(np.log2(f1 / f0))
         ticks = [int(round(f0 * 2 ** (i/3), 0)) for i in range(3*octaves)]
@@ -88,6 +97,13 @@ class Plotting:
         self.ax_fft.xaxis.tick_top()
         self.ax_fft.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f'{format_hz(x)}'))
         self.ax_fft.yaxis.set_visible(False)
+        self.ax_fft.spines['top'].set_color('white')
+        self.ax_fft.spines['bottom'].set_color('white')
+        self.ax_fft.spines['left'].set_color('white')
+        self.ax_fft.spines['right'].set_color('white')
+        self.ax_fft.tick_params(axis='x', colors='white')
+        self.fig_fft.subplots_adjust(left=0.008, right=0.985, top=0.92, bottom=0.01)
+
 
     def update_data(self, rms, fft):
         # Update RMS data
