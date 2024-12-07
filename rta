@@ -3,8 +3,6 @@ import numpy as np
 import soundfile as sf
 import argparse
 import os
-from AudioSource import  RealTimeAudioSource, FileAudioSource
-import AudioSource
 from AudioProcessing import AudioProcessor
 from Plotting import Plotting
 
@@ -22,11 +20,13 @@ if args.rotate:
 
 windowsize = int(args.windowsize)
 if os.path.exists(args.source):
+    from AudioSource import FileAudioSource
     audio_source = FileAudioSource(args.source)
-elif args.source == "-l":
-    AudioSource.list_audio_devices()
-    exit()
 else:
+    from AudioSource import RealTimeAudioSource, list_audio_devices
+    if args.source == "-l":
+        list_audio_devices()
+        exit()
     audio_source = RealTimeAudioSource(source=args.source)
 next(audio_source) # read a chunk and discard - this is necessary to initialize samplerate
 
@@ -34,16 +34,16 @@ import time
 def main():
     global args
     global audio_source
-    
+
     run = True
     ap = AudioProcessor(window_size = args.windowsize, samplerate = AudioSource.samplerate)
     plt = Plotting(width=1920, height=480, f0=40, f1=20e3)
     plt.show()
 
-    
+
     loop_count = 100
     t0 = time.time()
-    
+
     while loop_count > 0:
         t0 = time.time()
         rms,fft = ap.process_data(next(audio_source))
@@ -51,7 +51,7 @@ def main():
         t1 = time.time()
         print(f'{1/(t1-t0):.1f} fps')
         if args.profile:
-            loop_count -= 1 
+            loop_count -= 1
 
 if __name__ == "__main__":
     if args.profile:
