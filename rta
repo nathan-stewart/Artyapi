@@ -7,7 +7,6 @@ import os
 from AudioProcessing import AudioProcessor
 from Plotting import Plotting
 
-# setup argparse before opening pygame
 argparse = argparse.ArgumentParser(description='Audio Visualizer')
 argparse.add_argument('--mode', choices=['spl', 'acf'], default="", help='Mode to run the visualizer in')
 argparse.add_argument('--source', type=str, help='Use test data instead of real-time audio')
@@ -44,25 +43,27 @@ def main():
     plt = Plotting(width=1920, height=480, f0=40, f1=20e3)
     plt.show()
 
-
-    loop_count = 100
     t0 = time.time()
-
-    while loop_count > 0:
-        t0 = time.time()
-        rms,fft = ap.process_data(next(audio_source))
-        plt.update_data(rms, fft)
+    while run:
+        rms,fft, acf = ap.process_data(next(audio_source))
+        plt.update_data(rms, fft, acf)
         t1 = time.time()
         # print(f'{1/(t1-t0):.1f} fps\r')
+        t0 = t1
         if args.profile:
             loop_count -= 1
+            if loop_count <= 0:
+                run = False
+    
 
 if __name__ == "__main__":
     if args.profile:
         import cProfile, pstats
         profiler = cProfile.Profile()
         profiler.enable()
+
     main()
+
     if args.profile:
         profiler.disable()
         with open('profile_output.txt', 'w') as f:

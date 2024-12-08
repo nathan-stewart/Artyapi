@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import time
+import cProfile, pstats
 from matplotlib.ticker import MultipleLocator, FormatStrFormatter, FuncFormatter
 from math import ceil
 from matplotlib.font_manager import FontProperties
@@ -23,7 +24,36 @@ def format_hz(hz):
         k = hz // 1000
         return f'{k}k'
 
+
+def generate_ticks(f0, f1, per_octave):
+    octaves = ceil(np.log2(f1 / f0))
+    ticks = [int(round(f0 * 2 ** (i/3), 0)) for i in range(3*octaves)]
+    if f1 not in ticks:
+        ticks.append(int(f1))
+    return ticks
+
+
 class Plotting:
+
+    def colorize(self, log_fft_data, autocorr):
+        # Normalize log_fft_data to range [0, 1]
+        maxval = max(np.max(log_fft_data), LOGMIN)
+        log_fft_data = log_fft_data / maxval
+        cutoff = 0.05
+
+        # Create HSV array
+        hsv = np.zeros((log_fft_data.shape[0], 3))
+        # Hue is Red (0)
+        # Saturation is the autocorrelation
+        # Value is the log_fft_data
+        hsv[:, 0] = 0
+        hsv[:, 1] = autocorr
+        hsv[:, 2] = log_fft_data  # Value: intensity
+
+        # Convert HSV to RGB
+        rgb = hsv_to_rgb(hsv)
+        return rgb
+        
     def __init__(self, width=1920, height=480, f0=40, f1=20e3):
         self.dpi = 100
         self.FFT_BINS = width
@@ -34,6 +64,9 @@ class Plotting:
         self.rms_data = np.full((self.RMS_LENGTH), -96)
         self.line_rms = None
         self.im_fft = None
+        self.lin_freq_bins = np.fft.rfftfreq(65536, 48000)
+        self.log_freq_bins = np.logspace(np.log2(f0), np.log2(f1), self.FFT_BINS, base=2)
+        
         # Create figure and axes for RMS display
         # self.create_rms_plot(width, height)
         self.create_fft_plot(width=width, height=height, f0=f0, f1=f1)
@@ -84,15 +117,11 @@ class Plotting:
         self.fig_fft, self.ax_fft = plt.subplots(figsize=(width / self.dpi, height / self.dpi))
         self.fig_fft.patch.set_facecolor('black')
         self.ax_fft.patch.set_facecolor('black')
-        self.im_fft = self.ax_fft.imshow(self.fft_data, aspect='auto', interpolation='none', norm=mcolors.Normalize(vmin=0, vmax=1))
+        self.im_fft = self.ax_fft.imshow(self.fft_data, aspect='auto', interpolation='nearest', norm=mcolors.Normalize(vmin=0, vmax=1))
         self.ax_fft.xaxis.set_label_position('top')
-        octaves = ceil(np.log2(f1 / f0))
-        ticks = [int(round(f0 * 2 ** (i/3), 0)) for i in range(3*octaves)]
-        if f1 not in ticks:
-            ticks.append(int(f1))
         self.ax_fft.set_xscale('log', base=2)
         self.ax_fft.set_xlim(f0, f1)
-        self.ax_fft.set_xticks(ticks)
+        self.ax_fft.set_xticks(generate_ticks(40,20e3,3))
         self.ax_fft.xaxis.tick_top()
         self.ax_fft.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f'{format_hz(x)}'))
         self.ax_fft.yaxis.set_visible(False)
@@ -104,7 +133,7 @@ class Plotting:
         self.fig_fft.subplots_adjust(left=0.008, right=0.985, top=0.92, bottom=0.01)
 
 
-    def update_data(self, rms, fft):
+    def update_data(self, rms, fft, acf):
         # Update RMS data
         if self.line_rms and not np.isnan(rms):
             self.rms_data = np.roll(self.rms_data, -1)
@@ -114,12 +143,35 @@ class Plotting:
             self.fig_rms.canvas.flush_events()
 
        # Update FFT data
-        if self.im_fft:
+        if self.fig_fft:
+            mf = np.max(fft)
+            if abs(mf) > 0:
+                fft = fft / mf
+
+            ls_fft = np.interp(self.log_freq_bins, self.lin_freq_bins, fft)
+            ls_acf = np.interp(self.log_freq_bins, self.lin_freq_bins, acf)
+            # colored_fft = self.colorize(ls_fft, ls_acf)
+
             self.fft_data = np.roll(self.fft_data, 1, axis=0)
-            self.fft_data[0] = fft
+            # self.fft_data[0] = colored_fft
+
+            # generate fake fft data at 1khz
+            #self.fft_data[0] = np.zeros_like(self.fft_data[0])
+            #idx_1khz = np.searchsorted(self.log_freq_bins, 1000)
+            # self.fft_data[0][idx_1khz] = [1, 0, 0]
+            #self.fft_data[0] = [1, 0, 0]
+            
+            self.fft_data = np.zeros_like(self.fft_data)
+            for i in range(self.FFT_BINS - 1):
+                j = int(np.floor(self.FFT_HISTORY_LENGTH * (i/self.FFT_BINS)))
+                self.fft_data[j][i] = [1, 0, 0]
+            
+
+            # Plot fft data
             self.im_fft.set_data(self.fft_data)
             self.fig_fft.canvas.draw()
             self.fig_fft.canvas.flush_events()
+
 
         plt.pause(0.001)
 

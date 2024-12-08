@@ -5,8 +5,6 @@ import numpy as np
 import time
 import colorsys
 import os
-os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
-import pygame
 
 def sine_generator(frequency):
     '''
@@ -87,16 +85,6 @@ def resolution_generator():
         start = now
         yield buffer
 
-def wait_for_keypress():
-    keypress = None
-    while True:
-        for event in pygame.event.get():
-            if event.type == pygame.KEYDOWN:
-                if (event.key == pygame.K_SPACE or event.key == pygame.K_q):
-                    keypress = True
-                break
-        if keypress:
-            break
 
 def is_raspberry_pi():
     try:
