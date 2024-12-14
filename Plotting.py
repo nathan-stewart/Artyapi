@@ -3,7 +3,8 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import time
 import cProfile, pstats
-from matplotlib.ticker import MultipleLocator, FormatStrFormatter, FuncFormatter
+from matplotlib.ticker import FuncFormatter, FormatStrFormatter, NullFormatter
+from matplotlib.ticker import MultipleLocator, LogLocator
 from matplotlib.colors import hsv_to_rgb
 from math import ceil
 from matplotlib.font_manager import FontProperties
@@ -125,6 +126,7 @@ class Plotting:
             return ticks
 
         # Create figure and axes for FFT display
+        self.freq_bins = np.logspace(np.log2(self.f0), np.log2(self.f1), self.FFT_BINS, base=2)
         self.fig_fft, self.ax_fft = plt.subplots(
             figsize=(self.width / self.dpi, self.height / self.dpi)
         )
@@ -137,26 +139,36 @@ class Plotting:
             norm=mcolors.Normalize(vmin=0, vmax=1),
         )
         self.ax_fft.xaxis.set_label_position("top")
-        self.ax_fft.set_xscale("log", base=2)
-        self.ax_fft.set_xlim(self.f0, self.f1)
-        self.ax_fft.set_xticks(generate_ticks(3))
+        self.ax_fft.set_xlim(0, self.FFT_BINS)
+        major_ticks = generate_ticks(3)
+        major_tick_positions = [np.searchsorted(self.freq_bins, f) for f in major_ticks]
+        self.ax_fft.set_xticks(major_tick_positions)
         self.ax_fft.xaxis.tick_top()
         self.ax_fft.xaxis.set_major_formatter(
-            plt.FuncFormatter(lambda x, _: f"{format_hz(x)}")
+            plt.FuncFormatter(lambda x, _: f"{format_hz(self.freq_bins[int(x)])}" if int(x) < len(self.freq_bins) else "")
         )
+        self.ax_fft.xaxis.set_minor_locator(LogLocator(base=2, subs='auto', numticks=60))
+        self.ax_fft.tick_params(axis="x", colors="white", which="both")
+        
+        # hide the y axis entirely
         self.ax_fft.yaxis.set_visible(False)
+
         self.ax_fft.spines["top"].set_color("white")
         self.ax_fft.spines["bottom"].set_color("white")
         self.ax_fft.spines["left"].set_color("white")
         self.ax_fft.spines["right"].set_color("white")
-        self.ax_fft.tick_params(axis="x", colors="white")
         self.fig_fft.subplots_adjust(left=0.008, right=0.985, top=0.92, bottom=0.01)
-        self.freq_bins = np.logspace(np.log2(self.f0), np.log2(self.f1), self.FFT_BINS, base=2)
 
 
     def plot_freq(self, f):
         index = np.searchsorted(self.freq_bins, f)
-        self.fft_data[0][index-1:index+1] = [1, 0, 0]
+        if index < len(self.freq_bins) - 1:
+            left_bin = self.freq_bins[index -1]
+            right_bin = self.freq_bins[index]
+            position = index - 1 + (f - left_bin) / (right_bin - left_bin)
+            position = int(round(position))
+            if 0 <= position < len(self.fft_data[0]):
+                self.fft_data[0][index] = [1, 0, 0]
 
     def update_data(self, rms, fft, acf):
         
@@ -177,15 +189,7 @@ class Plotting:
             colored_fft = self.colorize(fft, acf)
 
             self.fft_data = np.roll(self.fft_data, 1, axis=0)
-            #self.fft_data[0] = colored_fft
-            self.fft_data[0] = np.zeros_like(colored_fft)
-            self.plot_freq(50)
-            self.plot_freq(100)
-            self.plot_freq(200)
-            self.plot_freq(400)
-            self.plot_freq(800)
-            self.plot_freq(1600)
-
+            self.fft_data[0] = colored_fft
 
             # Plot fft data
             self.im_fft.set_data(self.fft_data)
