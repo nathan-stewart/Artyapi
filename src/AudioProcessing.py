@@ -31,7 +31,7 @@ class AudioProcessor:
         self.bincount = self.window_size // 2 + 1
         self.linspace = np.linspace(0, self.samplerate / 2, self.bincount)
         self.logspace = np.logspace(
-            np.log10(self.f0), np.log10(self.f1), FFTBINS, base=2
+            np.log2(self.f0), np.log2(self.f1), FFTBINS, base=2
         )
 
     def update_history(self, data):

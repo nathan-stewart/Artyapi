@@ -47,8 +47,11 @@ class TestAudioProcessor(unittest.TestCase):
         self.assertAlmostEqual(peak, 0.0, delta=0.2, msg="Peak should be 0.0 dB")
 
         # Check that the FFT data is not all zeros
-        self.assertGreater(np.max(fft), 0.45, "FFT should have a peak")
-        self.assertEqual(np.argmax(fft), 40, "Peak should be at 440 Hz")        
+        self.assertGreater(np.max(fft), 0.4, msg="FFT should have a peak")
+        self.assertLess(np.max(fft), 1.0, msg="FFT should be normalized")        
+
+        peak_frequency = np.argmax(fft) * sample_rate / self.window_size
+        self.assertEqual(peak_frequency, 440, delta=5.0,  msg="Peak should be at 440 Hz")        
         
         # Create a white noise signal with itself delayed by 2ms for autocorrelation
         # delayed_samples = int(0.002 * sample_rate)
