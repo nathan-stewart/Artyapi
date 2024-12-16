@@ -12,6 +12,7 @@ from matplotlib.font_manager import FontProperties
 LOGMIN = 10 ** (-96 / 20)
 LOGMAX = 10 ** (12 / 20)
 
+
 class Plotting:
     def colorize(self, log_fft_data, autocorr):
         # Normalize log_fft_data to range [0, 1]
@@ -42,7 +43,9 @@ class Plotting:
         self.RMS_HEIGHT = height
         self.f0 = f0
         self.f1 = f1
-        self.fft_data = np.zeros( (self.FFT_HISTORY_LENGTH, self.FFT_BINS, 3) )  # RGB channels
+        self.fft_data = np.zeros(
+            (self.FFT_HISTORY_LENGTH, self.FFT_BINS, 3)
+        )  # RGB channels
         self.rms_data = np.full((self.RMS_LENGTH), -96)
         self.line_rms = None
         self.im_fft = None
@@ -120,14 +123,17 @@ class Plotting:
         def generate_ticks(per_octave):
             octaves = ceil(np.log2(self.f1 / self.f0))
             ticks = [
-                int(round(self.f0 * 2 ** (i / per_octave), 0)) for i in range(per_octave * octaves)
+                int(round(self.f0 * 2 ** (i / per_octave), 0))
+                for i in range(per_octave * octaves)
             ]
             if self.f1 not in ticks:
                 ticks.append(int(self.f1))
             return ticks
 
         # Create figure and axes for FFT display
-        self.freq_bins = np.logspace(np.log2(self.f0), np.log2(self.f1), self.FFT_BINS, base=2)
+        self.freq_bins = np.logspace(
+            np.log2(self.f0), np.log2(self.f1), self.FFT_BINS, base=2
+        )
         self.fig_fft, self.ax_fft = plt.subplots(
             figsize=(self.width / self.dpi, self.height / self.dpi)
         )
@@ -146,11 +152,17 @@ class Plotting:
         self.ax_fft.set_xticks(major_tick_positions)
         self.ax_fft.xaxis.tick_top()
         self.ax_fft.xaxis.set_major_formatter(
-            plt.FuncFormatter(lambda x, _: f"{format_hz(self.freq_bins[int(x)])}" if int(x) < len(self.freq_bins) else "")
+            plt.FuncFormatter(
+                lambda x, _: f"{format_hz(self.freq_bins[int(x)])}"
+                if int(x) < len(self.freq_bins)
+                else ""
+            )
         )
-        self.ax_fft.xaxis.set_minor_locator(LogLocator(base=2, subs='auto', numticks=60))
+        self.ax_fft.xaxis.set_minor_locator(
+            LogLocator(base=2, subs="auto", numticks=60)
+        )
         self.ax_fft.tick_params(axis="x", colors="white", which="both")
-        
+
         # hide the y axis entirely
         self.ax_fft.yaxis.set_visible(False)
 
@@ -160,11 +172,10 @@ class Plotting:
         self.ax_fft.spines["right"].set_color("white")
         self.fig_fft.subplots_adjust(left=0.008, right=0.985, top=0.92, bottom=0.01)
 
-
     def plot_freq(self, f):
         index = np.searchsorted(self.freq_bins, f)
         if index < len(self.freq_bins) - 1:
-            left_bin = self.freq_bins[index -1]
+            left_bin = self.freq_bins[index - 1]
             right_bin = self.freq_bins[index]
             position = index - 1 + (f - left_bin) / (right_bin - left_bin)
             position = int(round(position))
@@ -172,7 +183,6 @@ class Plotting:
                 self.fft_data[0][index] = [1, 0, 0]
 
     def update_data(self, rms, fft, acf):
-        
         # Update RMS data
         if self.line_rms and not np.isnan(rms):
             self.rms_data = np.roll(self.rms_data, -1)
@@ -183,7 +193,7 @@ class Plotting:
 
         # Update FFT data
         if self.fig_fft and not np.isnan(fft).any():
-            self.maxval = max(abs(np.max(fft)),self.maxval)
+            self.maxval = max(abs(np.max(fft)), self.maxval)
             normalized_fft = fft / self.maxval if self.maxval > 1e-11 else fft
             colored_fft = self.colorize(normalized_fft, acf)
 

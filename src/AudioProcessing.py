@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 LOGMIN = 10 ** (-96 / 20)
 LOGMAX = 10 ** (12 / 20)
 
+
 class AudioProcessor:
     def __init__(self, window_size=65536, samplerate=48000, resolution=1875):
         self.samplerate = samplerate
@@ -22,7 +23,11 @@ class AudioProcessor:
         order = 4
         self.window = get_window("hann", self.window_size)
         self.b, self.a = iirfilter(
-            order, Wn=[self.f0, self.f1], fs=self.samplerate, btype="band", ftype="butter"
+            order,
+            Wn=[self.f0, self.f1],
+            fs=self.samplerate,
+            btype="band",
+            ftype="butter",
         )
         self.raw = np.zeros(self.window_size)
         self.c_idx = 0
@@ -50,7 +55,6 @@ class AudioProcessor:
             self.raw[self.c_idx : e_idx] = data[:roll_len]
         self.c_idx = e_idx
 
-
     def process_data(self, data):
         if data is None or np.any(np.isnan(data)):
             return
@@ -58,22 +62,32 @@ class AudioProcessor:
 
         # Compute the RMS volume of the current batch of data
         rms = 20 * np.log10(np.sqrt(np.mean(data**2)) + LOGMIN)
-        peak = 20 *np.log10(np.max(np.abs(data)) + LOGMIN)
-    
+        peak = 20 * np.log10(np.max(np.abs(data)) + LOGMIN)
+
         # Compute the FFT of the signal on the windowed and filtered data
         windowed = self.window * self.raw
         filtered = lfilter(self.b, self.a, windowed)
         fft_data = np.abs(fftw_rfft(filtered))
         normalized_fft = 2 * fft_data / self.window_size
-        
+
         # autocorrelate and normalize, keeping only positive lags
         autocorr_full = np.fft.ifft(np.abs(np.fft.fft(normalized_fft)) ** 2).real
         autocorr = autocorr_full[: self.bincount]
         autocorr = np.clip(autocorr, 0, 1)
-        
+
         # interpolate loses bin count - implement a summing interpolation to preserve
-        
+
         # Sum the FFT magnitudes within each logspace bin
-        fft = np.array([normalized_fft[self.bin_indices == i].sum() for i in range(1, len(self.logspace))])
-        autocorr = np.array([autocorr[self.bin_indices == i].sum() for i in range(1, len(self.logspace))])
+        fft = np.array(
+            [
+                normalized_fft[self.bin_indices == i].sum()
+                for i in range(1, len(self.logspace))
+            ]
+        )
+        autocorr = np.array(
+            [
+                autocorr[self.bin_indices == i].sum()
+                for i in range(1, len(self.logspace))
+            ]
+        )
         return rms, peak, fft, autocorr

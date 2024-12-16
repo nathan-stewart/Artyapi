@@ -6,13 +6,14 @@ import time
 import colorsys
 import os
 
+
 def sine_generator(frequency):
-    '''
+    """
     Sine wave generator which prentends to be an audio device filling up a buffer
     with samples since the last time called
-    '''
+    """
     sample_rate = 48000
-    amplitude = np.sqrt(2) * 10**(12/20) # +12 db
+    amplitude = np.sqrt(2) * 10 ** (12 / 20)  # +12 db
     start = time.time()
     phase = 0
     while True:
@@ -20,7 +21,7 @@ def sine_generator(frequency):
         elapsed = now - start
         num_samples = int(sample_rate * elapsed)
         t = np.linspace(0, elapsed, num_samples, endpoint=False)
-        buffer = amplitude* np.sin(2 * np.pi * frequency * t + phase)
+        buffer = amplitude * np.sin(2 * np.pi * frequency * t + phase)
 
         phase += 2 * np.pi * frequency * elapsed
         phase = phase % (2 * np.pi)
@@ -28,13 +29,14 @@ def sine_generator(frequency):
         start = now
         yield buffer
 
+
 def sweep_generator(f0, f1, duration, db):
-    '''
+    """
     Sine wave generator which pretends to be an audio device filling up a buffer
     with samples since the last time called
-    '''
+    """
     sample_rate = 48000
-    amplitude = np.sqrt(2) * 10**(db/20)
+    amplitude = np.sqrt(2) * 10 ** (db / 20)
     start = time.time()
     phase = 0
     sweep = 0
@@ -46,23 +48,29 @@ def sweep_generator(f0, f1, duration, db):
         t = np.linspace(0, elapsed, num_samples, endpoint=False)
 
         # Linear frequency sweep
-        frequency = f0 + (f1 - f0) * (sweep/duration)
+        frequency = f0 + (f1 - f0) * (sweep / duration)
 
         # Generate the buffer with the frequency sweep
         buffer = amplitude * np.sin(2 * np.pi * frequency * t + phase)
 
         # Update the phase
-        phase += 2 * np.pi * (f0 * elapsed + 0.5 * (f1 - f0) * (elapsed ** 2) / duration) % (2 * np.pi)
+        phase += (
+            2
+            * np.pi
+            * (f0 * elapsed + 0.5 * (f1 - f0) * (elapsed**2) / duration)
+            % (2 * np.pi)
+        )
 
         start = now
         yield buffer
 
+
 def resolution_generator():
-    '''
+    """
     Generate f0, f1 sine wave pairs at 40, 46, 80, 92, 160, 184 Hz...
-    '''
+    """
     sample_rate = 48000
-    amplitude = np.sqrt(2) * 10**(12/20)  # Example amplitude for 12 dB
+    amplitude = np.sqrt(2) * 10 ** (12 / 20)  # Example amplitude for 12 dB
     frequencies = [(40, 46), (80, 92), (160, 184)]
     phase = 0
     start = time.time()
@@ -88,13 +96,15 @@ def resolution_generator():
 
 def is_raspberry_pi():
     try:
-        with open('/proc/device-tree/model', 'r') as f:
-            return 'Raspberry Pi' in f.read()
+        with open("/proc/device-tree/model", "r") as f:
+            return "Raspberry Pi" in f.read()
     except FileNotFoundError:
         return False
     return False
 
+
 last_print = None
+
 
 def print_fft_summary(label, fft_data, freq_bins):
     """
@@ -123,13 +133,18 @@ def print_fft_summary(label, fft_data, freq_bins):
     sorted_peaks = sorted(peaks, key=lambda x: fft_data[x], reverse=True)
 
     # Select the top N peaks
-    num_peaks = min(2,len(sorted_peaks))
+    num_peaks = min(2, len(sorted_peaks))
     top_peaks = sorted_peaks[:num_peaks]
 
     # Print the peaks
     if num_peaks > 0:
-        peak_string = 'Peaks: ' + ', '.join([f'{fft_data[f]:+.2f} db @ {freq_bins[f]:.1f} Hz' for f in top_peaks])
-        this_print = f'{label} - Mean: {np.mean(fft_data):.1f} db, Min: {np.min(fft_data):.1f} db, Max: {np.max(fft_data):.1f} db' + peak_string
+        peak_string = "Peaks: " + ", ".join(
+            [f"{fft_data[f]:+.2f} db @ {freq_bins[f]:.1f} Hz" for f in top_peaks]
+        )
+        this_print = (
+            f"{label} - Mean: {np.mean(fft_data):.1f} db, Min: {np.min(fft_data):.1f} db, Max: {np.max(fft_data):.1f} db"
+            + peak_string
+        )
     else:
         this_print = f"{label} - Mean: {np.mean(fft_data):.1f} db, Min: {np.min(fft_data):.1f} db, Max: {np.max(fft_data):.1f} db"
     if last_print != this_print:
@@ -138,7 +153,7 @@ def print_fft_summary(label, fft_data, freq_bins):
 
 
 def get_filter_freq(filter, samplerate):
-    w,h = freqz(filter)
+    w, h = freqz(filter)
     epsilon = 1e-10
     gain_db = 20 * np.log10(np.abs(h) + epsilon)
 
@@ -149,6 +164,7 @@ def get_filter_freq(filter, samplerate):
     else:
         corner_freq = samplerate / 2
     return corner_freq
+
 
 def make_color_palette(n):
     grc = 0.61803398875
@@ -163,11 +179,12 @@ def make_color_palette(n):
         colors.append(rgb)
     return colors
 
+
 def colorize(intensity, autocorr):
     blue_point = 0.02
-    r = np.clip(255*autocorr, 0, 255)
-    g = np.clip(255*intensity, 0, 255)
+    r = np.clip(255 * autocorr, 0, 255)
+    g = np.clip(255 * intensity, 0, 255)
     b = np.clip(255 * (1 - np.exp(-np.log(2) / blue_point * intensity)), 0, 255)
-    b = np.clip(b-g, 0, 255)
-    #print(f'{r[0]:.3f}  {g[0]:.3f}   {b[0]:.3f}')
-    return np.array([r,g,b]).transpose(1,0).astype(np.uint8)
+    b = np.clip(b - g, 0, 255)
+    # print(f'{r[0]:.3f}  {g[0]:.3f}   {b[0]:.3f}')
+    return np.array([r, g, b]).transpose(1, 0).astype(np.uint8)
