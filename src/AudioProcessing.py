@@ -10,13 +10,11 @@ import matplotlib.pyplot as plt
 
 LOGMIN = 10 ** (-96 / 20)
 LOGMAX = 10 ** (12 / 20)
-FFTBINS = 1875 # one bin per pixel - experimentally determined
 
 class AudioProcessor:
-    def __init__(self, window_size=65536, samplerate=48000):
+    def __init__(self, window_size=65536, samplerate=48000, resolution=1875):
         self.samplerate = samplerate
 
-        kernel_size = 901
         # FFT parameters
         self.window_size = 2 ** (round(math.log2(window_size)))
         self.f0 = 40
@@ -31,8 +29,9 @@ class AudioProcessor:
         self.bincount = self.window_size // 2 + 1
         self.linspace = np.linspace(0, self.samplerate / 2, self.bincount)
         self.logspace = np.logspace(
-            np.log2(self.f0), np.log2(self.f1), FFTBINS, base=2
+            np.log2(self.f0), np.log2(self.f1), resolution, base=2
         )
+        self.bin_indices = np.digitize(self.linspace, self.logspace)
 
     def update_history(self, data):
         roll_len = min(len(data), self.window_size)
@@ -66,13 +65,15 @@ class AudioProcessor:
         filtered = lfilter(self.b, self.a, windowed)
         fft_data = np.abs(fftw_rfft(filtered))
         normalized_fft = 2 * fft_data / self.window_size
-
+        
         # autocorrelate and normalize, keeping only positive lags
         autocorr_full = np.fft.ifft(np.abs(np.fft.fft(normalized_fft)) ** 2).real
         autocorr = autocorr_full[: self.bincount]
         autocorr = np.clip(autocorr, 0, 1)
         
-        # Interpolate the data to match the logspace
-        self.autocorr = np.interp(self.logspace, self.linspace, autocorr)
-        self.fft_data = np.interp(self.logspace, self.linspace, normalized_fft)
-        return rms, peak, self.fft_data, self.autocorr
+        # interpolate loses bin count - implement a summing interpolation to preserve
+        
+        # Sum the FFT magnitudes within each logspace bin
+        fft = np.array([normalized_fft[self.bin_indices == i].sum() for i in range(1, len(self.logspace))])
+        autocorr = np.array([autocorr[self.bin_indices == i].sum() for i in range(1, len(self.logspace))])
+        return rms, peak, fft, autocorr

@@ -15,7 +15,7 @@ class TestAudioProcessor(unittest.TestCase):
         self.raw = np.zeros(self.window_size)
         self.c_idx = 0
 
-        self.processor = AudioProcessor(window_size=self.window_size, samplerate=self.samplerate)
+        self.processor = AudioProcessor(window_size=self.window_size, samplerate=self.samplerate, resolution=self.bincount)
 
     def test_process_data(self):
         def sine_wave(frequency, samplerate, samples):
@@ -33,8 +33,6 @@ class TestAudioProcessor(unittest.TestCase):
         self.assertGreaterEqual(peak, 9.0,  msg="Peak should be great than 9dB")
         self.assertLessEqual(peak, 13.0, msg="Peak should be less than 13db")
 
-        from scipy.signal import spectrogram
-
         # Generate test data: a sine wave
         f =440
         sine = sine_wave(f, sample_rate, samples)
@@ -47,11 +45,15 @@ class TestAudioProcessor(unittest.TestCase):
         self.assertAlmostEqual(peak, 0.0, delta=0.2, msg="Peak should be 0.0 dB")
 
         # Check that the FFT data is not all zeros
-        self.assertGreater(np.max(fft), 0.4, msg="FFT should have a peak")
-        self.assertLess(np.max(fft), 1.0, msg="FFT should be normalized")        
-
-        peak_frequency = np.argmax(fft) * sample_rate / self.window_size
-        self.assertEqual(peak_frequency, 440, delta=5.0,  msg="Peak should be at 440 Hz")        
+        self.assertGreater(np.max(fft), 0.2, msg="FFT should have a peak")
+        self.assertLess(np.max(fft), 1.0, msg="FFT should be normalized")
+        self.assertGreater(np.max(fft), 0.8, msg="FFT should have a peak")
+        
+        # Check that the peak is at 440 Hz
+        logbins = np.logspace(np.log2(40), np.log2(20e3), self.bincount, base=2)
+        peak_bin = np.argmax(fft)
+        peak_frequency = logbins[peak_bin]
+        self.assertAlmostEqual(peak_frequency, 440, delta=5.0,  msg="Peak should be at 440 Hz")        
         
         # Create a white noise signal with itself delayed by 2ms for autocorrelation
         # delayed_samples = int(0.002 * sample_rate)
