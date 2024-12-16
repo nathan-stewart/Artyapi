@@ -3,32 +3,29 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import math
-from fftw3 import *
-from scipy.signal import firwin, lfilter, get_window
-from util import *
+from src.fftw3 import *
+from scipy.signal import iirfilter, lfilter, get_window, freqz
+from src.util import *
+import matplotlib.pyplot as plt
 
 LOGMIN = 10 ** (-96 / 20)
 LOGMAX = 10 ** (12 / 20)
-FFTBINS = 1875
-
+FFTBINS = 1875 # one bin per pixel - experimentally determined
 
 class AudioProcessor:
     def __init__(self, window_size=65536, samplerate=48000):
         self.samplerate = samplerate
 
-        kernel_size = 401
+        kernel_size = 901
         # FFT parameters
         self.window_size = 2 ** (round(math.log2(window_size)))
-        self.mic_gain = 15.0  # make full scale +12db
         self.f0 = 40
         self.f1 = 20e3
-        # self.linear_freq_bins = np.fft.rfftfreq(self.window_size, 1 / self.samplerate)
-
-        window = get_window("hann", self.window_size)
-        bpf = firwin(
-            kernel_size, [self.f0, self.f1], fs=self.samplerate, pass_zero=False
+        order = 4
+        self.window = get_window("hann", self.window_size)
+        self.b, self.a = iirfilter(
+            order, Wn=[self.f0, self.f1], fs=self.samplerate, btype="band", ftype="butter"
         )
-        self.windowed_bpf = bpf * window[:kernel_size]
         self.raw = np.zeros(self.window_size)
         self.c_idx = 0
         self.bincount = self.window_size // 2 + 1
@@ -54,28 +51,28 @@ class AudioProcessor:
             self.raw[self.c_idx : e_idx] = data[:roll_len]
         self.c_idx = e_idx
 
+
     def process_data(self, data):
         if data is None or np.any(np.isnan(data)):
             return
         self.update_history(data)
 
         # Compute the RMS volume of the current batch of data
-        rms = 20 * np.log10(np.sqrt(np.mean(data**2)) + LOGMIN) + self.mic_gain
-
-        # Compute the FFT of the signal on the windowed data
-        normalized = np.clip(self.raw / self.window_size, 0, 1)
-        filtered = lfilter(self.windowed_bpf, 1, normalized)
+        rms = 20 * np.log10(np.sqrt(np.mean(data**2)) + LOGMIN)
+        peak = 20 *np.log10(np.max(np.abs(data)) + LOGMIN)
+    
+        # Compute the FFT of the signal on the windowed and filtered data
+        windowed = self.window * self.raw
+        filtered = lfilter(self.b, self.a, windowed)
         fft_data = np.abs(fftw_rfft(filtered))
-        normalized_fft = np.clip(fft_data / self.window_size, 0, 1)
-        log_fft_data = np.log2(1 + 100 * normalized_fft) / np.log2(101)
+        normalized_fft = 2 * fft_data / self.window_size
 
         # autocorrelate and normalize, keeping only positive lags
-        autocorr_full = np.fft.ifft(np.abs(np.fft.fft(log_fft_data)) ** 2).real
+        autocorr_full = np.fft.ifft(np.abs(np.fft.fft(normalized_fft)) ** 2).real
         autocorr = autocorr_full[: self.bincount]
         autocorr = np.clip(autocorr, 0, 1)
-        autocorr = np.where(
-            autocorr > 0.4, autocorr, 0
-        )  # suppress bins with low correlation
-        autocorr = np.interp(self.logspace, self.linspace, autocorr)
-        log_fft_data = np.interp(self.logspace, self.linspace, log_fft_data)
-        return rms, log_fft_data, autocorr
+        
+        # Interpolate the data to match the logspace
+        self.autocorr = np.interp(self.logspace, self.linspace, autocorr)
+        self.fft_data = np.interp(self.logspace, self.linspace, normalized_fft)
+        return rms, peak, self.fft_data, self.autocorr

@@ -46,6 +46,7 @@ class Plotting:
         self.rms_data = np.full((self.RMS_LENGTH), -96)
         self.line_rms = None
         self.im_fft = None
+        self.maxval = 0
 
         # Create figure and axes for RMS display
         # self.create_rms_plot()
@@ -182,11 +183,9 @@ class Plotting:
 
         # Update FFT data
         if self.fig_fft and not np.isnan(fft).any():
-            mf = np.max(fft)
-            if abs(mf) > 0:
-                fft = fft / mf
-
-            colored_fft = self.colorize(fft, acf)
+            self.maxval = max(abs(np.max(fft)),self.maxval)
+            normalized_fft = fft / self.maxval if self.maxval > 1e-11 else fft
+            colored_fft = self.colorize(normalized_fft, acf)
 
             self.fft_data = np.roll(self.fft_data, 1, axis=0)
             self.fft_data[0] = colored_fft
