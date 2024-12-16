@@ -3,9 +3,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import math
-from src.fftw3 import *
+from fftw3 import *
 from scipy.signal import iirfilter, lfilter, get_window, freqz
-from src.util import *
+from util import *
 import matplotlib.pyplot as plt
 
 LOGMIN = 10 ** (-96 / 20)
@@ -13,7 +13,7 @@ LOGMAX = 10 ** (12 / 20)
 
 
 class AudioProcessor:
-    def __init__(self, window_size=65536, samplerate=48000, resolution=1875):
+    def __init__(self, window_size=65536, samplerate=48000, resolution=1876):
         self.samplerate = samplerate
 
         # FFT parameters

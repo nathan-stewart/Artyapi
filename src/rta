@@ -4,8 +4,8 @@ import soundfile as sf
 import argparse
 import time
 import os
-from src.AudioProcessing import AudioProcessor
-from src.Plotting import Plotting
+from AudioProcessing import AudioProcessor
+from Plotting import Plotting
 
 argparse = argparse.ArgumentParser(description="Audio Visualizer")
 argparse.add_argument(
@@ -56,8 +56,8 @@ def main():
 
     t0 = time.time()
     while run:
-        rms, fft, acf = ap.process_data(next(audio_source))
-        plt.update_data(rms, fft, acf)
+        rms, peak, fft, acf = ap.process_data(next(audio_source))
+        plt.update_data(rms, peak, fft, acf)
         t1 = time.time()
         # print(f'{1/(t1-t0):.1f} fps\r')
         t0 = t1

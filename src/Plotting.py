@@ -39,7 +39,7 @@ class Plotting:
         self.height = height
         self.FFT_BINS = width - 45
         self.FFT_HISTORY_LENGTH = height
-        self.RMS_LENGTH = width
+        self.RMS_LENGTH = self.FFT_BINS
         self.RMS_HEIGHT = height
         self.f0 = f0
         self.f1 = f1
@@ -182,7 +182,7 @@ class Plotting:
             if 0 <= position < len(self.fft_data[0]):
                 self.fft_data[0][index] = [1, 0, 0]
 
-    def update_data(self, rms, fft, acf):
+    def update_data(self, rms, peak, fft, acf):
         # Update RMS data
         if self.line_rms and not np.isnan(rms):
             self.rms_data = np.roll(self.rms_data, -1)
