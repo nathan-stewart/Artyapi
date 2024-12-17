@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 import matplotlib.pyplot as plt
 import numpy as np
-import os
 import math
-from fftw3 import *
 from scipy.signal import iirfilter, lfilter, get_window, freqz
-from util import *
 import matplotlib.pyplot as plt
+from src.fftw3 import *
+from src.util import *
 
 LOGMIN = 10 ** (-96 / 20)
 LOGMAX = 10 ** (12 / 20)

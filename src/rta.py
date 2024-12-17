@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 import numpy as np
-import soundfile as sf
 import argparse
 import time
 import os
-from AudioProcessing import AudioProcessor
-from Plotting import Plotting
+from src.AudioProcessing import AudioProcessor
+from src.Plotting import Plotting
 
 argparse = argparse.ArgumentParser(description="Audio Visualizer")
 argparse.add_argument(
@@ -27,12 +26,14 @@ if args.rotate:
     args.rotate = args.rotate.lower()
 
 windowsize = int(args.windowsize)
+
+# delay import of audio source to avoid loading pyaudio if not needed
 if os.path.exists(args.source):
-    from AudioSource import FileAudioSource
+    from src.AudioSource import FileAudioSource
 
     audio_source = FileAudioSource(args.source)
 else:
-    from AudioSource import RealTimeAudioSource, list_audio_devices
+    from src.AudioSource import RealTimeAudioSource, list_audio_devices
 
     if args.source == "-l":
         list_audio_devices()
