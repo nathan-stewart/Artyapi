@@ -51,8 +51,9 @@ def main():
     global audio_source
 
     run = True
-    ap = AudioProcessor(window_size=args.windowsize, samplerate=samplerate)
     plt = Plotting(width=1920, height=480, f0=40, f1=20e3)
+    plot_pixel_width = plt.FFT_BINS
+    ap = AudioProcessor(window_size=args.windowsize, samplerate=samplerate, resolution=plot_pixel_width)
     plt.show()
 
     t0 = time.time()

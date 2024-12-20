@@ -40,9 +40,11 @@ class TestAudioProcessor(unittest.TestCase):
         self.assertTrue(np.max(sine) <= 1.0, "Sine wave should be normalized")
         
         # Process the test data
-        rms, peak, fft, _ = self.processor.process_data(sine)
-        self.assertAlmostEqual(rms, -3.0, delta=0.2, msg="RMS should be -3.0 dB")
-        self.assertAlmostEqual(peak, 0.0, delta=0.2, msg="Peak should be 0.0 dB")
+        Vrms, Vpeak, fft, peaks = self.processor.process_data(sine)
+        self.assertAlmostEqual(Vrms, -3.0, delta=0.2, msg="RMS should be -3.0 dB")
+        self.assertAlmostEqual(Vpeak, 0.0, delta=0.2, msg="Peak should be 0.0 dB")
+        print(peaks)
+        self.assertGreater(peaks[0], 0.9, msg="Peak should be greater than 0.9")
 
         # Check that the FFT data is not all zeros
         self.assertGreater(np.max(fft), 0.2, msg="FFT should have a peak")

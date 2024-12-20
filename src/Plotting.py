@@ -37,7 +37,9 @@ class Plotting:
         self.dpi = 100
         self.width = width
         self.height = height
-        self.FFT_BINS = width - 45
+        self.left_pad = 0.005
+        self.right_pad = 0.97
+        self.FFT_BINS = int(width * (self.right_pad - self.left_pad))
         self.FFT_HISTORY_LENGTH = height
         self.RMS_LENGTH = self.FFT_BINS
         self.RMS_HEIGHT = height
@@ -98,7 +100,7 @@ class Plotting:
         self.ax_rms.yaxis.ymax = 12
         self.ax_rms.set_xlim(0, self.RMS_LENGTH)
         self.ax_rms.xaxis.set_visible(False)
-        self.fig_rms.subplots_adjust(left=0.005, right=0.97, top=0.97, bottom=0.02)
+        self.fig_rms.subplots_adjust(left=self.left_pad, right=self.right_pad, top=0.97, bottom=0.02)
 
         # Set monospace font for y-axis labels
         monospace_font = FontProperties(family="monospace")
