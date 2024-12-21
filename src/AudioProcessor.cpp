@@ -37,7 +37,7 @@ void AudioProcessor::process_data(const std::vector<float>& data)
         if (v > peak)
             peak = v;
     }
-    rms = sqrtf(rms / data.size());
+    rms = sqrtf(rms / float(data.size()));
     // Update circular buffers with the db values
     vpk.push_back(20 * log10f(peak + LOGMIN ));
     vrms.push_back(20 * log10f(rms + LOGMIN ));

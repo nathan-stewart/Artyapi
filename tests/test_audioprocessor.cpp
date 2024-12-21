@@ -19,11 +19,16 @@ std::vector<float> white_noise(size_t samples)
     return white_noise;
 }
 
+float average(const std::vector<float>& data)
+{
+    return std::accumulate(data.begin(), data.end(), 0.0f) / float(data.size());
+}
+
 std::vector<float> sine_wave(float frequency, float sample_rate, size_t samples)
 {
     std::vector<float> sine_wave(samples);
     for (size_t i = 0; i < samples; i++)
-        sine_wave[i] = sin(float(2 * i) * M_PIf * frequency  / sample_rate);
+        sine_wave[i] = sinf(float(2 * i) * M_PIf * frequency  / sample_rate);
     return sine_wave;
 }
 
@@ -41,9 +46,7 @@ TEST(AudioProcessorTest, GetSlice)
 
 TEST(AudioProcessorTest, VolumeNoise)
 {
-    size_t sample_rate = 48000;
     size_t samples = 2^24;
-
 
     std::vector<float> zeros = std::vector<float>(samples, 0.0f);
     {
@@ -76,7 +79,7 @@ TEST(AudioProcessorTest, VolumeNoise)
     ASSERT_EQ(noise.size(), samples);
     ASSERT_GT(*std::max_element(noise.begin(), noise.end()), -1.0f);
     ASSERT_LE(*std::max_element(noise.begin(), noise.end()),  1.0f);
-    float avg = std::accumulate(noise.begin(), noise.end(), 0.0f) / noise.size();
+    float avg = average(noise);
     ASSERT_GE(avg, -0.3f);
     ASSERT_LE(avg,  0.3f);
 }
@@ -89,10 +92,10 @@ TEST(AudioProcessorTest, VolumeSine)
 
     AudioProcessor ap(1920, 480);
 
-    std::vector<float> sine_440 = sine_wave(440, sample_rate, samples); 
+    std::vector<float> sine_440 = sine_wave(440, float(sample_rate), samples); 
     ASSERT_GE(*std::min_element(sine_440.begin(), sine_440.end()), -1.0);
     ASSERT_LE(*std::max_element(sine_440.begin(), sine_440.end()),  1.0);
-    float avg = std::accumulate(sine_440.begin(), sine_440.end(), 0.0f) / sine_440.size();
+    float avg = average(sine_440);
     ASSERT_GE(avg, -0.1);
     ASSERT_LE(avg,  0.1);
     ap.process_data(sine_440);
