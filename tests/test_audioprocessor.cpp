@@ -2,15 +2,91 @@
 #include <gtest/gtest.h>
 #include <vector>
 #include <boost/circular_buffer.hpp>
+#include <cmath>
+#include <algorithm>
+#include <random>
 
-TEST(AudioProcessorTest, ComputeRMSAndPeak)
+std::vector<float> white_noise(size_t samples)
 {
-    boost::circular_buffer<float> data(4);
-    for (float v : {1.0, 2.0, 3.0, 4.0})
-        data.push_back(v);
+    std::vector<float> white_noise(samples);
+    std::default_random_engine generator;
+    std::uniform_real_distribution<float> distribution(-1.0, 1.0);
 
-    ASSERT_EQ(get_slice(data), (std::vector<float>{1.0, 2.0, 3.0, 4.0}));
+    for (auto& sample : white_noise) {
+        sample = distribution(generator);
+    }
+
+    return white_noise;
 }
+
+std::vector<float> sine_wave(float frequency, float sample_rate, size_t samples)
+{
+    std::vector<float> sine_wave(samples);
+    for (size_t i = 0; i < samples; i++)
+        sine_wave[i] = sin(float(2 * i) * M_PIf * frequency  / sample_rate);
+    return sine_wave;
+}
+
+
+TEST(AudioProcessorTest, GetSlice)
+{
+    boost::circular_buffer<float> cb(4);
+    for (float v : {1.0f, 2.0f, 3.0f, 4.0f})
+        cb.push_back(v);
+
+    ASSERT_EQ(get_slice(cb), (std::vector<float>{1.0f, 2.0f, 3.0f, 4.0f}));
+    cb.push_back(5.0f);
+    ASSERT_EQ(get_slice(cb), (std::vector<float>{2.0f, 3.0f, 4.0f, 5.0f}));
+}
+
+TEST(AudioProcessorTest, VolumeNoise)
+{
+    size_t sample_rate = 48000;
+    size_t samples = 2^24;
+
+    std::vector<float> noise = white_noise(samples);
+    ASSERT_EQ(noise.size(), samples);
+    ASSERT_GT(*std::max_element(noise.begin(), noise.end()), -1.0f);
+    ASSERT_LE(*std::max_element(noise.begin(), noise.end()),  1.0f);
+    float avg = std::accumulate(noise.begin(), noise.end(), 0.0f) / noise.size();
+    ASSERT_GE(avg, -0.3f);
+    ASSERT_LE(avg,  0.3f);
+
+    AudioProcessor ap(1920, 480);
+    ap.process_data(noise);
+    std::vector<float> rms = ap.Vrms();
+    EXPECT_EQ(rms.size(), 1);
+    EXPECT_GE(rms[0], -3.2f);
+    EXPECT_LE(rms[0], -2.9f);
+}
+
+TEST(AudioProcessorTest, VolumeSine)
+{
+
+    size_t sample_rate = 48000;
+    size_t samples = 65536;
+
+    AudioProcessor ap(1920, 480);
+
+    std::vector<float> sine_440 = sine_wave(440, sample_rate, samples); 
+    ASSERT_GE(*std::min_element(sine_440.begin(), sine_440.end()), -1.0);
+    ASSERT_LE(*std::max_element(sine_440.begin(), sine_440.end()),  1.0);
+    float avg = std::accumulate(sine_440.begin(), sine_440.end(), 0.0f) / sine_440.size();
+    ASSERT_GE(avg, -0.1);
+    ASSERT_LE(avg,  0.1);
+    ap.process_data(sine_440);
+
+    std::vector<float> rms = ap.Vrms();
+    std::vector<float> peak = ap.Vpeak();
+    EXPECT_EQ(rms.size(), 1);
+    EXPECT_EQ(peak.size(), 1);
+    ASSERT_GT(ap.Vrms()[0], -3.2);
+    ASSERT_LT(ap.Vrms()[0], -2.9);
+    ASSERT_GT(ap.Vpeak()[0], 0.1);
+    ASSERT_LT(ap.Vpeak()[0], -0.1);
+
+}
+
 
 int main(int argc, char **argv)
 {
