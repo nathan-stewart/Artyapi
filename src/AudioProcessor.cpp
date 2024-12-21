@@ -1,6 +1,8 @@
 #include "AudioProcessor.h"
 #include <cmath>
 
+const float LOGMIN = 1e-10f;
+
 std::vector<float> get_slice(const boost::circular_buffer<float>& cb) {
     std::vector<float> slice(cb.size());
     std::copy(cb.begin(), cb.end(), slice.begin());
@@ -36,10 +38,9 @@ void AudioProcessor::process_data(const std::vector<float>& data)
             peak = v;
     }
     rms = sqrtf(rms / data.size());
-
     // Update circular buffers with the db values
-    vpk.push_back(20 * log10f(peak));
-    vrms.push_back(20 * log10f(rms));
+    vpk.push_back(20 * log10f(peak + LOGMIN ));
+    vrms.push_back(20 * log10f(rms + LOGMIN ));
 }
 
 const std::vector<float> AudioProcessor::Vrms() const
@@ -49,6 +50,6 @@ const std::vector<float> AudioProcessor::Vrms() const
 
 const std::vector<float> AudioProcessor::Vpeak() const
 {
-    return get_slice(this->vrms);
+    return get_slice(this->vpk);
 }
 

@@ -44,6 +44,34 @@ TEST(AudioProcessorTest, VolumeNoise)
     size_t sample_rate = 48000;
     size_t samples = 2^24;
 
+
+    std::vector<float> zeros = std::vector<float>(samples, 0.0f);
+    {
+        AudioProcessor ap(1920, 480);
+        ap.process_data(zeros);
+        std::vector<float> rms = ap.Vrms();
+        std::vector<float> peak = ap.Vpeak();
+        ASSERT_EQ(rms.size(), 1);
+        ASSERT_LT(rms[0], -90.0f);
+
+        ASSERT_EQ(peak.size(), 1);
+        ASSERT_LT(peak[0], -90.0f);
+
+    }
+
+    std::vector<float> ones = std::vector<float>(samples, 1.0f);
+    {
+        AudioProcessor ap(1920, 480);
+        ap.process_data(ones);
+        std::vector<float> rms = ap.Vrms();
+        std::vector<float> peak = ap.Vpeak();
+        ASSERT_EQ(rms.size(), 1);
+        ASSERT_GT(rms[0],  -0.1f);
+        ASSERT_LT(rms[0],   0.1f);
+        ASSERT_GT(peak[0], -0.1f);
+        ASSERT_LT(peak[0],  0.1f);
+    }
+
     std::vector<float> noise = white_noise(samples);
     ASSERT_EQ(noise.size(), samples);
     ASSERT_GT(*std::max_element(noise.begin(), noise.end()), -1.0f);
@@ -51,13 +79,6 @@ TEST(AudioProcessorTest, VolumeNoise)
     float avg = std::accumulate(noise.begin(), noise.end(), 0.0f) / noise.size();
     ASSERT_GE(avg, -0.3f);
     ASSERT_LE(avg,  0.3f);
-
-    AudioProcessor ap(1920, 480);
-    ap.process_data(noise);
-    std::vector<float> rms = ap.Vrms();
-    EXPECT_EQ(rms.size(), 1);
-    EXPECT_GE(rms[0], -3.2f);
-    EXPECT_LE(rms[0], -2.9f);
 }
 
 TEST(AudioProcessorTest, VolumeSine)
@@ -82,8 +103,8 @@ TEST(AudioProcessorTest, VolumeSine)
     EXPECT_EQ(peak.size(), 1);
     ASSERT_GT(ap.Vrms()[0], -3.2);
     ASSERT_LT(ap.Vrms()[0], -2.9);
-    ASSERT_GT(ap.Vpeak()[0], 0.1);
-    ASSERT_LT(ap.Vpeak()[0], -0.1);
+    ASSERT_GT(ap.Vpeak()[0], -0.1);
+    ASSERT_LT(ap.Vpeak()[0],  0.1);
 
 }
 
