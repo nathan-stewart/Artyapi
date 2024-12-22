@@ -71,7 +71,7 @@ TEST(AudioProcessorTest, VolumeNoise)
     std::vector<float> zeros = std::vector<float>(samples, 0.0f);
     {
         AudioProcessor ap;
-        ap.process_data(zeros);
+        ap.process(zeros);
         std::vector<float> rms = ap.Vrms();
         std::vector<float> peak = ap.Vpeak();
         ASSERT_EQ(rms.size(), 1);
@@ -85,7 +85,7 @@ TEST(AudioProcessorTest, VolumeNoise)
     std::vector<float> ones = std::vector<float>(samples, 1.0f);
     {
         AudioProcessor ap;
-        ap.process_data(ones);
+        ap.process(ones);
         std::vector<float> rms = ap.Vrms();
         std::vector<float> peak = ap.Vpeak();
         ASSERT_EQ(rms.size(), 1);
@@ -118,7 +118,7 @@ TEST(AudioProcessorTest, VolumeSine)
     float avg = average(sine_440);
     ASSERT_GE(avg, -0.1);
     ASSERT_LE(avg,  0.1);
-    ap.process_data(sine_440);
+    ap.process(sine_440);
 
     std::vector<float> rms = ap.Vrms();
     std::vector<float> peak = ap.Vpeak();
