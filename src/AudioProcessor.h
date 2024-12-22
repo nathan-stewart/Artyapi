@@ -5,7 +5,7 @@
 #include <boost/circular_buffer.hpp>
 #include <fftw3.h>
 
-std::vector<float> get_slice(const boost::circular_buffer<float>& cb);
+std::vector<float> get_slice(const boost::circular_buffer<float>& buffer, size_t n = 0);
 
 class AudioProcessor {
 public:
@@ -13,9 +13,12 @@ public:
     ~AudioProcessor();
 
     void process_data(const std::vector<float>& data);
+    void calc_fft(const std::vector<float>& data, std::vector<float>& out);
+    void calc_volumes();
         
     const std::vector<float> Vrms() const;
     const std::vector<float> Vpeak() const;
+
 
 private:
     size_t disp_w;
@@ -26,7 +29,7 @@ private:
     boost::circular_buffer<float> vrms;
     fftwf_plan plan;
 
-    
+
 };
 
 #endif // AUDIO_PROCESSOR_H

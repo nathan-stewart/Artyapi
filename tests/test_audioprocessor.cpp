@@ -42,6 +42,7 @@ TEST(CircularBufferTest, GetSlice)
     ASSERT_EQ(get_slice(buffer), (std::vector<float>{1.0f, 2.0f, 3.0f, 4.0f}));
     buffer.push_back(5.0f);
     ASSERT_EQ(get_slice(buffer), (std::vector<float>{2.0f, 3.0f, 4.0f, 5.0f}));
+    ASSERT_EQ(get_slice(buffer, 2), (std::vector<float>{4.0f, 5.0f}));
 }
 
 TEST(CircularBufferTest, Roll)
@@ -61,8 +62,6 @@ TEST(CircularBufferTest, Roll)
     buffer.insert(buffer.end(), zeros.begin(), zeros.end());
     ASSERT_EQ(buffer.size(), 128);
     ASSERT_EQ(std::accumulate(buffer.begin(), buffer.end(), 0.0f), 64.0f);
-
-
 }
 
 TEST(AudioProcessorTest, VolumeNoise)

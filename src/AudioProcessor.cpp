@@ -3,9 +3,13 @@
 
 const float LOGMIN = 1e-10f;
 
-std::vector<float> get_slice(const boost::circular_buffer<float>& cb) {
-    std::vector<float> slice(cb.size());
-    std::copy(cb.begin(), cb.end(), slice.begin());
+std::vector<float> get_slice(const boost::circular_buffer<float>& buffer, size_t n) 
+{
+    if (n == 0)
+        n = buffer.size();
+    std::vector<float> slice(n);
+    auto it = buffer.end() - n;
+    std::copy(it, buffer.end(), slice.begin());
     return slice;
 }
 
