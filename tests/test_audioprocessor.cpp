@@ -33,15 +33,36 @@ std::vector<float> sine_wave(float frequency, float sample_rate, size_t samples)
 }
 
 
-TEST(AudioProcessorTest, GetSlice)
+TEST(CircularBufferTest, GetSlice)
 {
-    boost::circular_buffer<float> cb(4);
+    boost::circular_buffer<float> buffer(4);
     for (float v : {1.0f, 2.0f, 3.0f, 4.0f})
-        cb.push_back(v);
+        buffer.push_back(v);
 
-    ASSERT_EQ(get_slice(cb), (std::vector<float>{1.0f, 2.0f, 3.0f, 4.0f}));
-    cb.push_back(5.0f);
-    ASSERT_EQ(get_slice(cb), (std::vector<float>{2.0f, 3.0f, 4.0f, 5.0f}));
+    ASSERT_EQ(get_slice(buffer), (std::vector<float>{1.0f, 2.0f, 3.0f, 4.0f}));
+    buffer.push_back(5.0f);
+    ASSERT_EQ(get_slice(buffer), (std::vector<float>{2.0f, 3.0f, 4.0f, 5.0f}));
+}
+
+TEST(CircularBufferTest, Roll)
+{
+    boost::circular_buffer<float> buffer(128);
+    std::vector<float> zeros = std::vector<float>(64, 0.0f);
+    std::vector<float> ones =  std::vector<float>(184, 1.0f);
+    
+    buffer.insert(buffer.end(), zeros.begin(), zeros.end());
+    ASSERT_EQ(buffer.size(), 64);
+    ASSERT_EQ(std::accumulate(buffer.begin(), buffer.end(), 0.0f), 0.0f);
+    
+    buffer.insert(buffer.end(), ones.begin(), ones.end());
+    ASSERT_EQ(buffer.size(), 128);
+    ASSERT_EQ(std::accumulate(buffer.begin(), buffer.end(), 0.0f), 128.0f);
+    
+    buffer.insert(buffer.end(), zeros.begin(), zeros.end());
+    ASSERT_EQ(buffer.size(), 128);
+    ASSERT_EQ(std::accumulate(buffer.begin(), buffer.end(), 0.0f), 64.0f);
+
+
 }
 
 TEST(AudioProcessorTest, VolumeNoise)
@@ -50,7 +71,7 @@ TEST(AudioProcessorTest, VolumeNoise)
 
     std::vector<float> zeros = std::vector<float>(samples, 0.0f);
     {
-        AudioProcessor ap(1920, 480);
+        AudioProcessor ap;
         ap.process_data(zeros);
         std::vector<float> rms = ap.Vrms();
         std::vector<float> peak = ap.Vpeak();
@@ -64,7 +85,7 @@ TEST(AudioProcessorTest, VolumeNoise)
 
     std::vector<float> ones = std::vector<float>(samples, 1.0f);
     {
-        AudioProcessor ap(1920, 480);
+        AudioProcessor ap;
         ap.process_data(ones);
         std::vector<float> rms = ap.Vrms();
         std::vector<float> peak = ap.Vpeak();
@@ -90,7 +111,7 @@ TEST(AudioProcessorTest, VolumeSine)
     size_t sample_rate = 48000;
     size_t samples = 65536;
 
-    AudioProcessor ap(1920, 480);
+    AudioProcessor ap;
 
     std::vector<float> sine_440 = sine_wave(440, float(sample_rate), samples); 
     ASSERT_GE(*std::min_element(sine_440.begin(), sine_440.end()), -1.0);
@@ -110,7 +131,6 @@ TEST(AudioProcessorTest, VolumeSine)
     ASSERT_LT(ap.Vpeak()[0],  0.1);
 
 }
-
 
 int main(int argc, char **argv)
 {
