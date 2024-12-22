@@ -6,7 +6,10 @@
 
 
 using FilterCoefficients = std::pair<std::vector<float>, std::vector<float> >;
-FilterCoefficients butterworth_filter(int order, float cutoff);
+
+FilterCoefficients butterworth_hpf(int order, float cutoff);
+FilterCoefficients butterworth_lpf(int order, float cutoff);
+
 void apply_filter(const FilterCoefficients& coefficients, std::vector<float>& signal);
 
 

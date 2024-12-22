@@ -1,68 +1,11 @@
 #include "../src/AudioProcessor.h"
 #include <gtest/gtest.h>
 #include <vector>
-#include <boost/circular_buffer.hpp>
 #include <cmath>
 #include <algorithm>
 #include <random>
 
-std::vector<float> white_noise(size_t samples)
-{
-    std::vector<float> white_noise(samples);
-    std::default_random_engine generator;
-    std::uniform_real_distribution<float> distribution(-1.0, 1.0);
-
-    for (auto& sample : white_noise) {
-        sample = distribution(generator);
-    }
-
-    return white_noise;
-}
-
-float average(const std::vector<float>& data)
-{
-    return std::accumulate(data.begin(), data.end(), 0.0f) / float(data.size());
-}
-
-std::vector<float> sine_wave(float frequency, float sample_rate, size_t samples)
-{
-    std::vector<float> sine_wave(samples);
-    for (size_t i = 0; i < samples; i++)
-        sine_wave[i] = sinf(float(2 * i) * M_PIf * frequency  / sample_rate);
-    return sine_wave;
-}
-
-
-TEST(CircularBufferTest, GetSlice)
-{
-    boost::circular_buffer<float> buffer(4);
-    for (float v : {1.0f, 2.0f, 3.0f, 4.0f})
-        buffer.push_back(v);
-
-    ASSERT_EQ(get_slice(buffer), (std::vector<float>{1.0f, 2.0f, 3.0f, 4.0f}));
-    buffer.push_back(5.0f);
-    ASSERT_EQ(get_slice(buffer), (std::vector<float>{2.0f, 3.0f, 4.0f, 5.0f}));
-    ASSERT_EQ(get_slice(buffer, 2), (std::vector<float>{4.0f, 5.0f}));
-}
-
-TEST(CircularBufferTest, Roll)
-{
-    boost::circular_buffer<float> buffer(128);
-    std::vector<float> zeros = std::vector<float>(64, 0.0f);
-    std::vector<float> ones =  std::vector<float>(184, 1.0f);
-    
-    buffer.insert(buffer.end(), zeros.begin(), zeros.end());
-    ASSERT_EQ(buffer.size(), 64);
-    ASSERT_EQ(std::accumulate(buffer.begin(), buffer.end(), 0.0f), 0.0f);
-    
-    buffer.insert(buffer.end(), ones.begin(), ones.end());
-    ASSERT_EQ(buffer.size(), 128);
-    ASSERT_EQ(std::accumulate(buffer.begin(), buffer.end(), 0.0f), 128.0f);
-    
-    buffer.insert(buffer.end(), zeros.begin(), zeros.end());
-    ASSERT_EQ(buffer.size(), 128);
-    ASSERT_EQ(std::accumulate(buffer.begin(), buffer.end(), 0.0f), 64.0f);
-}
+#include "test_util.h"
 
 TEST(AudioProcessorTest, VolumeNoise)
 {
@@ -129,10 +72,4 @@ TEST(AudioProcessorTest, VolumeSine)
     ASSERT_GT(ap.Vpeak()[0], -0.1);
     ASSERT_LT(ap.Vpeak()[0],  0.1);
 
-}
-
-int main(int argc, char **argv)
-{
-    ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
 }

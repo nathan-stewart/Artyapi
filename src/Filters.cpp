@@ -4,7 +4,7 @@
 #include <numeric>
 #include <complex>
 
-FilterCoefficients butterworth_filter(int order, float cutoff)
+FilterCoefficients butterworth_filter(int order, float cutoff, bool highpass)
 {
     float wc = tanf(M_PIf * cutoff);
     std::vector<std::complex<float>> poles(order);
@@ -26,8 +26,27 @@ FilterCoefficients butterworth_filter(int order, float cutoff)
     for (int i = 0; i <= order; ++i) {
         a[i] = std::real(a_complex[i]);
     }
-    b[0] = 1.0f;
+
+    if (highpass) {
+        for (int i = 0; i <= order; ++i) {
+            b[i] = (i % 2 == 0 ? 1 : -1) * a[i];
+        }
+    } else {
+        b[0] = 1.0f;
+    }
     return {a, b};
+}
+
+
+FilterCoefficients butterworth_hpf(int order, float cutoff)
+{
+    return butterworth_filter(order, cutoff, true);
+}
+
+
+FilterCoefficients butterworth_lpf(int order, float cutoff)
+{
+    return butterworth_filter(order, cutoff, false);
 }
 
 

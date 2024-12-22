@@ -28,8 +28,8 @@ AudioProcessor::AudioProcessor(size_t display_w, size_t display_h, size_t window
     vrms.set_capacity(display_w);
 
     precompute_bin_mapping();
-    hpf = butterworth_filter(4, f0);
-    lpf = butterworth_filter(4, f1);
+    hpf = butterworth_hpf(4, f0);
+    lpf = butterworth_lpf(4, f1);
 
     // out = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * (n / 2 + 1));
     // plan = fftwf_plan_dft_r2c_1d(window_size, 

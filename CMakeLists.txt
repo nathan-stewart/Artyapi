@@ -43,16 +43,16 @@ FetchContent_MakeAvailable(googletest)
 enable_testing()
 
 # Add the test executable
-add_executable(TestAudioProcessor tests/test_audioprocessor.cpp src/AudioProcessor.cpp src/Filters.cpp)
+add_executable(TestMain tests/test_util.cpp tests/test_audioprocessor.cpp tests/test_filters.cpp  tests/test_circularbuffer.cpp src/AudioProcessor.cpp src/Filters.cpp)
 
 # Link the FFTW3 and Google Test libraries to the test executable
-target_link_libraries(TestAudioProcessor ${FFTW3_LIB} gtest_main)
+target_link_libraries(TestMain ${FFTW3_LIB} gtest_main)
 
 # Add the test to CTest
-add_test(NAME TestAudioProcessor COMMAND TestAudioProcessor)
+add_test(NAME TestMain COMMAND TestMain)
 
 # Add a custom target to run the tests
-add_custom_target(run_tests COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure DEPENDS TestAudioProcessor)
+add_custom_target(run_tests COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure DEPENDS TestMain)
 
 # Make the default target the run_tests target
 add_custom_target(default_target ALL DEPENDS run_tests)
