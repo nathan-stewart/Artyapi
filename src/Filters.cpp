@@ -4,9 +4,9 @@
 #include <numeric>
 #include <complex>
 
-FilterCoefficients butterworth_filter(int order, float cutoff, bool highpass)
+FilterCoefficients butterworth_filter(int order, float cutoff, float samplerate, bool highpass)
 {
-    float wc = tanf(M_PIf * cutoff);
+    float wc = tanf(M_PIf * cutoff / samplerate);
     std::vector<std::complex<float>> poles(order);
     for (int k = 0; k < order; ++k) {
         float theta = M_PIf * (2.0f * static_cast<float>(k) + 1.0f) / (2.0f * static_cast<float>(order));
@@ -38,15 +38,15 @@ FilterCoefficients butterworth_filter(int order, float cutoff, bool highpass)
 }
 
 
-FilterCoefficients butterworth_hpf(int order, float cutoff)
+FilterCoefficients butterworth_hpf(int order, float cutoff, float samplerate)
 {
-    return butterworth_filter(order, cutoff, true);
+    return butterworth_filter(order, cutoff, samplerate, true);
 }
 
 
-FilterCoefficients butterworth_lpf(int order, float cutoff)
+FilterCoefficients butterworth_lpf(int order, float cutoff, float samplerate)
 {
-    return butterworth_filter(order, cutoff, false);
+    return butterworth_filter(order, cutoff, samplerate, false);
 }
 
 
