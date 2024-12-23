@@ -56,5 +56,5 @@ float peak(const std::vector<float>& data)
 
 float db(float value)
 {
-    return 20.0f * log10f(value + 1e-7f);
+    return 20.0f * log10f(abs(value) + 1e-7f);
 }

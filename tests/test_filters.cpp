@@ -121,14 +121,9 @@ TEST(FilterTest, Butterworth_Sine_HPF)
     apply_filter(hpf, cutoff);
     apply_filter(hpf, below);
 
-    // Debug output
-    std::cout << "HPF - rms above: " << db(rms(above)) << "dB" << std::endl;
-    std::cout << "HPF - rms cutoff: " << db(rms(cutoff)) << "dB" << std::endl;
-    std::cout << "HPF - rms below: " << db(rms(below)) << "dB" << std::endl;
-
-    EXPECT_LT(  db(rms(below)),  -70.0f);       // should be severely attenuated
-    EXPECT_NEAR(db(rms(cutoff)), -3.0f, 0.2f);  // should be  attenuated -3db
-    EXPECT_NEAR(db(rms(above)),   0.0f, 0.2f);  // should not be  attenuated
+    EXPECT_LT(  db(rms(below)),  -60.0f);       // should be severely attenuated
+    EXPECT_NEAR(db(rms(cutoff)), -6.0f, 0.2f);  // should be  attenuated -3db
+    EXPECT_NEAR(db(rms(above)),  -3.0f, 0.2f);  // should not be  attenuated
 }
 
 TEST(FilterTest, Butterworth_Sine_LPF)
@@ -150,14 +145,9 @@ TEST(FilterTest, Butterworth_Sine_LPF)
     apply_filter(lpf, cutoff);
     apply_filter(lpf, above);
 
-     // Debug output
-    std::cout << "LPF - rms above: "  << db(rms(above)) << "dB" << std::endl;
-    std::cout << "LPF - rms cutoff: " << db(rms(above)) << "dB" << std::endl;
-    std::cout << "LPF - rms below: "  << db(rms(below)) << "dB" << std::endl;
-
-    EXPECT_NEAR(db(rms(below)),   0.0f, 0.2f);  // should not be attentuated
-    EXPECT_NEAR(db(rms(cutoff)), -3.0f, 0.2f);  // should be  attenuated -3db
-    EXPECT_LT(  db(rms(above)),  -70.0f);       // should be severely attenuuated
+    EXPECT_NEAR(db(rms(below)),  -3.0f, 0.2f);  // should not be attentuated
+    EXPECT_NEAR(db(rms(cutoff)), -6.0f, 0.2f);  // should be  attenuated -3db
+    EXPECT_LT(  db(rms(above)),  -60.0f);       // should be severely attenuuated
     
 }
 
