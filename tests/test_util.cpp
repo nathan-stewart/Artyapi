@@ -24,8 +24,13 @@ float average(const std::vector<float>& data)
 std::vector<float> sine_wave(float frequency, float sample_rate, size_t samples)
 {
     std::vector<float> sine_wave(samples);
-    for (size_t i = 0; i < samples; i++)
-        sine_wave[i] = sinf(float(2 * i) * M_PIf * frequency  / sample_rate);
+    float amplitude = 1.0f;
+    float phase = 0.0f;
+    float increment = 2.0f * M_PIf * frequency / sample_rate;
+    for (size_t i = 0; i < samples; ++i) {
+        sine_wave[i] = amplitude * std::sin(phase);
+        phase += increment;
+    }
     return sine_wave;
 }
 
