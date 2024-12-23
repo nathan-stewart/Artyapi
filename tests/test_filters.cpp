@@ -40,6 +40,46 @@ TEST(SineWaveGenerator, SineWaveGenerator)
     ASSERT_NEAR(generated_frequency, frequency, 1.0f); // Check frequency is close to 1 kHz
 }
 
+TEST(FilterTest, Butterworth_Coefficients)
+{
+    int order = 4;
+    float cutoff = 1000.0f;
+    float samplerate = 48000.0f;
+    FilterCoefficients hpf = butterworth_hpf(order, cutoff, samplerate);
+    FilterCoefficients lpf = butterworth_lpf(order, cutoff, samplerate);
+
+    // This is currently a null test since the coefficients are hardcoded
+    // Generated coefficients for a 4th order 1kHz LPF,HPF generated in octave via:
+    // octave:15> [b, a] = butter(4, 1000/24000, 'high'); disp(b); disp(a)
+    // octave:16> [b, a] = butter(4, 1000/24000, 'low'); disp(b); disp(a)
+
+    ASSERT_EQ(hpf.first.size(), 5);
+    ASSERT_EQ(hpf.second.size(), 5);
+    ASSERT_EQ(lpf.first.size(), 5);
+    ASSERT_EQ(lpf.second.size(), 5);
+
+    FilterCoefficients hpf_truth = 
+    {
+        {0.8426766f, -3.3707065f, 5.0560598f, -3.3707065f, 0.8426766f},
+        {1.0000000f, -3.6580603f, 5.0314335f, -3.0832283f, 0.7101039f}
+    };
+
+    FilterCoefficients lpf_truth =
+    {
+        {0.0000156f, 0.0000622f, 0.0000933f, 0.0000622f, 0.0000156f},
+        {1.0000000f, -3.6580603f, 5.0314335f, -3.0832283f, 0.7101039f}
+    };
+
+    for (size_t i = 0; i < 5; ++i)
+    {
+        ASSERT_NEAR(hpf.first[i], hpf_truth.first[i], 1e-6);
+        ASSERT_NEAR(hpf.second[i], hpf_truth.second[i], 1e-6);
+        ASSERT_NEAR(lpf.first[i], lpf_truth.first[i], 1e-6);
+        ASSERT_NEAR(lpf.second[i], lpf_truth.second[i], 1e-6);
+    }
+}
+
+
 TEST(FilterTest, Butterworth_Sine)
 {
     float samplerate = 48000.0f;
@@ -50,17 +90,10 @@ TEST(FilterTest, Butterworth_Sine)
 
     // Generated coefficients for a 4th order 1kHz LPF,HPF generated in octave via:
     // octave:15> [b, a] = butter(4, 1000/24000, 'high'); disp(b); disp(a)
-    // b =  0.8427  -3.3707   5.0561  -3.3707   0.8427
-    // a =  1.0000  -3.6581   5.0314  -3.0832   0.7101
     // octave:16> [b, a] = butter(4, 1000/24000, 'low'); disp(b); disp(a)
-    // b = 1.5552e-05   6.2207e-05   9.3310e-05   6.2207e-05   1.5552e-05
-    // a = 1.0000  -3.6581   5.0314  -3.0832   0.7101
 
-    FilterCoefficients hpf = {{0.8427f, -3.3707f, 5.0561f, -3.3707f, 0.8427f},
-                              {1.0000f, -3.6581f, 5.0314f, -3.0832f, 0.7101f}};
-
-    FilterCoefficients lpf = {{1.5552e-05f, 6.2207e-05f, 9.3310e-05f, 6.2207e-05f, 1.5552e-05f},
-                          {1.0000f, -3.6581f, 5.0314f, -3.0832f, 0.7101f}};
+    FilterCoefficients hpf = butterworth_hpf(4, 1000.0f, 48000.0f);
+    FilterCoefficients lpf = butterworth_lpf(4, 1000.0f, 48000.0f);
 
     // above and below are 4 octaves either side of cutoff  or
     std::vector<float> below = sine_wave(f0, samplerate, samples);

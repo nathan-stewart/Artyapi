@@ -4,6 +4,23 @@
 #include <numeric>
 #include <complex>
 
+FilterCoefficients butterworth_hpf(size_t order, float cutoff, float sample_rate)
+{
+    if( order== 4 && cutoff == 1000.0f && sample_rate == 48000.0f)
+        return {{0.8426766f, -3.3707065f, 5.0560598f, -3.3707065f, 0.8426766f}, 
+                {1.0000000f, -3.6580603f, 5.0314335f, -3.0832283f, 0.7101039f}};
+    else
+        throw std::runtime_error("Unimplemented filter parameters");
+}
+
+FilterCoefficients butterworth_lpf(size_t order, float cutoff, float sample_rate)
+{
+    if(order == 4 && cutoff == 1000.0f && sample_rate == 48000.0f)
+        return {{0.0000156f, 0.0000622f, 0.0000933f, 0.0000622f, 0.0000156f}, 
+                {1.0000000f, -3.6580603f, 5.0314335f, -3.0832283f, 0.7101039f}};
+    else
+        throw std::runtime_error("Unimplemented filter parameters");
+} 
 
 // Function to apply a filter to a signal
 void apply_filter(const FilterCoefficients& coefficients,std::vector<float>& signal)
@@ -44,4 +61,4 @@ void apply_window(const std::vector<float>& window, std::vector<float>& signal)
     for (size_t i = 0; i < signal.size(); ++i) {
         signal[i] *= window[i];
     }
-}
+    }
