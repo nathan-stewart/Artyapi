@@ -96,3 +96,19 @@ TEST(FilterTest, Butterworth_Sine)
     EXPECT_NEAR(db(rms(cutoff)), -3.0f, 0.1f);  // should be  attenuated -3db
     EXPECT_GT(  db(rms(below)),  -0.5f);        // should not be attentuated
 }
+
+TEST(WindowTest, Hanning)
+{
+    size_t ws = 1 << 14;
+    std::vector<float> window = hanning_window(ws);
+    // Verify symmetry
+
+    for (size_t i = 0; i < ws / 2; ++i) {
+        ASSERT_NEAR(window[i], window[ws - 1 - i], 1e-6);
+    }
+
+    // Verify specific values
+    ASSERT_NEAR(window[0], 0.0f, 1e-6);
+    ASSERT_NEAR(window[ws / 2], 1.0f, 1e-6);
+    ASSERT_NEAR(window[ws - 1], 0.0f, 1e-6);
+}
