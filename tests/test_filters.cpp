@@ -50,8 +50,31 @@ TEST(FilterTest, Butterworth_Coefficients)
 
     // This is currently a null test since the coefficients are hardcoded
     // Generated coefficients for a 4th order 1kHz LPF,HPF generated in octave via:
-    // octave:15> [b, a] = butter(4, 1000/24000, 'high'); disp(b); disp(a)
-    // octave:16> [b, a] = butter(4, 1000/24000, 'low'); disp(b); disp(a)
+    //
+    /*
+    % Generate Butterworth high-pass filter
+    function formatted_str = format_coefficients(coeffs)
+        formatted_str = '{';
+        for i = 1:length(coeffs)
+            formatted_str = [formatted_str, sprintf('%.7ff', coeffs(i))];
+            if i < length(coeffs)
+                formatted_str = [formatted_str, ', '];
+            end
+        end
+        formatted_str = [formatted_str, '}'];
+    end
+    [b_hpf, a_hpf] = butter(order, cutoff / (samplerate / 2), 'high');
+    [b_lpf, a_lpf] = butter(order, cutoff / (samplerate / 2), 'low');
+
+    % Format and print coefficients for C++ initializer list
+    formatted_b_hpf = format_coefficients(b_hpf);
+    formatted_a_hpf = format_coefficients(a_hpf);
+    printf('HPF Coefficients {b,a}: { %s, %s }\n', formatted_b_hpf, formatted_a_hpf);
+
+    formatted_b_lpf = format_coefficients(b_lpf);
+    formatted_a_lpf = format_coefficients(a_lpf);
+    printf('LPF Coefficients: {b,a}: { %s, %s }\n', formatted_b_lpf, formatted_a_lpf);
+    */
 
     ASSERT_EQ(hpf.first.size(), 5);
     ASSERT_EQ(hpf.second.size(), 5);
@@ -80,7 +103,7 @@ TEST(FilterTest, Butterworth_Coefficients)
 }
 
 
-TEST(FilterTest, Butterworth_Sine)
+TEST(FilterTest, Butterworth_Sine_HPF)
 {
     float samplerate = 48000.0f;
     size_t samples = 1 << 16;
@@ -88,12 +111,7 @@ TEST(FilterTest, Butterworth_Sine)
     float f1 = 1000.0f;                     // 1 kHz
     float f2 = 1000.0f * powf(2.0f,  4.0f); // 16 kHz
 
-    // Generated coefficients for a 4th order 1kHz LPF,HPF generated in octave via:
-    // octave:15> [b, a] = butter(4, 1000/24000, 'high'); disp(b); disp(a)
-    // octave:16> [b, a] = butter(4, 1000/24000, 'low'); disp(b); disp(a)
-
     FilterCoefficients hpf = butterworth_hpf(4, 1000.0f, 48000.0f);
-    FilterCoefficients lpf = butterworth_lpf(4, 1000.0f, 48000.0f);
 
     // above and below are 4 octaves either side of cutoff  or
     std::vector<float> below = sine_wave(f0, samplerate, samples);
@@ -108,27 +126,41 @@ TEST(FilterTest, Butterworth_Sine)
     std::cout << "HPF - rms cutoff: " << db(rms(cutoff)) << "dB" << std::endl;
     std::cout << "HPF - rms below: " << db(rms(below)) << "dB" << std::endl;
 
-    EXPECT_GT(  db(rms(above)),  -0.5f);        // should not be  attenuated
-    EXPECT_NEAR(db(rms(cutoff)), -3.0f, 0.1f);  // should be  attenuated -3db
     EXPECT_LT(  db(rms(below)),  -70.0f);       // should be severely attenuated
+    EXPECT_NEAR(db(rms(cutoff)), -3.0f, 0.2f);  // should be  attenuated -3db
+    EXPECT_NEAR(db(rms(above)),   0.0f, 0.2f);  // should not be  attenuated
+}
 
-    // filter modifies the buffer in place- make new copies
-    below = sine_wave(f0, samplerate, samples);
-    cutoff = sine_wave(f1, samplerate, samples);
-    above = sine_wave(f2, samplerate, samples);
+TEST(FilterTest, Butterworth_Sine_LPF)
+{
+    float samplerate = 48000.0f;
+    size_t samples = 1 << 16;
+    float f0 = 1000.0f * powf(2.0f, -4.0f); // 62.5 Hz
+    float f1 = 1000.0f;                     // 1 kHz
+    float f2 = 1000.0f * powf(2.0f,  4.0f); // 16 kHz
+
+    FilterCoefficients lpf = butterworth_lpf(4, 1000.0f, 48000.0f);
+
+    // above and below are 4 octaves either side of cutoff  or
+    std::vector<float> below = sine_wave(f0, samplerate, samples);
+    std::vector<float> cutoff = sine_wave(f1, samplerate, samples);
+    std::vector<float> above = sine_wave(f2, samplerate, samples);
 
     apply_filter(lpf, below);
     apply_filter(lpf, cutoff);
     apply_filter(lpf, above);
+
      // Debug output
     std::cout << "LPF - rms above: "  << db(rms(above)) << "dB" << std::endl;
     std::cout << "LPF - rms cutoff: " << db(rms(above)) << "dB" << std::endl;
     std::cout << "LPF - rms below: "  << db(rms(below)) << "dB" << std::endl;
 
+    EXPECT_NEAR(db(rms(below)),   0.0f, 0.2f);  // should not be attentuated
+    EXPECT_NEAR(db(rms(cutoff)), -3.0f, 0.2f);  // should be  attenuated -3db
     EXPECT_LT(  db(rms(above)),  -70.0f);       // should be severely attenuuated
-    EXPECT_NEAR(db(rms(cutoff)), -3.0f, 0.1f);  // should be  attenuated -3db
-    EXPECT_GT(  db(rms(below)),  -0.5f);        // should not be attentuated
+    
 }
+
 
 TEST(WindowTest, Hanning)
 {
