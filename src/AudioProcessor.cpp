@@ -5,7 +5,7 @@
 #include <complex>
 const float LOGMIN = 1e-10f;
 
-std::vector<float> get_slice(const boost::circular_buffer<float>& buffer, size_t n) 
+std::vector<float> get_slice(const boost::circular_buffer<float>& buffer, size_t n)
 {
     if (n == 0)
         n = buffer.size();
@@ -28,13 +28,17 @@ AudioProcessor::AudioProcessor(size_t display_w, size_t display_h, size_t window
     vrms.set_capacity(display_w);
 
     precompute_bin_mapping();
-    hpf = butterworth_hpf(4, f0, sample_rate);
-    lpf = butterworth_lpf(4, f1, sample_rate);
+
+    hpf = {{0.8427f, -3.3707f, 5.0561f, -3.3707f, 0.8427f},
+            {1.0000f, -3.6581f, 5.0314f, -3.0832f, 0.7101f}};
+
+    lpf = {{1.5552e-05f, 6.2207e-05f, 9.3310e-05f, 6.2207e-05f, 1.5552e-05f},
+                          {1.0000f, -3.6581f, 5.0314f, -3.0832f, 0.7101f}};
 
     // out = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * (n / 2 + 1));
-    // plan = fftwf_plan_dft_r2c_1d(window_size, 
-    //                             raw.data(), 
-    //                             reinterpret_cast<fftwf_complex*>(out.data()), 
+    // plan = fftwf_plan_dft_r2c_1d(window_size,
+    //                             raw.data(),
+    //                             reinterpret_cast<fftwf_complex*>(out.data()),
     //                             FFTW_ESTIMATE);
 }
 
@@ -129,7 +133,7 @@ void AudioProcessor::precompute_bin_mapping()
 void AudioProcessor::map_to_log2_bins()
 {
     size_t num_bins = disp_w; // Number of bins based on display width
-    
+
     // Use the precomputed mapping to map linear FFT bins to log2-spaced bins
     for (size_t i = 0; i < linear_fft.size(); ++i) {
         const auto& mapping = bin_mapping[i];

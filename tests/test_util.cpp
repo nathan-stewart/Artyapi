@@ -53,3 +53,8 @@ float peak(const std::vector<float>& data)
     }
     return peak;
 }
+
+float db(float value)
+{
+    return 20.0f * log10f(value + 1e-7f);
+}
