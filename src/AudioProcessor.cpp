@@ -31,6 +31,7 @@ AudioProcessor::AudioProcessor(size_t display_w, size_t display_h, size_t window
 
     hpf = butterworth_hpf(4, f0, sample_rate);
     lpf = butterworth_lpf(4, f1, sample_rate);
+    window = hanning_window(window_size);
 
     // out = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * (n / 2 + 1));
     // plan = fftwf_plan_dft_r2c_1d(window_size,
@@ -48,6 +49,9 @@ AudioProcessor::~AudioProcessor()
 
 void AudioProcessor::process(const std::vector<float>& data)
 {
+    if (data.size() == 0)
+        return;
+
     process_volume(data);
     process_spectrum(data);
 }
@@ -78,16 +82,18 @@ void AudioProcessor::process_spectrum(const std::vector<float>& data)
     raw.insert(raw.end(), data.begin(), data.end());
 
     // if buffer isn't full - fill it up with copies of what we have
-    // while (raw.size() < raw.capacity()) {
-    //     size_t n = raw.capacity() - raw.size();
-    //     raw.insert(raw.end(), raw.begin(), raw.begin() + n);
-    // }
+    while (raw.size() < raw.capacity())
+    {
+        size_t n = raw.capacity() - raw.size();
+        raw.insert(raw.end(), raw.begin(), raw.begin() + n);
+    }
 
     std::vector<float> slice = get_slice(raw);
-    // apply_window(window, slice);
-    // apply_filter(hpf, slice);
-    // apply_filter(lpf, slice);
+    apply_window(window, slice);
+    apply_filter(hpf, slice);
+    apply_filter(lpf, slice);
     // Perform FFT
+    // fftwf_execute(plan);
     // Map FFT bins to log2 bins
     // Compute Decay per bin
 }

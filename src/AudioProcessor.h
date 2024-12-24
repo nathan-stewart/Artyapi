@@ -20,10 +20,10 @@ public:
 
     void precompute_bin_mapping();
     void map_to_log2_bins();
-    
+
     const std::vector<float> Vrms() const;
     const std::vector<float> Vpeak() const;
-    
+
 
 private:
     size_t disp_w;
@@ -40,8 +40,6 @@ private:
     boost::circular_buffer<float> vrms;
     std::vector<float> linear_fft;
     std::vector<float> log2_fft;
-    std::vector<float> hpf_coeffs;
-    std::vector<float> lpf_coeffs;
 
     struct BinMapping {
         size_t index_low;
