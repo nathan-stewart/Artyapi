@@ -11,8 +11,9 @@ FilterCoefficients butterworth_hpf(size_t order, float cutoff, float sample_rate
     if (!(order== 4 && cutoff == 1000.0f && sample_rate == 48000.0f))
         throw std::runtime_error("Unimplemented filter parameters");
 
-    return {{0.8426766f, -3.3707065f, 5.0560598f, -3.3707065f, 0.8426766f}, 
-            {1.0000000f, -3.6580603f, 5.0314335f, -3.0832283f, 0.7101039f}};
+    return { {0.9931822f, -3.9727288f, 5.9590931f, -3.9727288f, 0.9931822f},
+             {1.0000000f, -3.9863177f, 5.9590467f, -3.9591398f, 0.9864109f} };
+
 }
 
 FilterCoefficients butterworth_lpf(size_t order, float cutoff, float sample_rate)
@@ -21,10 +22,10 @@ FilterCoefficients butterworth_lpf(size_t order, float cutoff, float sample_rate
     if (!(order == 4 && cutoff == 1000.0f && sample_rate == 48000.0f))
         throw std::runtime_error("Unimplemented filter parameters");
 
-    return {{0.0000156f, 0.0000622f, 0.0000933f, 0.0000622f, 0.0000156f}, 
-            {1.0000000f, -3.6580603f, 5.0314335f, -3.0832283f, 0.7101039f}};
+    return { {0.4998150f, 1.9992600f, 2.9988900f, 1.9992600f, 0.4998150f},
+             {1.0000000f, 2.6386277f, 2.7693098f, 1.3392808f, 0.2498217f} };
 
-} 
+}
 
 // Function to apply a filter to a signal
 void apply_filter(const FilterCoefficients& coefficients,std::vector<float>& signal)
@@ -52,7 +53,7 @@ void apply_filter(const FilterCoefficients& coefficients,std::vector<float>& sig
             }
         }
         // std::cout << "]" << std::endl;
-        
+
     }
     signal = filtered;
 }
