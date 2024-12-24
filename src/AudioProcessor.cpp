@@ -29,11 +29,8 @@ AudioProcessor::AudioProcessor(size_t display_w, size_t display_h, size_t window
 
     precompute_bin_mapping();
 
-    hpf = {{0.8427f, -3.3707f, 5.0561f, -3.3707f, 0.8427f},
-            {1.0000f, -3.6581f, 5.0314f, -3.0832f, 0.7101f}};
-
-    lpf = {{1.5552e-05f, 6.2207e-05f, 9.3310e-05f, 6.2207e-05f, 1.5552e-05f},
-                          {1.0000f, -3.6581f, 5.0314f, -3.0832f, 0.7101f}};
+    hpf = butterworth_hpf(4, f0, sample_rate);
+    lpf = butterworth_lpf(4, f1, sample_rate);
 
     // out = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * (n / 2 + 1));
     // plan = fftwf_plan_dft_r2c_1d(window_size,

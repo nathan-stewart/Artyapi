@@ -8,18 +8,16 @@
 FilterCoefficients butterworth_hpf(size_t order, float cutoff, float sample_rate)
 {
     // Hardcoded coefficients for a 4th order 1kHz HPF
-    if (!(order== 4 && cutoff == 1000.0f && sample_rate == 48000.0f))
+    if (!(order== 4 && cutoff == 40.0f && sample_rate == 48000.0f))
         throw std::runtime_error("Unimplemented filter parameters");
 
-    return { {0.9931822f, -3.9727288f, 5.9590931f, -3.9727288f, 0.9931822f},
-             {1.0000000f, -3.9863177f, 5.9590467f, -3.9591398f, 0.9864109f} };
-
+    return { {0.8426766f, -3.3707065f, 5.0560598f, -3.3707065f, 0.8426766f}, {1.0000000f, -3.6580603f, 5.0314335f, -3.0832283f, 0.7101039f} };
 }
 
 FilterCoefficients butterworth_lpf(size_t order, float cutoff, float sample_rate)
 {
     // Hardcoded coefficients for a 4th order 1kHz LPF
-    if (!(order == 4 && cutoff == 1000.0f && sample_rate == 48000.0f))
+    if (!(order == 4 && cutoff == 20e3f && sample_rate == 48000.0f))
         throw std::runtime_error("Unimplemented filter parameters");
 
     return { {0.4998150f, 1.9992600f, 2.9988900f, 1.9992600f, 0.4998150f},

@@ -42,13 +42,12 @@ TEST(SineWaveGenerator, SineWaveGenerator)
 
 TEST(FilterTest, Butterworth_Coefficients)
 {
-    int order = 4;
-    float cutoff = 1000.0f;
-    float samplerate = 48000.0f;
-    FilterCoefficients hpf = butterworth_hpf(order, cutoff, samplerate);
-    FilterCoefficients lpf = butterworth_lpf(order, cutoff, samplerate);
-
     // This is currently a null test since the coefficients are hardcoded
+    // int order = 4;
+    // float cutoff = 1000.0f;
+    // float samplerate = 48000.0f;
+    // FilterCoefficients hpf = butterworth_hpf(order, cutoff, samplerate);
+    // FilterCoefficients lpf = butterworth_lpf(order, cutoff, samplerate);
 
     // Generated coefficients for a 4th order 1kHz LPF,HPF generated in octave via:
     //
