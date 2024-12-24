@@ -71,12 +71,12 @@ TEST(AudioProcessor, BinToFrequency)
     float f0 = 40.0f;
     float f1 = 20000.0f;
     std::vector<float> linear_buffer(1<<14);
-    ASSERT_NEAR(linbin_to_freq(linear_buffer, 0, f0, f1), f0, 0.1f);
-    ASSERT_NEAR(linbin_to_freq(linear_buffer, linear_buffer.size(), f0, f1), f1, 0.1f);
+    ASSERT_NEAR(bin_to_freq_linear(linear_buffer, 0, f0, f1), f0, 0.1f);
+    ASSERT_NEAR(bin_to_freq_linear(linear_buffer, linear_buffer.size(), f0, f1), f1, 0.1f);
     
     std::vector<float> log2buffer(1920);
-    ASSERT_NEAR(logbin_to_freq(log2buffer, 0, f0, f1), f0, 0.1f);
-    ASSERT_NEAR(logbin_to_freq(log2buffer, log2buffer.size(), f0, f1), f1, 0.1f);
+    ASSERT_NEAR(bin_to_freq_log2(log2buffer, 0, f0, f1), f0, 0.1f);
+    ASSERT_NEAR(bin_to_freq_log2(log2buffer, log2buffer.size(), f0, f1), f1, 0.1f);
 }
 
 
@@ -89,15 +89,28 @@ TEST(AudioProcessor, SpectrumSine)
     std::vector<float> sine_440 = sine_wave(440, 48000, samples);
     AudioProcessor ap;
     ap.process(sine_440);
-    std::vector<float> spectrum = ap.Spectrum();
+    std::vector<float> spectrum = ap.LinSpectrum();
     
     // Nearly all bins should be empty
     size_t almost_zero = std::count_if(spectrum.begin(), spectrum.end(), [](float v) { return v < 0.1f; });
     float virtually_all = static_cast<float>(spectrum.size()) * 0.95f;
     EXPECT_GE(almost_zero, virtually_all);
 
-    // check that the peak is at the right frequency
+    // check that the peak is at the right frequency in linear space
     size_t peak_bin = std::distance(spectrum.begin(), std::max_element(spectrum.begin(), spectrum.end()));
-    float peak_freq = logbin_to_freq(spectrum, peak_bin, f0, f1);
-    EXPECT_NEAR(peak_freq, 440.0f, 1.0f);
+    float peak_freq = bin_to_freq_linear(spectrum, peak_bin, f0, f1);
+    EXPECT_NEAR(peak_freq, 440.0f, 6.0f); // 2 x 3Hz bin size in the linear space
+
+    // check that the peak is at the right frequency in log2 space
+    spectrum = ap.Spectrum();
+    
+    // Nearly all bins should be empty
+    almost_zero = std::count_if(spectrum.begin(), spectrum.end(), [](float v) { return v < 0.1f; });
+    virtually_all = static_cast<float>(spectrum.size()) * 0.95f;
+    EXPECT_GE(almost_zero, virtually_all);
+
+    // check that the peak is at the right frequency
+    peak_bin = std::distance(spectrum.begin(), std::max_element(spectrum.begin(), spectrum.end()));
+    peak_freq = bin_to_freq_log2(spectrum, peak_bin, f0, f1);
+    EXPECT_NEAR(peak_freq, 440.0f, 6.0f);
 }

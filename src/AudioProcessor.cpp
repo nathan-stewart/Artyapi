@@ -16,18 +16,18 @@ std::vector<float> get_slice(const boost::circular_buffer<float>& buffer, size_t
     return slice;
 }
 
-float linbin_to_freq(std::vector<float> buffer, size_t bin, float f0, float f1)
+float bin_to_freq_linear(std::vector<float> buffer, size_t bin, float f0, float f1)
 {
     int num_bins = static_cast<int>(buffer.size());
     float log2_bin_index = static_cast<float>(bin) / static_cast<float>(num_bins);
     return f0 + log2_bin_index * (f1 - f0);
 }
 
-float logbin_to_freq(std::vector<float> buffer, size_t bin, float f0, float f1)
+float bin_to_freq_log2(std::vector<float> buffer, size_t bin, float f0, float f1)
 {
     int num_bins = static_cast<int>(buffer.size());
     float bin_index = static_cast<float>(bin) / static_cast<float>(num_bins);
-    return f0 * std::pow(2.0f, log2(f1 / f0) * bin_index);
+    return f0 * std::pow(2.0f, static_cast<float>(log2(f1 / f0)) * bin_index);
 }
 
 AudioProcessor::AudioProcessor(size_t display_w, size_t display_h, size_t window_size)
@@ -184,6 +184,7 @@ void AudioProcessor::map_to_log2_bins()
     }
 }
 
+
 void AudioProcessor::normalize_fft()
 {
     // normalize FFT
@@ -191,6 +192,13 @@ void AudioProcessor::normalize_fft()
     std::transform(linear_fft.begin(), linear_fft.end(), linear_fft.begin(),
                    [norm](float v) { return v * norm; });
 }
+
+
+const std::vector<float> AudioProcessor::LinSpectrum() const
+{
+    return linear_fft;
+}
+
 
 const std::vector<float> AudioProcessor::Spectrum() const
 {

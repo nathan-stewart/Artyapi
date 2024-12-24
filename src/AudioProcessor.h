@@ -8,8 +8,8 @@
 
 std::vector<float> get_slice(const boost::circular_buffer<float>& buffer, size_t n = 0);
 
-float linbin_to_freq(std::vector<float> buffer, size_t bin, float f0, float f1);
-float logbin_to_freq(std::vector<float> buffer, size_t bin, float f0, float f1);
+float bin_to_freq_linear(std::vector<float> buffer, size_t bin, float f0, float f1);
+float bin_to_freq_log2(std::vector<float> buffer, size_t bin, float f0, float f1);
 
 class AudioProcessor {
 public:
@@ -26,6 +26,7 @@ public:
     const std::vector<float> Vrms() const;
     const std::vector<float> Vpeak() const;
     const std::vector<float> Spectrum() const;
+    const std::vector<float> LinSpectrum() const;
 
 
 private:
