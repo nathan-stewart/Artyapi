@@ -26,6 +26,8 @@ AudioProcessor::AudioProcessor(size_t display_w, size_t display_h, size_t window
     raw.set_capacity(window_size);
     vpk.set_capacity(display_w);
     vrms.set_capacity(display_w);
+    current_slice.resize(window_size);
+    linear_fft.resize(static_cast<size_t>(window_size / 2 + 1));
 
     precompute_bin_mapping();
 
@@ -33,17 +35,30 @@ AudioProcessor::AudioProcessor(size_t display_w, size_t display_h, size_t window
     lpf = butterworth_lpf(4, f1, sample_rate);
     window = hanning_window(window_size);
 
-    // out = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * (n / 2 + 1));
-    // plan = fftwf_plan_dft_r2c_1d(window_size,
-    //                             raw.data(),
-    //                             reinterpret_cast<fftwf_complex*>(out.data()),
-    //                             FFTW_ESTIMATE);
+    fftw_in = fftwf_alloc_real(window_size);
+    fftw_out = fftwf_alloc_real(window_size);
+    if (fftw_in == nullptr || fftw_out == nullptr)
+        throw std::bad_alloc();
+
+    plan = fftwf_plan_r2r_1d(
+            static_cast<int>(window_size),
+            fftw_in,
+            fftw_out,
+            FFTW_R2HC,
+            FFTW_ESTIMATE);
+    if (plan == nullptr)
+        throw std::runtime_error("Failed to create FFTW plan");
 }
 
 
 AudioProcessor::~AudioProcessor()
 {
-    // fftwf_destroy_plan(plan);
+    fftwf_destroy_plan(plan);
+    fftwf_free(fftw_in);
+    fftwf_free(fftw_out);
+    fftw_in = nullptr;
+    fftw_out = nullptr;
+    plan = nullptr;
 }
 
 
@@ -88,12 +103,15 @@ void AudioProcessor::process_spectrum(const std::vector<float>& data)
         raw.insert(raw.end(), raw.begin(), raw.begin() + n);
     }
 
-    std::vector<float> slice = get_slice(raw);
-    apply_window(window, slice);
-    apply_filter(hpf, slice);
-    apply_filter(lpf, slice);
-    // Perform FFT
-    // fftwf_execute(plan);
+    current_slice = get_slice(raw);
+    apply_window(window, current_slice);
+    apply_filter(hpf, current_slice);
+    apply_filter(lpf, current_slice);
+
+    std::copy(current_slice.begin(), current_slice.end(), fftw_in);
+    fftwf_execute(plan);
+    std::copy(fftw_out, fftw_out + linear_fft.size(), linear_fft.begin());
+
     // Map FFT bins to log2 bins
     // Compute Decay per bin
 }

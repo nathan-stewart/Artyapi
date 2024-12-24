@@ -35,11 +35,16 @@ private:
     FilterCoefficients hpf;
     FilterCoefficients lpf;
 
-    boost::circular_buffer<float> raw;
-    boost::circular_buffer<float> vpk;
-    boost::circular_buffer<float> vrms;
-    std::vector<float> linear_fft;
-    std::vector<float> log2_fft;
+    boost::circular_buffer<float>   vpk;
+    boost::circular_buffer<float>   vrms;
+    boost::circular_buffer<float>   raw;
+    std::vector<float>              current_slice;
+    std::vector<float>              linear_fft;
+    float* fftw_in;
+    float* fftw_out;;
+
+    fftwf_plan                      plan;
+    std::vector<float>              log2_fft;
 
     struct BinMapping {
         size_t index_low;
@@ -47,8 +52,7 @@ private:
         float weight_low;
         float weight_high;
     };
-    std::vector<BinMapping> bin_mapping;
-    fftwf_plan plan;
+    std::vector<BinMapping>         bin_mapping;
 };
 
 #endif // AUDIO_PROCESSOR_H
