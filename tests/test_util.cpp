@@ -58,3 +58,16 @@ float db(float value)
 {
     return 20.0f * log10f(abs(value) + 1e-7f);
 }
+
+int zero_crossings(const std::vector<float>& data)
+{
+    int crossings = 0;
+    for (size_t i = 1; i < data.size(); ++i)
+    {
+        if ((data[i - 1] < 0 && data[i] >= 0) || (data[i - 1] > 0 && data[i] <= 0))
+        {
+            crossings++;
+        }
+    }
+    return crossings;
+}

@@ -7,7 +7,7 @@
 
 #include "test_util.h"
 
-TEST(AudioProcessorTest, VolumeNoise)
+TEST(AudioProcessor, VolumeNoise)
 {
     size_t samples = 1<<24;
 
@@ -43,7 +43,7 @@ TEST(AudioProcessorTest, VolumeNoise)
     ASSERT_NEAR(avg, 0.0f, 0.1f);
 }
 
-TEST(AudioProcessorTest, VolumeSine)
+TEST(AudioProcessor, VolumeSine)
 {
     size_t sample_rate = 48000;
     size_t samples = 1<<16;
@@ -63,4 +63,41 @@ TEST(AudioProcessorTest, VolumeSine)
     EXPECT_EQ(peak.size(), 1);
     ASSERT_NEAR(ap.Vrms()[0], -3.0f, 0.1f);
     ASSERT_NEAR(ap.Vpeak()[0],  0.0f, 0.1f);
+}
+
+
+TEST(AudioProcessor, BinToFrequency)
+{
+    float f0 = 40.0f;
+    float f1 = 20000.0f;
+    std::vector<float> linear_buffer(1<<14);
+    ASSERT_NEAR(linbin_to_freq(linear_buffer, 0, f0, f1), f0, 0.1f);
+    ASSERT_NEAR(linbin_to_freq(linear_buffer, linear_buffer.size(), f0, f1), f1, 0.1f);
+    
+    std::vector<float> log2buffer(1920);
+    ASSERT_NEAR(logbin_to_freq(log2buffer, 0, f0, f1), f0, 0.1f);
+    ASSERT_NEAR(logbin_to_freq(log2buffer, log2buffer.size(), f0, f1), f1, 0.1f);
+}
+
+
+TEST(AudioProcessor, SpectrumSine)
+{
+    size_t samples = 1<<24;
+    float f0 = 40.0f;
+    float f1 = 20000.0f;
+
+    std::vector<float> sine_440 = sine_wave(440, 48000, samples);
+    AudioProcessor ap;
+    ap.process(sine_440);
+    std::vector<float> spectrum = ap.Spectrum();
+    
+    // Nearly all bins should be empty
+    size_t almost_zero = std::count_if(spectrum.begin(), spectrum.end(), [](float v) { return v < 0.1f; });
+    float virtually_all = static_cast<float>(spectrum.size()) * 0.95f;
+    EXPECT_GE(almost_zero, virtually_all);
+
+    // check that the peak is at the right frequency
+    size_t peak_bin = std::distance(spectrum.begin(), std::max_element(spectrum.begin(), spectrum.end()));
+    float peak_freq = logbin_to_freq(spectrum, peak_bin, f0, f1);
+    EXPECT_NEAR(peak_freq, 440.0f, 1.0f);
 }

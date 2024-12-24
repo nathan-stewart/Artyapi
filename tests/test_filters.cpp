@@ -27,16 +27,7 @@ TEST(SineWaveGenerator, SineWaveGenerator)
     ASSERT_NEAR(rms(sine), 0.707f, 0.01f);   // Check RMS is close to 0.707
     ASSERT_NEAR(peak(sine), 1.0f, 0.01f);    // Check peak is close to 1.0
 
-    // Check frequency using zero-crossing method
-    int zero_crossings = 0;
-    for (size_t i = 1; i < sine.size(); ++i)
-    {
-        if ((sine[i - 1] < 0 && sine[i] >= 0) || (sine[i - 1] > 0 && sine[i] <= 0))
-        {
-            zero_crossings++;
-        }
-    }
-    float generated_frequency = (static_cast<float>(zero_crossings) / 2.0f) * (samplerate / static_cast<float>(samples));
+    float generated_frequency = (static_cast<float>(zero_crossings(sine)) / 2.0f) * (samplerate / static_cast<float>(samples));
     ASSERT_NEAR(generated_frequency, frequency, 1.0f); // Check frequency is close to 1 kHz
 }
 

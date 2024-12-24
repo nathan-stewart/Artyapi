@@ -11,4 +11,5 @@ std::vector<float> sine_wave(float frequency, float sample_rate, size_t samples)
 float rms(const std::vector<float>& data);
 float peak(const std::vector<float>& data);
 float db(float value);
+int zero_crossings(const std::vector<float>& data);
 #endif
