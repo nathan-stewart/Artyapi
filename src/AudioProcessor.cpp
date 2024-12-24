@@ -134,17 +134,6 @@ void AudioProcessor::process_spectrum(const std::vector<float>& data)
 }
 
 
-const std::vector<float> AudioProcessor::Vrms() const
-{
-    return get_slice(vrms);
-}
-
-
-const std::vector<float> AudioProcessor::Vpeak() const
-{
-    return get_slice(vpk);
-}
-
 void AudioProcessor::precompute_bin_mapping()
 {
     size_t num_bins = disp_w; // Number of bins based on display width
@@ -192,16 +181,3 @@ void AudioProcessor::normalize_fft()
     std::transform(linear_fft.begin(), linear_fft.end(), linear_fft.begin(),
                    [norm](float v) { return v * norm; });
 }
-
-
-const std::vector<float> AudioProcessor::LinSpectrum() const
-{
-    return linear_fft;
-}
-
-
-const std::vector<float> AudioProcessor::Spectrum() const
-{
-    return log2_fft;
-}   
-

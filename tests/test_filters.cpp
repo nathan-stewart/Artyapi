@@ -31,6 +31,19 @@ TEST(SineWaveGenerator, SineWaveGenerator)
     ASSERT_NEAR(generated_frequency, frequency, 1.0f); // Check frequency is close to 1 kHz
 }
 
+
+TEST(NoiseGenerator, Noise)
+{
+    size_t samples = 1 << 16;
+    std::vector<float> noise = white_noise(samples);
+    ASSERT_EQ(noise.size(), samples);
+    ASSERT_GT(*std::max_element(noise.begin(), noise.end()), -1.0f);
+    ASSERT_LE(*std::max_element(noise.begin(), noise.end()),  1.0f);
+    float avg = average(noise);
+    ASSERT_NEAR(avg, 0.0f, 0.1f);
+}
+
+
 TEST(FilterTest, Butterworth_Coefficients)
 {
     // This is currently a null test since the coefficients are hardcoded

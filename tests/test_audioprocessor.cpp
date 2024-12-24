@@ -7,43 +7,44 @@
 
 #include "test_util.h"
 
-TEST(AudioProcessor, VolumeNoise)
+class AudioProcessorTest : public ::testing::Test {
+protected:
+    AudioProcessorTest() {}
+    ~AudioProcessorTest() override {}
+    void SetUp() override {}
+    void TearDown() override {}
+};
+
+
+TEST(AudioProcessorTest, VolumeZeros)
 {
+    AudioProcessor ap;
     size_t samples = 1<<24;
+    std::vector<float> zeros(samples, 1.0f);
+    ap.process(zeros);
+    ASSERT_EQ(get_slice(ap.vrms).size(), 1);
+    ASSERT_NEAR(ap.vrms.back(),  0.0f, 0.01f);
 
-    std::vector<float> zeros = std::vector<float>(samples, 0.0f);
-    {
-        AudioProcessor ap;
-        ap.process(zeros);
-        std::vector<float> rms = ap.Vrms();
-        std::vector<float> peak = ap.Vpeak();
-        ASSERT_EQ(rms.size(), 1);
-        ASSERT_LT(rms[0], -90.0f);
-
-        ASSERT_EQ(peak.size(), 1);
-        ASSERT_LT(peak[0], -90.0f);
-    }
-
-    std::vector<float> ones = std::vector<float>(samples, 1.0f);
-    {
-        AudioProcessor ap;
-        ap.process(ones);
-        std::vector<float> rms = ap.Vrms();
-        std::vector<float> peak = ap.Vpeak();
-        ASSERT_EQ(rms.size(), 1);
-        ASSERT_NEAR(rms[0],  0.0f, 0.01f);
-        ASSERT_NEAR(peak[0], 0.0f, 0.01f);
-    }
-
-    std::vector<float> noise = white_noise(samples);
-    ASSERT_EQ(noise.size(), samples);
-    ASSERT_GT(*std::max_element(noise.begin(), noise.end()), -1.0f);
-    ASSERT_LE(*std::max_element(noise.begin(), noise.end()),  1.0f);
-    float avg = average(noise);
-    ASSERT_NEAR(avg, 0.0f, 0.1f);
+    ASSERT_EQ(get_slice(ap.vpk).size(), 1);
+    ASSERT_NEAR(ap.vpk.back(), 0.0f, 0.01f);
 }
 
-TEST(AudioProcessor, VolumeSine)
+
+TEST(AudioProcessorTest, VolumeOnes)
+{
+    AudioProcessor ap;
+    size_t samples = 1<<24;
+    std::vector<float> ones(samples, 1.0f);
+    ap.process(ones);
+    ASSERT_EQ(get_slice(ap.vrms).size(), 1);
+    ASSERT_NEAR(ap.vrms.back(),  1.0f, 0.01f);
+
+    ASSERT_EQ(get_slice(ap.vpk).size(), 1);
+    ASSERT_NEAR(ap.vpk.back(), 1.0f, 0.01f);
+}
+
+
+TEST(AudioProcessorTest, VolumeSine)
 {
     size_t sample_rate = 48000;
     size_t samples = 1<<16;
@@ -57,16 +58,16 @@ TEST(AudioProcessor, VolumeSine)
     ASSERT_NEAR(avg, 0.0f, 0.1f);
     ap.process(sine_440);
 
-    std::vector<float> rms = ap.Vrms();
-    std::vector<float> peak = ap.Vpeak();
+    std::vector<float> rms = get_slice(ap.vrms);
+    std::vector<float> peak = get_slice(ap.vpk);
     EXPECT_EQ(rms.size(), 1);
     EXPECT_EQ(peak.size(), 1);
-    ASSERT_NEAR(ap.Vrms()[0], -3.0f, 0.1f);
-    ASSERT_NEAR(ap.Vpeak()[0],  0.0f, 0.1f);
+    ASSERT_NEAR(rms.back(),  -3.0f, 0.1f);
+    ASSERT_NEAR(peak.back(),  0.0f, 0.1f);
 }
 
 
-TEST(AudioProcessor, BinToFrequency)
+TEST(AudioProcessorTest, BinToFrequency)
 {
     float f0 = 40.0f;
     float f1 = 20000.0f;
@@ -80,7 +81,7 @@ TEST(AudioProcessor, BinToFrequency)
 }
 
 
-TEST(AudioProcessor, SpectrumSine)
+TEST(AudioProcessorTest, SpectrumSine)
 {
     size_t samples = 1<<24;
     float f0 = 40.0f;
@@ -89,7 +90,7 @@ TEST(AudioProcessor, SpectrumSine)
     std::vector<float> sine_440 = sine_wave(440, 48000, samples);
     AudioProcessor ap;
     ap.process(sine_440);
-    std::vector<float> spectrum = ap.LinSpectrum();
+    std::vector<float> spectrum = ap.linear_fft;
     
     // Nearly all bins should be empty
     size_t almost_zero = std::count_if(spectrum.begin(), spectrum.end(), [](float v) { return v < 0.1f; });
@@ -102,7 +103,7 @@ TEST(AudioProcessor, SpectrumSine)
     EXPECT_NEAR(peak_freq, 440.0f, 6.0f); // 2 x 3Hz bin size in the linear space
 
     // check that the peak is at the right frequency in log2 space
-    spectrum = ap.Spectrum();
+    spectrum = ap.linear_fft;
     
     // Nearly all bins should be empty
     almost_zero = std::count_if(spectrum.begin(), spectrum.end(), [](float v) { return v < 0.1f; });

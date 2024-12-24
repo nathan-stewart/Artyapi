@@ -1,6 +1,7 @@
 #ifndef AUDIO_PROCESSOR_H
 #define AUDIO_PROCESSOR_H
 
+#include <gtest/gtest.h>
 #include <vector>
 #include <boost/circular_buffer.hpp>
 #include <fftw3.h>
@@ -13,6 +14,7 @@ float bin_to_freq_log2(std::vector<float> buffer, size_t bin, float f0, float f1
 
 class AudioProcessor {
 public:
+    friend class AudioProcessorTest;
     AudioProcessor(size_t display_w=1920, size_t display_h=480, size_t window_size=16834);
     ~AudioProcessor();
 
@@ -22,12 +24,6 @@ public:
 
     void precompute_bin_mapping();
     void map_to_log2_bins();
-
-    const std::vector<float> Vrms() const;
-    const std::vector<float> Vpeak() const;
-    const std::vector<float> Spectrum() const;
-    const std::vector<float> LinSpectrum() const;
-
 
 private:
     size_t disp_w;
