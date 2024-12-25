@@ -22,8 +22,8 @@ TEST(VolumeProcessorTest, VolumeZeros)
 {
     size_t samples = 1<<24;
     std::vector<float> zeros(samples, 1.0f);
-    boost::circular_buffer<float> vrms;
-    boost::circular_buffer<float> vpk;
+    boost::circular_buffer<float> vrms(10);
+    boost::circular_buffer<float> vpk(10);
     process_volume(zeros, vrms, vpk);
     ASSERT_EQ(vrms.size(), 1);
     ASSERT_NEAR(vrms.back(),  0.0f, 0.01f);
@@ -35,11 +35,10 @@ TEST(VolumeProcessorTest, VolumeZeros)
 
 TEST(AudioProcessorTest, VolumeOnes)
 {
-    AudioProcessor ap;
     size_t samples = 1<<24;
     std::vector<float> ones(samples, 1.0f);
-    boost::circular_buffer<float> vrms;
-    boost::circular_buffer<float> vpk;
+    boost::circular_buffer<float> vrms(10);
+    boost::circular_buffer<float> vpk(10);
 
     process_volume(ones, vrms, vpk);
     ASSERT_EQ(vrms.size(), 1);
@@ -52,14 +51,13 @@ TEST(AudioProcessorTest, VolumeOnes)
 
 TEST(AudioProcessorTest, VolumeSine)
 {
-    size_t sample_rate = 48000;
     size_t samples = 1<<16;
-
+    size_t sample_rate = 48000;
+    boost::circular_buffer<float> vrms(10);
+    boost::circular_buffer<float> vpk(10);
     std::vector<float> sine_440 = sine_wave(440, float(sample_rate), samples);
-    boost::circular_buffer<float> vrms;
-    boost::circular_buffer<float> vpk;
-
     process_volume(sine_440, vrms, vpk);
+
     EXPECT_EQ(vrms.size(), 1);
     EXPECT_EQ(vpk.size(), 1);
     ASSERT_NEAR(vrms.back(),  -3.0f, 0.1f);
