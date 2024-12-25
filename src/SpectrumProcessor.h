@@ -8,11 +8,11 @@
 #include "SpectrumProcessor.h"
 
 struct BinMapping {
-    size_t index_low;
-    size_t index_high;
-    float weight_low;
-    float weight_high;
+    size_t index;
+    float weight;
 };
+
+std::vector<BinMapping> precompute_bin_mapping(const std::vector<float> &linear_fft, const std::vector<float> &log_fft, float f0, float f1);
 
 class SpectrumProcessor
 {
@@ -21,7 +21,6 @@ public:
     ~SpectrumProcessor();
 
     SpectrumProcessor&      operator()(const std::vector<float>& data);
-    std::vector<BinMapping> precompute_bin_mapping(size_t num_bins);
     void                    normalize_fft();
     void                    map_to_log2_bins();
     std::vector<float>      get_linear_fft() const { return linear_fft; }

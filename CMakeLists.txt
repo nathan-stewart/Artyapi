@@ -21,7 +21,7 @@ endif()
 include_directories(${FFTW3_INCLUDE_DIR})
 
 # Add global compiler flags
-add_compile_options(-Wall -Wextra -Wconversion -Wfloat-conversion -Wdouble-promotion)
+add_compile_options(-Wall -Wextra -Wconversion -Wfloat-conversion -Wdouble-promotion -Werror)
 
 # Add the executable
 add_executable(rta src/sdlmain.cpp src/AudioProcessor.cpp src/SpectrumProcessor.cpp src/Filters.cpp)
