@@ -33,8 +33,8 @@ std::vector<BinMapping> precompute_bin_mapping(const std::vector<float> &linear_
         float log2_bin_index_exact = freq_to_log_fractional_bin(log_fft, freq, f0, f1);
         size_t index  = static_cast<size_t>(std::floor(log2_bin_index_exact));
         float weight  = log2_bin_index_exact - static_cast<float>(index);
-        
-        if (index < log_fft.size()) 
+
+        if (index < log_fft.size())
         {
             mapping[i].index = index;
             mapping[i].weight = weight;
@@ -104,7 +104,7 @@ SpectrumProcessor& SpectrumProcessor::operator()(const std::vector<float>& data)
     fftwf_execute(plan);
     std::copy(fftw_out, fftw_out + linear_fft.size(), linear_fft.begin());
     normalize_fft();
-    map_to_log2_bins();
+    //map_to_log2_bins();
 
     // Compute Decay per bin
     return *this;

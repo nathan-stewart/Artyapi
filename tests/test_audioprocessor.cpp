@@ -124,7 +124,7 @@ TEST(AudioProcessorTest, SpectrumSine)
 
     // check that the peak is at the right frequency
     peak_bin = std::distance(spectrum.begin(), std::max_element(spectrum.begin(), spectrum.end()));
-    
+
     ASSERT_GT(peak_bin, 0);
     ASSERT_LT(peak_bin, spectrum.size());
     peak_freq = bin_to_freq_log2(spectrum, peak_bin, f0, f1);
@@ -141,7 +141,7 @@ TEST(AudioProcessorTest, SpectrumSine)
         std::cout << "bin: " << i << " freq: " << freq << " = " << spectrum[i] << std::endl;
     }
     std::cout << "===========================" << std::endl;
-    
+
     float next_freq = bin_to_freq_log2(spectrum, peak_bin + 1, f0, f1);
     EXPECT_NEAR(next_freq, 440.0f * powf(2.0f, 1.0f/12.0f), 6.0f); // 1 semitone
 

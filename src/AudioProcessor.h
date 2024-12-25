@@ -7,8 +7,6 @@
 #include "Filters.h"
 #include "SpectrumProcessor.h"
 
-float bin_to_freq_linear(std::vector<float> buffer, size_t bin, float f0, float f1);
-float bin_to_freq_log2(std::vector<float> buffer, size_t bin, float f0, float f1);
 void  process_volume(const std::vector<float>& data, boost::circular_buffer<float>& vrms, boost::circular_buffer<float>& vpk);
 
 class AudioProcessor
@@ -19,9 +17,6 @@ public:
     ~AudioProcessor();
 
     void process(const std::vector<float>& data);
-
-    void precompute_bin_mapping();
-    void map_to_log2_bins();
 
 private:
     size_t disp_w;

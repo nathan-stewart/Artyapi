@@ -7,11 +7,15 @@
 #include "Filters.h"
 #include "SpectrumProcessor.h"
 
+
+float bin_to_freq_linear(std::vector<float> buffer, size_t bin, float f0, float f1);
+float bin_to_freq_log2(std::vector<float> buffer, size_t bin, float f0, float f1);
+float freq_to_log_fractional_bin(std::vector<float> buffer, float freq, float f0, float f1);
+
 struct BinMapping {
     size_t index;
     float weight;
 };
-
 std::vector<BinMapping> precompute_bin_mapping(const std::vector<float> &linear_fft, const std::vector<float> &log_fft, float f0, float f1);
 
 class SpectrumProcessor
