@@ -21,7 +21,7 @@ protected:
 TEST(VolumeProcessorTest, VolumeZeros)
 {
     size_t samples = 1<<24;
-    std::vector<float> zeros(samples, 1.0f);
+    std::vector<float> zeros(samples, 0.0f);
     boost::circular_buffer<float> vrms(10);
     boost::circular_buffer<float> vpk(10);
     process_volume(zeros, vrms, vpk);
@@ -60,8 +60,8 @@ TEST(AudioProcessorTest, VolumeSine)
 
     EXPECT_EQ(vrms.size(), 1);
     EXPECT_EQ(vpk.size(), 1);
-    ASSERT_NEAR(vrms.back(),  -3.0f, 0.1f);
-    ASSERT_NEAR(vpk.back(),  0.0f, 0.1f);
+    ASSERT_NEAR(db(vrms.back()),  -3.0f, 0.1f);
+    ASSERT_NEAR(db(vpk.back()),  0.0f, 0.1f);
 }
 
 
