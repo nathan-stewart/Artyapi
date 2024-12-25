@@ -70,23 +70,40 @@ TEST(AudioProcessorTest, BinToFrequency)
     float f0 = 40.0f;
     float f1 = 20000.0f;
     std::vector<float> linear_buffer(1<<14);
-    ASSERT_NEAR(bin_to_freq_linear(linear_buffer, 0, f0, f1), f0, 0.1f);
-    ASSERT_NEAR(bin_to_freq_linear(linear_buffer, linear_buffer.size(), f0, f1), f1, 0.1f);
+    ASSERT_NEAR(bin_to_freq_linear(linear_buffer, static_cast<float>(0), f0, f1), f0, 0.1f);
+    ASSERT_NEAR(bin_to_freq_linear(linear_buffer, static_cast<float>(linear_buffer.size()), f0, f1), f1, 0.1f);
 
     std::vector<float> log2buffer(1920);
     ASSERT_NEAR(bin_to_freq_log2(log2buffer, 0, f0, f1), f0, 0.1f);
-    ASSERT_NEAR(bin_to_freq_log2(log2buffer, log2buffer.size(), f0, f1), f1, 0.1f);
+    ASSERT_NEAR(bin_to_freq_log2(log2buffer, static_cast<float>(log2buffer.size()), f0, f1), f1, 0.1f);
 }
 
 TEST(AudioProcessorTest, BinMapping)
 {
     float f0 = 40.0f;
     float f1 = 20000.0f;
-    std::vector<float> linear_fft(1<<14);
-    std::vector<float> log_fft(1920);
-    std::vector<BinMapping> mapping = precompute_bin_mapping(linear_fft, log_fft, f0, f1);
-    ASSERT_EQ(mapping.size(), linear_fft.size());
-    ASSERT_EQ(mapping[mapping.size() - 1].index, 1919);
+    std::vector<float> source(1<<14);
+    std::vector<float> destination(1920);
+    std::vector<float> mapping = precompute_bin_mapping(source, destination, f0, f1);
+    ASSERT_EQ(mapping.size(), source.size());
+    ASSERT_NEAR(mapping[mapping.size() - 1], 1920, 0.1f);
+
+    // zero out the ffts
+    source.assign(1<<14, 0.0f);
+    destination.assign(1920, 0.0f);
+
+    // pick a linear bin that lies between two output bins
+    size_t b = static_cast<size_t>(bin_to_freq_log2(destination, 1000, f0, f1));
+    float test_freq = (bin_to_freq_log2(destination, static_cast<float>(b), f0, f1) +
+                     bin_to_freq_log2(destination, static_cast<float>(b)+1, f0, f1)) / 2.0f;
+    float test_bin_lin = freq_to_lin_fractional_bin(source, test_freq, f0, f1);
+    float test_bin_log = freq_to_log_fractional_bin(destination, test_freq, f0, f1);
+
+    source[static_cast<size_t>(test_bin_lin)] = 1.0f;
+    map_bins(mapping, source, destination);
+    ASSERT_EQ(static_cast<size_t>(test_bin_log), b);
+    std::vector<float>::iterator just_before = destination.begin() + b - 1;
+    ASSERT_NEAR(std::accumulate(just_before, just_before + 4, 0.0f), 1.0f, 0.1f);
 }
 
 
@@ -116,7 +133,7 @@ TEST(AudioProcessorTest, SpectrumSine)
 
     // check that the peak is at the right frequency in linear space
     size_t peak_bin = std::distance(spectrum.begin(), std::max_element(spectrum.begin(), spectrum.end()));
-    float peak_freq = bin_to_freq_linear(spectrum, peak_bin, f0, f1);
+    float peak_freq = bin_to_freq_linear(spectrum, static_cast<float>(peak_bin), f0, f1);
     EXPECT_NEAR(peak_freq, 440.0f, 6.0f); // 2 x 3Hz bin size in the linear space
 
     // check that the peak is at the right frequency in log2 space
@@ -125,9 +142,9 @@ TEST(AudioProcessorTest, SpectrumSine)
     // check that the peak is at the right frequency
     peak_bin = std::distance(spectrum.begin(), std::max_element(spectrum.begin(), spectrum.end()));
 
-    ASSERT_GT(peak_bin, 0);
-    ASSERT_LT(peak_bin, spectrum.size());
-    peak_freq = bin_to_freq_log2(spectrum, peak_bin, f0, f1);
+    EXPECT_GT(peak_bin, 0);
+    EXPECT_LT(peak_bin, spectrum.size());
+    peak_freq = bin_to_freq_log2(spectrum, static_cast<float>(peak_bin), f0, f1);
     // EXPECT_NEAR(peak_freq, 440.0f, 6.0f);
 
     std::cout << "==== peak bin " << peak_bin << " of " << spectrum.size() << " =======================" << std::endl;
@@ -137,12 +154,12 @@ TEST(AudioProcessorTest, SpectrumSine)
         {
             continue;
         }
-        float freq = bin_to_freq_log2(spectrum, i, f0, f1);
+        float freq = bin_to_freq_log2(spectrum, static_cast<float>(i), f0, f1);
         std::cout << "bin: " << i << " freq: " << freq << " = " << spectrum[i] << std::endl;
     }
     std::cout << "===========================" << std::endl;
 
-    float next_freq = bin_to_freq_log2(spectrum, peak_bin + 1, f0, f1);
+    float next_freq = bin_to_freq_log2(spectrum, static_cast<float>(peak_bin + 1), f0, f1);
     EXPECT_NEAR(next_freq, 440.0f * powf(2.0f, 1.0f/12.0f), 6.0f); // 1 semitone
 
 }

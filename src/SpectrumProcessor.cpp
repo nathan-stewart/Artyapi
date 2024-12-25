@@ -2,19 +2,29 @@
 #include <cmath>
 
 
-float bin_to_freq_linear(std::vector<float> buffer, size_t bin, float f0, float f1)
+float bin_to_freq_linear(std::vector<float> buffer, float bin, float f0, float f1)
 {
     int num_bins = static_cast<int>(buffer.size());
-    float log2_bin_index = static_cast<float>(bin) / static_cast<float>(num_bins);
+    float log2_bin_index = bin / static_cast<float>(num_bins);
     return f0 + log2_bin_index * (f1 - f0);
 }
 
-float bin_to_freq_log2(std::vector<float> buffer, size_t bin, float f0, float f1)
+
+float bin_to_freq_log2(std::vector<float> buffer, float bin, float f0, float f1)
 {
     int num_bins = static_cast<int>(buffer.size());
-    float bin_index = static_cast<float>(bin) / static_cast<float>(num_bins);
+    float bin_index = bin / static_cast<float>(num_bins);
     return f0 * std::pow(2.0f, static_cast<float>(log2(f1 / f0)) * bin_index);
 }
+
+
+float freq_to_lin_fractional_bin(std::vector<float> buffer, float freq, float f0, float f1)
+{
+    float num_bins = static_cast<float>(buffer.size());
+    float bin_fraction = (freq - f0) / (f1 - f0);
+    return bin_fraction * num_bins;
+}
+
 
 float freq_to_log_fractional_bin(std::vector<float> buffer, float freq, float f0, float f1)
 {
@@ -23,22 +33,32 @@ float freq_to_log_fractional_bin(std::vector<float> buffer, float freq, float f0
     return log2_bin_index * num_bins;
 }
 
-std::vector<BinMapping> precompute_bin_mapping(const std::vector<float> &linear_fft, const std::vector<float> &log_fft, float f0, float f1)
+void map_bins(const std::vector<float>& mapping, const std::vector<float>& source, std::vector<float>& destination)
+{
+    if (mapping.size() != source.size())
+        throw std::runtime_error("Mapping size mismatch");
+
+    // zero out the destination since we'll be adding multiple source bins to each destination bin
+    std::fill(destination.begin(), destination.end(), 0.0f);
+    size_t dest_size = destination.size();
+    for (size_t t = 0; t < mapping.size(); ++t)
+    {
+        size_t dest_index = static_cast<size_t>(mapping[t]);
+        float frac = fmodf(mapping[t], 1.0f);
+        destination[dest_index] += (1.0f - frac) * source[t];
+        if (dest_index + 1 < dest_size)
+            destination[dest_index + 1] += frac * source[t];
+    }
+}
+
+std::vector<float> precompute_bin_mapping(const std::vector<float> &linear_fft, const std::vector<float> &log_fft, float f0, float f1)
 {
     size_t linear_size = linear_fft.size();
-    std::vector<BinMapping> mapping(linear_size);
+    std::vector<float> mapping(linear_size);
 
     for (size_t i = 0; i < linear_size; ++i) {
-        float freq = bin_to_freq_linear(linear_fft, i, f0, f1);
-        float log2_bin_index_exact = freq_to_log_fractional_bin(log_fft, freq, f0, f1);
-        size_t index  = static_cast<size_t>(std::floor(log2_bin_index_exact));
-        float weight  = log2_bin_index_exact - static_cast<float>(index);
-
-        if (index < log_fft.size())
-        {
-            mapping[i].index = index;
-            mapping[i].weight = weight;
-        }
+        float freq = bin_to_freq_linear(linear_fft, static_cast<float>(i), f0, f1);
+        mapping[i] = freq_to_log_fractional_bin(log_fft, freq, f0, f1);
     }
     return mapping;
 }
@@ -104,29 +124,10 @@ SpectrumProcessor& SpectrumProcessor::operator()(const std::vector<float>& data)
     fftwf_execute(plan);
     std::copy(fftw_out, fftw_out + linear_fft.size(), linear_fft.begin());
     normalize_fft();
-    //map_to_log2_bins();
+    //map_bins(bin_mapping, linear_fft, log2_fft);
 
     // Compute Decay per bin
     return *this;
-}
-
-
-void SpectrumProcessor::map_to_log2_bins()
-{
-    // Zero out the log2 FFT
-    log2_fft.assign(log2_fft.size(), 0.0f);
-
-    // Use the precomputed mapping to map linear FFT bins to log2-spaced bins
-    size_t num_bins = log2_fft.size();
-    for (size_t i = 0; i < linear_fft.size() - 1; ++i) {
-        const auto& mapping = bin_mapping[i];
-        if (mapping.index < num_bins) {
-            log2_fft[mapping.index] += linear_fft[i] * mapping.weight;
-        }
-        if (mapping.index + 1 < num_bins) {
-            log2_fft[mapping.index + 1] += linear_fft[i] * (1.0f - mapping.weight);
-        }
-    }
 }
 
 
