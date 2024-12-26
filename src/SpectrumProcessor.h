@@ -1,5 +1,4 @@
-#ifndef SPECTRUM_PROCESSOR_H
-#define SPECTRUM_PROCESSOR_H
+#pragma once
 
 #include <vector>
 #include <boost/circular_buffer.hpp>
@@ -42,5 +41,3 @@ private:
     float*                  fftw_out;
     fftwf_plan              plan;
 };
-
-#endif // SPECTRUM_PROCESSOR_H

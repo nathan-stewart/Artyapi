@@ -3,8 +3,8 @@ cmake_minimum_required(VERSION 3.10)
 # Set the project name
 project(rta)
 
-# Find the SDL2 library
 find_package(SDL2 REQUIRED)
+find_package(pybind11 REQUIRED)
 
 # Find the FFTW3 library
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64")
@@ -27,7 +27,7 @@ add_compile_options(-Wall -Wextra -Wconversion -Wfloat-conversion -Wdouble-promo
 add_executable(rta src/sdlmain.cpp src/AudioProcessor.cpp src/SpectrumProcessor.cpp src/Filters.cpp)
 
 # Link the SDL2 and FFTW3 libraries
-target_link_libraries(rta SDL2::SDL2 ${FFTW3_LIB})
+target_link_libraries(rta SDL2::SDL2 pybind11::module ${FFTW3_LIB})
 
 # Include Google Test
 include(FetchContent)
@@ -46,7 +46,7 @@ enable_testing()
 add_executable(TestMain tests/test_util.cpp tests/test_audioprocessor.cpp tests/test_filters.cpp  tests/test_circularbuffer.cpp src/AudioProcessor.cpp src/Filters.cpp src/SpectrumProcessor.cpp)
 
 # Link the FFTW3 and Google Test libraries to the test executable
-target_link_libraries(TestMain ${FFTW3_LIB} gtest_main)
+target_link_libraries(TestMain ${FFTW3_LIB} pybind11::module gtest_main)
 
 # Add the test to CTest
 add_test(NAME TestMain COMMAND TestMain)

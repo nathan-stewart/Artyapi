@@ -3,6 +3,8 @@
 #include <vector>
 #include <boost/circular_buffer.hpp>
 #include <cmath>
+#include <map>
+#include <string>
 #include <algorithm>
 #include <random>
 #include <cstddef>
@@ -46,13 +48,6 @@ TEST(NoiseGenerator, Noise)
 
 TEST(FilterTest, Butterworth_Coefficients)
 {
-    // This is currently a null test since the coefficients are hardcoded
-    // int order = 4;
-    // float cutoff = 1000.0f;
-    // float samplerate = 48000.0f;
-    // FilterCoefficients hpf = butterworth_hpf(order, cutoff, samplerate);
-    // FilterCoefficients lpf = butterworth_lpf(order, cutoff, samplerate);
-
     // Generated coefficients for a 4th order 1kHz LPF,HPF generated in octave via:
     //
     /*
@@ -64,6 +59,8 @@ TEST(FilterTest, Butterworth_Coefficients)
             if i < length(coeffs)
                 formatted_str = [formatted_str, ', '];
             end
+
+
         end
         formatted_str = [formatted_str, '}'];
     end
@@ -80,30 +77,35 @@ TEST(FilterTest, Butterworth_Coefficients)
     printf('LPF Coefficients: {b,a}: { %s, %s }\n', formatted_b_lpf, formatted_a_lpf);
     */
 
-    // ASSERT_EQ(hpf.first.size(), 5);
-    // ASSERT_EQ(hpf.second.size(), 5);
-    // ASSERT_EQ(lpf.first.size(), 5);
-    // ASSERT_EQ(lpf.second.size(), 5);
+    int order = 4;
+    float samplerate = 48000.0f;
+    std::vector<std::tuple<std::string, float, FilterCoefficients>> TruthTable = {
+            {"HPF", 40.0f, { {0.9931822f, -3.9727288f, 5.9590931f, -3.9727288f, 0.9931822f}, {1.0000000f, -3.9863177f, 5.9590467f, -3.9591398f, 0.9864109f}}},
+            {"HPF",  1e3f, { {0.8426766f, -3.3707065f, 5.0560598f, -3.3707065f, 0.8426766f}, {1.0000000f, -3.6580603f, 5.0314335f, -3.0832283f, 0.7101039f}}},
+            {"LPF",  1e3f, { {0.0000156f,  0.0000622f, 0.0000933f,  0.0000622f, 0.0000156f}, {1.0000000f, -3.6580603f, 5.0314335f, -3.0832283f, 0.7101039f}}},
+            {"LPF", 20e3f, { {0.4998150f,  1.9992600f, 2.9988900f,  1.9992600f, 0.4998150f}, {1.0000000f,  2.6386277f, 2.7693098f,  1.3392808f, 0.2498217f}}}
+        };
 
-    // FilterCoefficients hpf_truth =
-    // {
-    //     {0.8426766f, -3.3707065f, 5.0560598f, -3.3707065f, 0.8426766f},
-    //     {1.0000000f, -3.6580603f, 5.0314335f, -3.0832283f, 0.7101039f}
-    // };
-
-    // FilterCoefficients lpf_truth =
-    // {
-    //     {0.0000156f, 0.0000622f, 0.0000933f, 0.0000622f, 0.0000156f},
-    //     {1.0000000f, -3.6580603f, 5.0314335f, -3.0832283f, 0.7101039f}
-    // };
-
-    // for (size_t i = 0; i < 5; ++i)
-    // {
-    //     ASSERT_NEAR(hpf.first[i], hpf_truth.first[i], 1e-6);
-    //     ASSERT_NEAR(hpf.second[i], hpf_truth.second[i], 1e-6);
-    //     ASSERT_NEAR(lpf.first[i], lpf_truth.first[i], 1e-6);
-    //     ASSERT_NEAR(lpf.second[i], lpf_truth.second[i], 1e-6);
-    // }
+    for (const auto& [name, freq, truth] : TruthTable)
+    {
+        FilterCoefficients computed;
+        if (name == "HPF")
+        {
+            computed = butterworth(order, freq, samplerate, true);
+        }
+        else
+        {
+            computed = butterworth(order, freq, samplerate, false);
+        }
+        
+        ASSERT_EQ(computed.first.size(), order + 1);
+        ASSERT_EQ(computed.second.size(), order + 1);
+        for (int i = 0; i < order + 1; ++i)
+        {
+            EXPECT_NEAR(computed.first[i], std::get<0>(truth)[i], 1e-7f);
+            EXPECT_NEAR(computed.second[i], std::get<1>(truth)[i], 1e-7f);
+        }
+    }
 }
 
 
@@ -124,7 +126,7 @@ TEST(FilterTest, Butterworth_Sine_HPF)
     apply_filter(hpf, above);
     apply_filter(hpf, cutoff);
     apply_filter(hpf, below);
-
+    ASSERT_NEAR(average(below), 0.0f, 0.01f); // Check for DC offset
     EXPECT_LT(  db(rms(below)),  -60.0f);       // should be severely attenuated
     EXPECT_NEAR(db(rms(cutoff)), -6.0f, 0.2f);  // should be  attenuated -3db
     EXPECT_NEAR(db(rms(above)),  -3.0f, 0.2f);  // should not be  attenuated
@@ -151,8 +153,26 @@ TEST(FilterTest, Butterworth_Sine_LPF)
 
     EXPECT_NEAR(db(rms(below)),  -3.0f, 0.2f);  // should not be attentuated
     EXPECT_NEAR(db(rms(cutoff)), -6.0f, 0.2f);  // should be  attenuated -3db
-    EXPECT_LT(  db(rms(above)),  -60.0f);       // should be severely attenuuated
+    EXPECT_LT(  db(rms(above)),  -60.0f);       // should be severely attenuated
+}
 
+TEST(FilterTest, HPF_LPF)
+{
+    float samplerate = 48000.0f;
+    size_t samples = 1 << 14;
+    FilterCoefficients hpf = butterworth(4, 40.0f, samplerate, true);
+    FilterCoefficients lpf = butterworth(4, 20000.0f, samplerate, false);
+    std::vector<float> sine_1khz = sine_wave(1000.0f, samplerate, samples);
+    
+    EXPECT_NEAR(db(rms(sine_1khz)), 0.0f, 0.1f); // 0db in the passband
+    apply_filter(hpf, sine_1khz);
+    EXPECT_NEAR(db(rms(sine_1khz)), 0.0f, 0.1f); // 0db in the passband
+    apply_filter(lpf, sine_1khz);
+    EXPECT_NEAR(db(rms(sine_1khz)), 0.0f, 0.1f); // 0db in the passband
+    EXPECT_NEAR(average(sine_1khz), 0.0f, 0.01f); // Check for DC offset
+    
+    float generated_frequency = (static_cast<float>(zero_crossings(sine_1khz)) / 2.0f) * (samplerate / static_cast<float>(samples));
+    ASSERT_NEAR(generated_frequency, 1000.0f, 1.0f); // Check frequency is close to 1 kHz
 }
 
 

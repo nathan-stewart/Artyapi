@@ -5,28 +5,26 @@
 #include <complex>
 #include <iostream>
 
-FilterCoefficients butterworth_hpf(size_t order, float cutoff, float sample_rate)
+#include <pybind11/pybind11.h>
+#include <pybind11/numpy.h>
+#include <pybind11/embed.h>
+
+namespace py = pybind11;
+
+FilterCoefficients butterworth(size_t order, float cutoff, float sample_rate, bool hpf)
 {
-    // Hardcoded coefficients for a 4th order 1kHz HPF
-    if (!(order== 4 && cutoff == 40.0f && sample_rate == 48000.0f))
-        throw std::runtime_error("Unimplemented filter parameters");
+    py::scoped_interpreter guard{}; // Start Python interpreter
+    py::module_ scipy = py::module_::import("scipy.signal");
+    py::module_ np = py::module_::import("numpy");
+    py::tuple result = scipy.attr("butter")(order, 2.0f * cutoff / sample_rate, hpf?"high":"low");
 
-    return { {0.8426766f, -3.3707065f, 5.0560598f, -3.3707065f, 0.8426766f}, {1.0000000f, -3.6580603f, 5.0314335f, -3.0832283f, 0.7101039f} };
-}
-
-FilterCoefficients butterworth_lpf(size_t order, float cutoff, float sample_rate)
-{
-    // Hardcoded coefficients for a 4th order 1kHz LPF
-    if (!(order == 4 && cutoff == 20e3f && sample_rate == 48000.0f))
-        throw std::runtime_error("Unimplemented filter parameters");
-
-    return { {0.4998150f, 1.9992600f, 2.9988900f, 1.9992600f, 0.4998150f},
-             {1.0000000f, 2.6386277f, 2.7693098f, 1.3392808f, 0.2498217f} };
-
+    std::vector<float> b = result[0].cast<std::vector<float>>();
+    std::vector<float> a = result[1].cast<std::vector<float>>();
+    return std::make_pair(b, a);
 }
 
 // Function to apply a filter to a signal
-void apply_filter(const FilterCoefficients& coefficients,std::vector<float>& signal)
+void apply_filter(const FilterCoefficients& coefficients, std::vector<float>& signal)
 {
     const std::vector<float>& b = coefficients.first;
     const std::vector<float>& a = coefficients.second;
@@ -34,25 +32,18 @@ void apply_filter(const FilterCoefficients& coefficients,std::vector<float>& sig
     std::vector<float> filtered(signal.size(), 0.0f);
     for (size_t n = 0; n < signal.size(); ++n) {
         filtered[n] = b[0] * signal[n];
-        // std::cout << "b[";
         for (size_t i = 1; i < b.size(); ++i) {
             if (n >= i) {
                 filtered[n] += b[i] * signal[n - i];
-                // std::cout <<  b[i];
             }
         }
-        // std::cout << "]" << std::endl;
-
-        // std::cout << "a[";
-        for (size_t j = 1; j < a.size(); ++j) {
-            if (n >= j) {
-                filtered[n] -= a[j] * filtered[n - j];
-                // std::cout <<  a[j];
+        for (size_t i = 1; i < a.size(); ++i) {
+            if (n >= i) {
+                filtered[n] -= a[i] * filtered[n - i];
             }
         }
-        // std::cout << "]" << std::endl;
-
     }
+
     signal = filtered;
 }
 

@@ -1,6 +1,6 @@
 #include "SpectrumProcessor.h"
 #include <cmath>
-
+#include <iostream>
 
 float bin_to_freq_linear(std::vector<float> buffer, float bin, float f0, float f1)
 {
@@ -72,8 +72,8 @@ SpectrumProcessor::SpectrumProcessor(size_t display_w, [[maybe_unused]] size_t d
     log2_fft.resize(display_w);
 
     bin_mapping = precompute_bin_mapping(linear_fft, log2_fft, f0, f1);
-    hpf = butterworth_hpf(4, f0, sample_rate);
-    lpf = butterworth_lpf(4, f1, sample_rate);
+    hpf = butterworth(4, f0, sample_rate, true);
+    lpf = butterworth(4, f1, sample_rate, false);
     window = hanning_window(window_size);
 
 
@@ -122,7 +122,20 @@ SpectrumProcessor& SpectrumProcessor::operator()(const std::vector<float>& data)
     apply_filter(lpf, current_slice);
     std::copy(current_slice.begin(), current_slice.end(), fftw_in);
     fftwf_execute(plan);
+    // std::cout << "==========================================" << std::endl;
+    // for (const auto &b : linear_fft)
+    // {
+    //     if (b > 0.1f)
+    //         std::cout <<  b << std::endl;
+    // }
     std::copy(fftw_out, fftw_out + linear_fft.size(), linear_fft.begin());
+    // std::cout << "==========================================" << std::endl;
+    // for (auto b = linear_fft.begin(); b != linear_fft.end(); ++b)
+    // {
+    //     if (*b > 0.1f)
+    //         std::cout <<  *b << std::endl;
+    // }
+    // std::cout << "==========================================" << std::endl;
     normalize_fft();
     //map_bins(bin_mapping, linear_fft, log2_fft);
 
