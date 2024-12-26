@@ -17,9 +17,27 @@ FilterCoefficients butterworth(size_t order, float cutoff, float sample_rate, bo
     py::module_ scipy = py::module_::import("scipy.signal");
     py::module_ np = py::module_::import("numpy");
     py::tuple result = scipy.attr("butter")(order, 2.0f * cutoff / sample_rate, hpf?"high":"low");
+    py::array b_array = result[0].cast<py::array>();
+    py::array a_array = result[1].cast<py::array>();
 
-    std::vector<float> b = result[0].cast<std::vector<float>>();
-    std::vector<float> a = result[1].cast<std::vector<float>>();
+    std::vector<float> b;
+    for (auto c : b_array) {
+        b.push_back(c.cast<float>());
+    }
+
+    std::vector<float> a;
+    for (auto c : a_array) {
+        a.push_back(c.cast<float>());
+    }
+    for (auto i : b) {
+        std::cout << "b" << i << std::endl;
+    }
+    for (auto i : a) {
+        std::cout << "a" << i << std::endl;
+    }
+    for (auto i : std::make_pair(b, a)) {
+        std::cout << "b,a" << i << std::endl;
+    }
     return std::make_pair(b, a);
 }
 

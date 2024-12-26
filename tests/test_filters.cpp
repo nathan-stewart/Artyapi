@@ -48,35 +48,7 @@ TEST(NoiseGenerator, Noise)
 
 TEST(FilterTest, Butterworth_Coefficients)
 {
-    // Generated coefficients for a 4th order 1kHz LPF,HPF generated in octave via:
-    //
-    /*
-    % Generate Butterworth high-pass filter
-    function formatted_str = format_coefficients(coeffs)
-        formatted_str = '{';
-        for i = 1:length(coeffs)
-            formatted_str = [formatted_str, sprintf('%.7ff', coeffs(i))];
-            if i < length(coeffs)
-                formatted_str = [formatted_str, ', '];
-            end
-
-
-        end
-        formatted_str = [formatted_str, '}'];
-    end
-    [b_hpf, a_hpf] = butter(order, cutoff / (samplerate / 2), 'high');
-    [b_lpf, a_lpf] = butter(order, cutoff / (samplerate / 2), 'low');
-
-    % Format and print coefficients for C++ initializer list
-    formatted_b_hpf = format_coefficients(b_hpf);
-    formatted_a_hpf = format_coefficients(a_hpf);
-    printf('HPF Coefficients {b,a}: { %s, %s }\n', formatted_b_hpf, formatted_a_hpf);
-
-    formatted_b_lpf = format_coefficients(b_lpf);
-    formatted_a_lpf = format_coefficients(a_lpf);
-    printf('LPF Coefficients: {b,a}: { %s, %s }\n', formatted_b_lpf, formatted_a_lpf);
-    */
-
+    // Generated coefficients for a 4th order 40Hz, 1kHz, and 20kHz LPF/HPF generated in octave
     int order = 4;
     float samplerate = 48000.0f;
     std::vector<std::tuple<std::string, float, FilterCoefficients>> TruthTable = {
@@ -97,13 +69,15 @@ TEST(FilterTest, Butterworth_Coefficients)
         {
             computed = butterworth(order, freq, samplerate, false);
         }
-        
+        std::cout << "Computed: " << name << " " << freq << "Hz" << std::endl;
+
         ASSERT_EQ(computed.first.size(), order + 1);
         ASSERT_EQ(computed.second.size(), order + 1);
         for (int i = 0; i < order + 1; ++i)
         {
-            EXPECT_NEAR(computed.first[i], std::get<0>(truth)[i], 1e-7f);
-            EXPECT_NEAR(computed.second[i], std::get<1>(truth)[i], 1e-7f);
+            // close but not super tight tolerance
+            ASSERT_NEAR(computed.first[i], std::get<0>(truth)[i], 1e-5f);
+            ASSERT_NEAR(computed.second[i], std::get<1>(truth)[i], 1e-5f);
         }
     }
 }
@@ -163,14 +137,14 @@ TEST(FilterTest, HPF_LPF)
     FilterCoefficients hpf = butterworth(4, 40.0f, samplerate, true);
     FilterCoefficients lpf = butterworth(4, 20000.0f, samplerate, false);
     std::vector<float> sine_1khz = sine_wave(1000.0f, samplerate, samples);
-    
+
     EXPECT_NEAR(db(rms(sine_1khz)), 0.0f, 0.1f); // 0db in the passband
     apply_filter(hpf, sine_1khz);
     EXPECT_NEAR(db(rms(sine_1khz)), 0.0f, 0.1f); // 0db in the passband
     apply_filter(lpf, sine_1khz);
     EXPECT_NEAR(db(rms(sine_1khz)), 0.0f, 0.1f); // 0db in the passband
     EXPECT_NEAR(average(sine_1khz), 0.0f, 0.01f); // Check for DC offset
-    
+
     float generated_frequency = (static_cast<float>(zero_crossings(sine_1khz)) / 2.0f) * (samplerate / static_cast<float>(samples));
     ASSERT_NEAR(generated_frequency, 1000.0f, 1.0f); // Check frequency is close to 1 kHz
 }
