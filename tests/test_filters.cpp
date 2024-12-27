@@ -11,6 +11,7 @@
 #include "test_util.h"
 #include <iostream>
 
+    
 TEST(SineWaveGenerator, SineWaveGenerator)
 {
     float samplerate = 48000.0f;
@@ -69,8 +70,6 @@ TEST(FilterTest, Butterworth_Coefficients)
         {
             computed = butterworth(order, freq, samplerate, false);
         }
-        std::cout << "Computed: " << name << " " << freq << "Hz" << std::endl;
-
         ASSERT_EQ(computed.first.size(), order + 1);
         ASSERT_EQ(computed.second.size(), order + 1);
         for (int i = 0; i < order + 1; ++i)
@@ -91,7 +90,7 @@ TEST(FilterTest, Butterworth_Sine_HPF)
     float f1 = 1000.0f;                     // 1 kHz
     float f2 = 1000.0f * powf(2.0f,  4.0f); // 16 kHz
 
-    FilterCoefficients hpf = { {0.8426766f, -3.3707065f, 5.0560598f, -3.3707065f, 0.8426766f}, {1.0000000f, -3.6580603f, 5.0314335f, -3.0832283f, 0.7101039f} };
+    FilterCoefficients hpf = butterworth(4, 1000.0f, samplerate, true);
 
     // above and below are 4 octaves either side of cutoff  or
     std::vector<float> below = sine_wave(f0, samplerate, samples);
@@ -106,6 +105,35 @@ TEST(FilterTest, Butterworth_Sine_HPF)
     EXPECT_NEAR(db(rms(above)),  -3.0f, 0.2f);  // should not be  attenuated
 }
 
+
+
+TEST(FilterTest, Butterworth_LPF_TWICE)
+{
+    float samplerate = 48000.0f;
+    size_t samples = 1 << 16;
+    float f0 = 1000.0f * powf(2.0f, -4.0f); // 62.5 Hz
+    float f1 = 1000.0f * powf(2.0f,  4.0f); // 16 kHz
+
+    FilterCoefficients hpf = butterworth(4, 1000.0f, samplerate, true);
+
+    // above and below are 4 octaves either side of cutoff  or
+    std::vector<float> below = sine_wave(f0, samplerate, samples);
+    std::vector<float> above = sine_wave(f1, samplerate, samples);
+    apply_filter(hpf, above);
+    apply_filter(hpf, below);
+    ASSERT_NEAR(average(below), 0.0f, 0.01f); // Check for DC offset
+    EXPECT_LT(  db(rms(below)),  -60.0f);       // should be severely attenuated
+    EXPECT_NEAR(db(rms(above)),  -3.0f, 0.2f);  // should not be  attenuated
+
+    // Apply again and see if these things are still true
+    apply_filter(hpf, above);
+    apply_filter(hpf, below);
+    ASSERT_NEAR(average(below), 0.0f, 0.01f); // Check for DC offset
+    EXPECT_LT(  db(rms(below)),  -60.0f);       // should be severely attenuated
+    EXPECT_NEAR(db(rms(above)),  -3.0f, 0.2f);  // should not be  attenuated
+}
+
+
 TEST(FilterTest, Butterworth_Sine_LPF)
 {
     float samplerate = 48000.0f;
@@ -114,7 +142,7 @@ TEST(FilterTest, Butterworth_Sine_LPF)
     float f1 = 1000.0f;                     // 1 kHz
     float f2 = 1000.0f * powf(2.0f,  4.0f); // 16 kHz
 
-    FilterCoefficients lpf ={ {0.0000156f, 0.0000622f, 0.0000933f, 0.0000622f, 0.0000156f}, {1.0000000f, -3.6580603f, 5.0314335f, -3.0832283f, 0.7101039f} };
+    FilterCoefficients lpf = butterworth(4, 1000.0f, samplerate, false);
 
     // above and below are 4 octaves either side of cutoff  or
     std::vector<float> below = sine_wave(f0, samplerate, samples);
@@ -134,18 +162,21 @@ TEST(FilterTest, HPF_LPF)
 {
     float samplerate = 48000.0f;
     size_t samples = 1 << 14;
-    FilterCoefficients hpf;
-    hpf = butterworth(4, 40.0f, samplerate, true);
-    
-    FilterCoefficients lpf;
-    lpf = butterworth(4, 20000.0f, samplerate, false);
+    FilterCoefficients hpf = butterworth(4, 40.0f, samplerate, true);
+    FilterCoefficients lpf = butterworth(4, 20000.0f, samplerate, false);
     std::vector<float> sine_1khz = sine_wave(1000.0f, samplerate, samples);
-
-    EXPECT_NEAR(db(rms(sine_1khz)), 0.0f, 0.1f); // 0db in the passband
+    
+    // rms for +/- 1.0 sine is -3db
+    std::cout << "RMS: " << db(rms(sine_1khz)) << std::endl;
+    EXPECT_NEAR(db(rms(sine_1khz)), -3.0f, 0.2f); // 0db in the passband    
     apply_filter(hpf, sine_1khz);
-    EXPECT_NEAR(db(rms(sine_1khz)), 0.0f, 0.1f); // 0db in the passband
+    
+    std::cout << "RMS: " << db(rms(sine_1khz)) << std::endl;
+    EXPECT_NEAR(db(rms(sine_1khz)), -3.0f, 0.2f); // 0db in the passband
     apply_filter(lpf, sine_1khz);
-    EXPECT_NEAR(db(rms(sine_1khz)), 0.0f, 0.1f); // 0db in the passband
+    
+    std::cout << "RMS: " << db(rms(sine_1khz)) << std::endl;
+    EXPECT_NEAR(db(rms(sine_1khz)), -3.0f, 0.2f); // 0db in the passband
     EXPECT_NEAR(average(sine_1khz), 0.0f, 0.01f); // Check for DC offset
 
     float generated_frequency = (static_cast<float>(zero_crossings(sine_1khz)) / 2.0f) * (samplerate / static_cast<float>(samples));

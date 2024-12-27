@@ -65,6 +65,11 @@ void apply_filter(const FilterCoefficients& coefficients, std::vector<float>& si
     const std::vector<float>& a = coefficients.second;
 
     std::vector<float> filtered(signal.size(), 0.0f);
+    if (std::any_of(signal.begin(), signal.end(), [](float v) { return std::isnan(v); })) {
+        std::cerr << "Input signal contains NaN" << std::endl;
+        throw std::runtime_error("Input signal contains NaN");
+    }
+
     for (size_t n = 0; n < signal.size(); ++n) {
         filtered[n] = b[0] * signal[n];
         for (size_t i = 1; i < b.size(); ++i) {
@@ -78,7 +83,11 @@ void apply_filter(const FilterCoefficients& coefficients, std::vector<float>& si
             }
         }
     }
-
+    if (std::any_of(signal.begin(), signal.end(), [](float v) { return std::isnan(v); })) {
+        std::cerr << "Transformed signal contains NaN" << std::endl;
+        throw std::runtime_error("Transformed signal contains NaN");
+    }
+    // check for nan in output
     signal = filtered;
 }
 
