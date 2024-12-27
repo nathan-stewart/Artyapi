@@ -134,8 +134,11 @@ TEST(FilterTest, HPF_LPF)
 {
     float samplerate = 48000.0f;
     size_t samples = 1 << 14;
-    FilterCoefficients hpf = butterworth(4, 40.0f, samplerate, true);
-    FilterCoefficients lpf = butterworth(4, 20000.0f, samplerate, false);
+    FilterCoefficients hpf;
+    hpf = butterworth(4, 40.0f, samplerate, true);
+    
+    FilterCoefficients lpf;
+    lpf = butterworth(4, 20000.0f, samplerate, false);
     std::vector<float> sine_1khz = sine_wave(1000.0f, samplerate, samples);
 
     EXPECT_NEAR(db(rms(sine_1khz)), 0.0f, 0.1f); // 0db in the passband

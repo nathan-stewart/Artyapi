@@ -128,6 +128,7 @@ TEST(AudioProcessorTest, SineSpectrumLinear)
 
     // At least one bin should be nonzero
     size_t non_zero = std::count_if(spectrum.begin(), spectrum.end(), [](float v) { return v > 0.1f; });
+    
     EXPECT_GT(non_zero, 0);
 
     // Only one peak - but tolerate some leakage
