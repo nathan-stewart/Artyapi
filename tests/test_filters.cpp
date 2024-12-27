@@ -11,14 +11,14 @@
 #include "test_util.h"
 #include <iostream>
 
-    
+
 TEST(SineWaveGenerator, SineWaveGenerator)
 {
     float samplerate = 48000.0f;
     size_t samples = 1 << 16;
     float frequency = 1000.0f; // 1 kHz
 
-    std::vector<float> sine = sine_wave(frequency, samplerate, samples);
+    Signal sine = sine_wave(frequency, samplerate, samples);
 
     // Calculate the frequency of the generated sine wave
     float max_val = *std::max_element(sine.begin(), sine.end());
@@ -38,7 +38,7 @@ TEST(SineWaveGenerator, SineWaveGenerator)
 TEST(NoiseGenerator, Noise)
 {
     size_t samples = 1 << 16;
-    std::vector<float> noise = white_noise(samples);
+    Signal noise = white_noise(samples);
     ASSERT_EQ(noise.size(), samples);
     ASSERT_GT(*std::max_element(noise.begin(), noise.end()), -1.0f);
     ASSERT_LE(*std::max_element(noise.begin(), noise.end()),  1.0f);
@@ -70,13 +70,13 @@ TEST(FilterTest, Butterworth_Coefficients)
         {
             computed = butterworth(order, freq, samplerate, false);
         }
-        ASSERT_EQ(computed.first.size(), order + 1);
-        ASSERT_EQ(computed.second.size(), order + 1);
+        ASSERT_EQ(computed.b.size(), order + 1);
+        ASSERT_EQ(computed.a.size(), order + 1);
         for (int i = 0; i < order + 1; ++i)
         {
             // close but not super tight tolerance
-            ASSERT_NEAR(computed.first[i], std::get<0>(truth)[i], 1e-5f);
-            ASSERT_NEAR(computed.second[i], std::get<1>(truth)[i], 1e-5f);
+            ASSERT_NEAR(computed.b[i], truth.b[i], 1e-5f);
+            ASSERT_NEAR(computed.a[i], truth.a[i], 1e-5f);
         }
     }
 }
@@ -93,18 +93,17 @@ TEST(FilterTest, Butterworth_Sine_HPF)
     FilterCoefficients hpf = butterworth(4, 1000.0f, samplerate, true);
 
     // above and below are 4 octaves either side of cutoff  or
-    std::vector<float> below = sine_wave(f0, samplerate, samples);
-    std::vector<float> cutoff = sine_wave(f1, samplerate, samples);
-    std::vector<float> above = sine_wave(f2, samplerate, samples);
-    apply_filter(hpf, above);
-    apply_filter(hpf, cutoff);
-    apply_filter(hpf, below);
+    Signal below = sine_wave(f0, samplerate, samples);
+    Signal cutoff = sine_wave(f1, samplerate, samples);
+    Signal above = sine_wave(f2, samplerate, samples);
+    above = filter(hpf, above);
+    cutoff = filter(hpf, cutoff);
+    below = filter(hpf, below);
     ASSERT_NEAR(average(below), 0.0f, 0.01f); // Check for DC offset
     EXPECT_LT(  db(rms(below)),  -60.0f);       // should be severely attenuated
     EXPECT_NEAR(db(rms(cutoff)), -6.0f, 0.2f);  // should be  attenuated -3db
     EXPECT_NEAR(db(rms(above)),  -3.0f, 0.2f);  // should not be  attenuated
 }
-
 
 
 TEST(FilterTest, Butterworth_LPF_TWICE)
@@ -117,17 +116,17 @@ TEST(FilterTest, Butterworth_LPF_TWICE)
     FilterCoefficients hpf = butterworth(4, 1000.0f, samplerate, true);
 
     // above and below are 4 octaves either side of cutoff  or
-    std::vector<float> below = sine_wave(f0, samplerate, samples);
-    std::vector<float> above = sine_wave(f1, samplerate, samples);
-    apply_filter(hpf, above);
-    apply_filter(hpf, below);
+    Signal below = sine_wave(f0, samplerate, samples);
+    Signal above = sine_wave(f1, samplerate, samples);
+    above = filter(hpf, above);
+    below = filter(hpf, below);
     ASSERT_NEAR(average(below), 0.0f, 0.01f); // Check for DC offset
     EXPECT_LT(  db(rms(below)),  -60.0f);       // should be severely attenuated
     EXPECT_NEAR(db(rms(above)),  -3.0f, 0.2f);  // should not be  attenuated
 
     // Apply again and see if these things are still true
-    apply_filter(hpf, above);
-    apply_filter(hpf, below);
+    above = filter(hpf, above);
+    below = filter(hpf, below);
     ASSERT_NEAR(average(below), 0.0f, 0.01f); // Check for DC offset
     EXPECT_LT(  db(rms(below)),  -60.0f);       // should be severely attenuated
     EXPECT_NEAR(db(rms(above)),  -3.0f, 0.2f);  // should not be  attenuated
@@ -145,13 +144,13 @@ TEST(FilterTest, Butterworth_Sine_LPF)
     FilterCoefficients lpf = butterworth(4, 1000.0f, samplerate, false);
 
     // above and below are 4 octaves either side of cutoff  or
-    std::vector<float> below = sine_wave(f0, samplerate, samples);
-    std::vector<float> cutoff = sine_wave(f1, samplerate, samples);
-    std::vector<float> above = sine_wave(f2, samplerate, samples);
+    Signal below = sine_wave(f0, samplerate, samples);
+    Signal cutoff = sine_wave(f1, samplerate, samples);
+    Signal above = sine_wave(f2, samplerate, samples);
 
-    apply_filter(lpf, below);
-    apply_filter(lpf, cutoff);
-    apply_filter(lpf, above);
+    below = filter(lpf, below);
+    cutoff = filter(lpf, cutoff);
+    above = filter(lpf, above);
 
     EXPECT_NEAR(db(rms(below)),  -3.0f, 0.2f);  // should not be attentuated
     EXPECT_NEAR(db(rms(cutoff)), -6.0f, 0.2f);  // should be  attenuated -3db
@@ -164,17 +163,17 @@ TEST(FilterTest, HPF_LPF)
     size_t samples = 1 << 14;
     FilterCoefficients hpf = butterworth(4, 40.0f, samplerate, true);
     FilterCoefficients lpf = butterworth(4, 20000.0f, samplerate, false);
-    std::vector<float> sine_1khz = sine_wave(1000.0f, samplerate, samples);
-    
+    Signal sine_1khz = sine_wave(1000.0f, samplerate, samples);
+
     // rms for +/- 1.0 sine is -3db
     std::cout << "RMS: " << db(rms(sine_1khz)) << std::endl;
-    EXPECT_NEAR(db(rms(sine_1khz)), -3.0f, 0.2f); // 0db in the passband    
-    apply_filter(hpf, sine_1khz);
-    
+    EXPECT_NEAR(db(rms(sine_1khz)), -3.0f, 0.2f); // 0db in the passband
+    sine_1khz = filter(hpf, sine_1khz);
+
     std::cout << "RMS: " << db(rms(sine_1khz)) << std::endl;
     EXPECT_NEAR(db(rms(sine_1khz)), -3.0f, 0.2f); // 0db in the passband
-    apply_filter(lpf, sine_1khz);
-    
+    sine_1khz = filter(lpf, sine_1khz);
+
     std::cout << "RMS: " << db(rms(sine_1khz)) << std::endl;
     EXPECT_NEAR(db(rms(sine_1khz)), -3.0f, 0.2f); // 0db in the passband
     EXPECT_NEAR(average(sine_1khz), 0.0f, 0.01f); // Check for DC offset
@@ -187,9 +186,9 @@ TEST(FilterTest, HPF_LPF)
 TEST(WindowTest, Hanning)
 {
     size_t ws = 1 << 14;
-    std::vector<float> window = hanning_window(ws);
-    // Verify symmetry
+    Signal window = hanning_window(ws);
 
+    // Verify symmetry
     for (size_t i = 0; i < ws / 2; ++i) {
         ASSERT_NEAR(window[i], window[ws - 1 - i], 1e-6);
     }

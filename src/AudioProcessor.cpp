@@ -7,7 +7,7 @@
 
 const float LOGMIN = 1e-10f;
 
-void  process_volume(const std::vector<float>& data, boost::circular_buffer<float>& vrms, boost::circular_buffer<float>& vpk)
+void  process_volume(const Signal& data, boost::circular_buffer<float>& vrms, boost::circular_buffer<float>& vpk)
 {
     float rms = 0.0f;
     float pk = 0.0f;
@@ -39,7 +39,7 @@ AudioProcessor::~AudioProcessor()
 }
 
 
-void AudioProcessor::process(const std::vector<float>& data)
+void AudioProcessor::process(const Signal& data)
 {
     if (data.size() == 0)
         return;

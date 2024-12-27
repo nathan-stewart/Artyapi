@@ -3,7 +3,7 @@
 #include <vector>
 #include <random>
 
-std::vector<float> white_noise(size_t samples)
+Signal white_noise(size_t samples)
 {
     std::vector<float> white_noise(samples);
     std::default_random_engine generator;
@@ -16,14 +16,14 @@ std::vector<float> white_noise(size_t samples)
     return white_noise;
 }
 
-float average(const std::vector<float>& data)
+float average(const Signal& data)
 {
     return std::accumulate(data.begin(), data.end(), 0.0f) / float(data.size());
 }
 
-std::vector<float> sine_wave(float frequency, float sample_rate, size_t samples)
+Signal sine_wave(float frequency, float sample_rate, size_t samples)
 {
-    std::vector<float> sine_wave(samples);
+    Signal sine_wave(samples);
     float amplitude = 1.0f;
     float phase = 0.0f;
     float increment = 2.0f * M_PIf * frequency / sample_rate;
@@ -34,7 +34,7 @@ std::vector<float> sine_wave(float frequency, float sample_rate, size_t samples)
     return sine_wave;
 }
 
-float rms(const std::vector<float>& data)
+float rms(const Signal& data)
 {
     float sum = 0.0f;
     for (float v : data) {
@@ -43,7 +43,7 @@ float rms(const std::vector<float>& data)
     return sqrtf(sum / float(data.size()));
 }
 
-float peak(const std::vector<float>& data)
+float peak(const Signal& data)
 {
     float peak = 0.0f;
     for (float v : data) {
@@ -59,7 +59,7 @@ float db(float value)
     return 20.0f * log10f(abs(value) + 1e-7f);
 }
 
-int zero_crossings(const std::vector<float>& data)
+int zero_crossings(const Signal& data)
 {
     int crossings = 0;
     for (size_t i = 1; i < data.size(); ++i)

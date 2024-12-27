@@ -2,38 +2,38 @@
 #include <cmath>
 #include <iostream>
 
-float bin_to_freq_linear(std::vector<float> buffer, float bin, float f0, float f1)
+float bin_to_freq_linear(const Spectrum& spectrum, float bin, float f0, float f1)
 {
-    int num_bins = static_cast<int>(buffer.size());
+    int num_bins = static_cast<int>(spectrum.size());
     float log2_bin_index = bin / static_cast<float>(num_bins);
     return f0 + log2_bin_index * (f1 - f0);
 }
 
 
-float bin_to_freq_log2(std::vector<float> buffer, float bin, float f0, float f1)
+float bin_to_freq_log2(const Spectrum& spectrum, float bin, float f0, float f1)
 {
-    int num_bins = static_cast<int>(buffer.size());
+    int num_bins = static_cast<int>(spectrum.size());
     float bin_index = bin / static_cast<float>(num_bins);
     return f0 * std::pow(2.0f, static_cast<float>(log2(f1 / f0)) * bin_index);
 }
 
 
-float freq_to_lin_fractional_bin(std::vector<float> buffer, float freq, float f0, float f1)
+float freq_to_lin_fractional_bin(const Spectrum& spectrum, float freq, float f0, float f1)
 {
-    float num_bins = static_cast<float>(buffer.size());
+    float num_bins = static_cast<float>(spectrum.size());
     float bin_fraction = (freq - f0) / (f1 - f0);
     return bin_fraction * num_bins;
 }
 
 
-float freq_to_log_fractional_bin(std::vector<float> buffer, float freq, float f0, float f1)
+float freq_to_log_fractional_bin(const Spectrum& spectrum, float freq, float f0, float f1)
 {
-    float num_bins = static_cast<float>(buffer.size());
+    float num_bins = static_cast<float>(spectrum.size());
     float log2_bin_index = std::log2(freq / f0) / std::log2(f1 / f0);
     return log2_bin_index * num_bins;
 }
 
-void map_bins(const std::vector<float>& mapping, const std::vector<float>& source, std::vector<float>& destination)
+void map_bins(const Spectrum& mapping, const Spectrum& source, Spectrum& destination)
 {
     if (mapping.size() != source.size())
         throw std::runtime_error("Mapping size mismatch");
@@ -51,14 +51,13 @@ void map_bins(const std::vector<float>& mapping, const std::vector<float>& sourc
     }
 }
 
-std::vector<float> precompute_bin_mapping(const std::vector<float> &linear_fft, const std::vector<float> &log_fft, float f0, float f1)
+Spectrum precompute_bin_mapping(const Spectrum& source, const Spectrum& destination, float f0, float f1)
 {
-    size_t linear_size = linear_fft.size();
-    std::vector<float> mapping(linear_size);
-
+    size_t linear_size = source.size();
+    Spectrum mapping(linear_size);
     for (size_t i = 0; i < linear_size; ++i) {
-        float freq = bin_to_freq_linear(linear_fft, static_cast<float>(i), f0, f1);
-        mapping[i] = freq_to_log_fractional_bin(log_fft, freq, f0, f1);
+        float freq = bin_to_freq_linear(source, static_cast<float>(i), f0, f1);
+        mapping[i] = freq_to_log_fractional_bin(destination, freq, f0, f1);
     }
     return mapping;
 }
@@ -70,12 +69,11 @@ SpectrumProcessor::SpectrumProcessor(size_t display_w, [[maybe_unused]] size_t d
 {
     linear_fft.resize(static_cast<size_t>(window_size / 2 + 1));
     log2_fft.resize(display_w);
-
     bin_mapping = precompute_bin_mapping(linear_fft, log2_fft, f0, f1);
+
     hpf = butterworth(4, f0, sample_rate, true);
     lpf = butterworth(4, f1, sample_rate, false);
     window = hanning_window(window_size);
-
 
     fftw_in = fftwf_alloc_real(window_size);
     fftw_out = fftwf_alloc_real(window_size);
@@ -104,7 +102,7 @@ SpectrumProcessor::~SpectrumProcessor()
 }
 
 
-SpectrumProcessor& SpectrumProcessor::operator()(const std::vector<float>& data)
+SpectrumProcessor& SpectrumProcessor::operator()(const Signal& data)
 {
     // Append data to the circular buffer
     raw.insert(raw.end(), data.begin(), data.end());
@@ -118,24 +116,11 @@ SpectrumProcessor& SpectrumProcessor::operator()(const std::vector<float>& data)
 
     std::copy(raw.begin(), raw.end(), current_slice.begin());
     apply_window(window, current_slice);
-    apply_filter(hpf, current_slice);
-    apply_filter(lpf, current_slice);
+    current_slice = filter(hpf, current_slice);
+    current_slice = filter(lpf, current_slice);
     std::copy(current_slice.begin(), current_slice.end(), fftw_in);
     fftwf_execute(plan);
-    // std::cout << "==========================================" << std::endl;
-    // for (const auto &b : linear_fft)
-    // {
-    //     if (b > 0.1f)
-    //         std::cout <<  b << std::endl;
-    // }
     std::copy(fftw_out, fftw_out + linear_fft.size(), linear_fft.begin());
-    // std::cout << "==========================================" << std::endl;
-    // for (auto b = linear_fft.begin(); b != linear_fft.end(); ++b)
-    // {
-    //     if (*b > 0.1f)
-    //         std::cout <<  *b << std::endl;
-    // }
-    // std::cout << "==========================================" << std::endl;
     normalize_fft();
     //map_bins(bin_mapping, linear_fft, log2_fft);
 

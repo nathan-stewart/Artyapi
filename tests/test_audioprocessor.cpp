@@ -21,7 +21,7 @@ protected:
 TEST(VolumeProcessorTest, VolumeZeros)
 {
     size_t samples = 1<<24;
-    std::vector<float> zeros(samples, 0.0f);
+    Signal zeros(samples, 0.0f);
     boost::circular_buffer<float> vrms(10);
     boost::circular_buffer<float> vpk(10);
     process_volume(zeros, vrms, vpk);
@@ -36,7 +36,7 @@ TEST(VolumeProcessorTest, VolumeZeros)
 TEST(AudioProcessorTest, VolumeOnes)
 {
     size_t samples = 1<<24;
-    std::vector<float> ones(samples, 1.0f);
+    Signal ones(samples, 1.0f);
     boost::circular_buffer<float> vrms(10);
     boost::circular_buffer<float> vpk(10);
 
@@ -55,7 +55,7 @@ TEST(AudioProcessorTest, VolumeSine)
     size_t sample_rate = 48000;
     boost::circular_buffer<float> vrms(10);
     boost::circular_buffer<float> vpk(10);
-    std::vector<float> sine_440 = sine_wave(440, float(sample_rate), samples);
+    Signal sine_440 = sine_wave(440, float(sample_rate), samples);
     process_volume(sine_440, vrms, vpk);
 
     EXPECT_EQ(vrms.size(), 1);
@@ -69,11 +69,11 @@ TEST(AudioProcessorTest, BinToFrequency)
 {
     float f0 = 40.0f;
     float f1 = 20000.0f;
-    std::vector<float> linear_buffer(1<<14);
+    Spectrum linear_buffer(1<<14);
     ASSERT_NEAR(bin_to_freq_linear(linear_buffer, static_cast<float>(0), f0, f1), f0, 0.1f);
     ASSERT_NEAR(bin_to_freq_linear(linear_buffer, static_cast<float>(linear_buffer.size()), f0, f1), f1, 0.1f);
 
-    std::vector<float> log2buffer(1920);
+    Spectrum log2buffer(1920);
     ASSERT_NEAR(bin_to_freq_log2(log2buffer, 0, f0, f1), f0, 0.1f);
     ASSERT_NEAR(bin_to_freq_log2(log2buffer, static_cast<float>(log2buffer.size()), f0, f1), f1, 0.1f);
 }
@@ -82,15 +82,11 @@ TEST(AudioProcessorTest, BinMapping)
 {
     float f0 = 40.0f;
     float f1 = 20000.0f;
-    std::vector<float> source(1<<14);
-    std::vector<float> destination(1920);
-    std::vector<float> mapping = precompute_bin_mapping(source, destination, f0, f1);
+    Spectrum source((1<<14) / 2 + 1);
+    Spectrum destination(1920);
+    Spectrum mapping = precompute_bin_mapping(source, destination, f0, f1);
     ASSERT_EQ(mapping.size(), source.size());
     ASSERT_NEAR(mapping[mapping.size() - 1], 1920, 0.1f);
-
-    // zero out the ffts
-    source.assign(1<<14, 0.0f);
-    destination.assign(1920, 0.0f);
 
     // pick a linear bin that lies between two output bins
     size_t b = static_cast<size_t>(bin_to_freq_log2(destination, 1000, f0, f1));
@@ -102,7 +98,7 @@ TEST(AudioProcessorTest, BinMapping)
     source[static_cast<size_t>(test_bin_lin)] = 1.0f;
     map_bins(mapping, source, destination);
     ASSERT_EQ(static_cast<size_t>(test_bin_log), b);
-    std::vector<float>::iterator just_before = destination.begin() + b - 1;
+    auto just_before = destination.begin() + b - 1;
     ASSERT_NEAR(std::accumulate(just_before, just_before + 4, 0.0f), 1.0f, 0.1f);
 }
 
@@ -113,10 +109,10 @@ TEST(AudioProcessorTest, SineSpectrumLinear)
     float f0 = 40.0f;
     float f1 = 20000.0f;
 
-    std::vector<float> sine_440 = sine_wave(440, 48000, samples);
+    Signal sine_440 = sine_wave(440, 48000, samples);
     SpectrumProcessor sp(1920, 480, 16834);
     sp(sine_440);
-    std::vector<float> spectrum = sp.get_linear_fft();
+    Spectrum spectrum = sp.get_linear_fft();
 
     // Nearly all bins should be empty
     size_t almost_zero = std::count_if(spectrum.begin(), spectrum.end(), [](float v) { return v < 0.1f; });
@@ -128,14 +124,14 @@ TEST(AudioProcessorTest, SineSpectrumLinear)
 
     // At least one bin should be nonzero
     size_t non_zero = std::count_if(spectrum.begin(), spectrum.end(), [](float v) { return v > 0.1f; });
-    
+
     EXPECT_GT(non_zero, 0);
 
     // Only one peak - but tolerate some leakage
     EXPECT_LE(non_zero, 3);
 
     // check that the peak is at the right frequency in linear space - look on either side too
-    std::vector<float>::iterator peak = std::max_element(spectrum.begin(), spectrum.end());
+    auto peak = std::max_element(spectrum.begin(), spectrum.end());
     float sum = std::accumulate(peak - 1, peak + 1, 0.0f);
     EXPECT_NEAR(sum, 1.0f, 0.2f);
 
@@ -151,10 +147,10 @@ TEST(AudioProcessorTest, SineSpectrumLog)
     float f0 = 40.0f;
     float f1 = 20000.0f;
 
-    std::vector<float> sine_440 = sine_wave(440, 48000, samples);
+    Signal sine_440 = sine_wave(440, 48000, samples);
     SpectrumProcessor sp(1920, 480, 16834);
     sp(sine_440);
-    std::vector<float> spectrum = sp.get_log2_fft();
+    Spectrum spectrum = sp.get_log2_fft();
 
     // Nearly all bins should be empty
     size_t almost_zero = std::count_if(spectrum.begin(), spectrum.end(), [](float v) { return v < 0.1f; });
@@ -172,7 +168,7 @@ TEST(AudioProcessorTest, SineSpectrumLog)
     EXPECT_LE(non_zero, 3);
 
     // check that the peak is at the right frequency in linear space - look on either side too
-    std::vector<float>::iterator peak = std::max_element(spectrum.begin(), spectrum.end());
+    auto peak = std::max_element(spectrum.begin(), spectrum.end());
     float sum = std::accumulate(peak - 1, peak + 1, 0.0f);
     EXPECT_NEAR(sum, 1.0f, 0.2f);
 

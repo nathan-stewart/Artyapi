@@ -55,44 +55,43 @@ FilterCoefficients butterworth(size_t order, float cutoff, float sample_rate, bo
         a_vec[i] = a_unchecked(i);
     }
 
-    return std::make_pair(std::move(b_vec), std::move(a_vec));
+    return FilterCoefficients(b_vec,a_vec);
 }
 
 // Function to apply a filter to a signal
-void apply_filter(const FilterCoefficients& coefficients, std::vector<float>& signal)
+Signal filter(const FilterCoefficients& coeff, const Signal& input)
 {
-    const std::vector<float>& b = coefficients.first;
-    const std::vector<float>& a = coefficients.second;
-
-    std::vector<float> filtered(signal.size(), 0.0f);
-    if (std::any_of(signal.begin(), signal.end(), [](float v) { return std::isnan(v); })) {
+    Signal output(input.size());
+    if (std::any_of(input.begin(), input.end(), [](float v) { return std::isnan(v); })) {
         std::cerr << "Input signal contains NaN" << std::endl;
         throw std::runtime_error("Input signal contains NaN");
     }
 
-    for (size_t n = 0; n < signal.size(); ++n) {
-        filtered[n] = b[0] * signal[n];
-        for (size_t i = 1; i < b.size(); ++i) {
+    if (coeff.a[0] != 1.0f)
+        throw std::runtime_error("Filter is not normalized");
+
+    for (size_t n = 0; n < input.size(); ++n) {
+        output[n] = coeff.b[0] * input[n];
+        for (size_t i = 1; i < coeff.b.size(); ++i) {
             if (n >= i) {
-                filtered[n] += b[i] * signal[n - i];
+                output[n] += coeff.b[i] * input[n - i];
             }
         }
-        for (size_t i = 1; i < a.size(); ++i) {
+        for (size_t i = 1; i < coeff.a.size(); ++i) {
             if (n >= i) {
-                filtered[n] -= a[i] * filtered[n - i];
+                output[n] -= coeff.a[i] * output[n - i];
             }
         }
     }
-    if (std::any_of(signal.begin(), signal.end(), [](float v) { return std::isnan(v); })) {
+    if (std::any_of(output.begin(), output.end(), [](float v) { return std::isnan(v); })) {
         std::cerr << "Transformed signal contains NaN" << std::endl;
         throw std::runtime_error("Transformed signal contains NaN");
     }
-    // check for nan in output
-    signal = filtered;
+    return output;
 }
 
 // Function to generate a Hanning window
-std::vector<float> hanning_window(size_t size)
+Signal hanning_window(size_t size)
 {
     std::vector<float> window(size);
     for (size_t i = 0; i < size; ++i) {
@@ -102,9 +101,9 @@ std::vector<float> hanning_window(size_t size)
 }
 
 // Function to apply a window to a signal
-void apply_window(const std::vector<float>& window, std::vector<float>& signal)
+void apply_window(const Signal& window, Signal& signal)
 {
     for (size_t i = 0; i < signal.size(); ++i) {
         signal[i] *= window[i];
     }
-    }
+}
