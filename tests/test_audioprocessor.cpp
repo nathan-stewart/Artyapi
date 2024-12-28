@@ -121,7 +121,7 @@ TEST(AudioProcessorTest, SineSpectrumLinear)
     size_t non_zero = std::count_if(spectrum.begin(), spectrum.end(), [](float v) { return v > 1e-1f; });
     EXPECT_GE(non_zero, 1); // At least one bin should be nonzero
     EXPECT_LE(non_zero, 3); // one peak but allow some leakage
-    EXPECT_LT(spectrum[0], 1e-4f); // DC should always be empty
+    EXPECT_LT(std::abs(spectrum[0]), 1e-4f); // DC should always be empty
 
     // check that the peak is at the right frequency in linear space - look on either side too
     auto peak = std::max_element(spectrum.begin(), spectrum.end());
@@ -155,7 +155,7 @@ TEST(AudioProcessorTest, SineSpectrumLog)
     size_t non_zero = std::count_if(spectrum.begin(), spectrum.end(), [](float v) { return v > 0.1f; });
     EXPECT_GE(non_zero, 1); // At least one bin should be nonzero
     EXPECT_LE(non_zero, 3); // one peak but allow some leakage
-    EXPECT_LT(spectrum[0], 1e-4f); // DC should always be empty
+    EXPECT_LT(std::abs(spectrum[0]), 1e-4f); // DC should always be empty
 
     // check that the peak is at the right frequency in linear space - look on either side too
     auto peak = std::max_element(spectrum.begin(), spectrum.end());
