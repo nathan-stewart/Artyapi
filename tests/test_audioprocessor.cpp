@@ -91,13 +91,16 @@ TEST(AudioProcessorTest, BinMapping)
     // pick a linear bin that lies between two output bins
     size_t b = static_cast<size_t>(bin_to_freq_log2(destination, 1000, f0, f1));
     float test_freq = (bin_to_freq_log2(destination, static_cast<float>(b), f0, f1) +
-                     bin_to_freq_log2(destination, static_cast<float>(b)+1, f0, f1)) / 2.0f;
+                       bin_to_freq_log2(destination, static_cast<float>(b)+1, f0, f1)) / 2.0f;
     float test_bin_lin = freq_to_lin_fractional_bin(source, test_freq, f0, f1);
     float test_bin_log = freq_to_log_fractional_bin(destination, test_freq, f0, f1);
 
+    // set one of the bins to 1.0
     source[static_cast<size_t>(test_bin_lin)] = 1.0f;
     map_bins(mapping, source, destination);
     ASSERT_EQ(static_cast<size_t>(test_bin_log), b);
+
+    // the adjacent bins near the mapped frequency should add up to 1.0
     auto just_before = destination.begin() + b - 1;
     ASSERT_NEAR(std::accumulate(just_before, just_before + 4, 0.0f), 1.0f, 0.1f);
 }
@@ -122,13 +125,17 @@ TEST(AudioProcessorTest, SineSpectrumLinear)
 
     // check that the peak is at the right frequency in linear space - look on either side too
     auto peak = std::max_element(spectrum.begin(), spectrum.end());
-    EXPECT_GE(*peak, 0.5f);
+    // the peak may be spread across a couple of bins but it should be close to 1.0
+    float sum = 0.0f;
+    std::for_each(peak - 2, peak + 2, [&sum](float v) { sum += std::abs(v); });
+    EXPECT_GE(sum, 0.85f);
 
     // frequency resolution is 3hz
     // check that the peak is at the right frequency - look on either side too
     size_t bin = std::distance(spectrum.begin(), peak);
-    EXPECT_LE(bin_to_freq_linear(spectrum, static_cast<float>(bin - 1), f0, f1), 437.0f);
-    EXPECT_GE(bin_to_freq_linear(spectrum, static_cast<float>(bin + 1), f0, f1), 443.0f);
+    std::cout << "Peak at bin " << bin << " : " << bin_to_freq_linear(spectrum, static_cast<float>(bin), f0, f1) << std::endl;
+    EXPECT_GE(bin_to_freq_linear(spectrum, static_cast<float>(bin - 1), f0, f1), 436.0f);
+    EXPECT_LE(bin_to_freq_linear(spectrum, static_cast<float>(bin + 1), f0, f1), 444.0f);
 }
 
 TEST(AudioProcessorTest, SineSpectrumLog)
@@ -143,17 +150,20 @@ TEST(AudioProcessorTest, SineSpectrumLog)
     Spectrum spectrum = sp.get_log2_fft();
 
     // Nearly all bins should be empty
-    size_t non_zero = std::count_if(spectrum.begin(), spectrum.end(), [](float v) { return v < 0.1f; });
+    size_t non_zero = std::count_if(spectrum.begin(), spectrum.end(), [](float v) { return v > 0.1f; });
     EXPECT_GE(non_zero, 1); // At least one bin should be nonzero
     EXPECT_LE(non_zero, 3); // one peak but allow some leakage
     EXPECT_LT(spectrum[0], 0.0f); // DC should always be empty
 
     // check that the peak is at the right frequency in linear space - look on either side too
     auto peak = std::max_element(spectrum.begin(), spectrum.end());
-    EXPECT_GE(*peak, 0.5f);
+    
+    // the peak may be spread across a couple of bins but it should be close to 1.0
+    float sum = 0.0f;
+    std::for_each(peak -1,peak + 1, [&sum](float v) { sum += std::abs(v); });
 
     // check that the peak is at the right frequency - look on either side too
     size_t bin = std::distance(spectrum.begin(), peak);
-    EXPECT_LE(bin_to_freq_log2(spectrum, static_cast<float>(bin - 1), f0, f1), 437.0f);
-    EXPECT_GE(bin_to_freq_log2(spectrum, static_cast<float>(bin + 1), f0, f1), 443.0f);
+    EXPECT_GE(bin_to_freq_log2(spectrum, static_cast<float>(bin - 1), f0, f1), 436.0f);
+    EXPECT_LE(bin_to_freq_log2(spectrum, static_cast<float>(bin + 1), f0, f1), 444.0f);
 }

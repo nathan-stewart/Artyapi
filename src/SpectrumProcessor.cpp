@@ -125,7 +125,7 @@ SpectrumProcessor& SpectrumProcessor::operator()(const Signal& data)
     fftwf_execute(plan);
     std::copy(fftw_out, fftw_out + linear_fft.size(), linear_fft.begin());
     normalize_fft();
-    //map_bins(bin_mapping, linear_fft, log2_fft);
+    map_bins(bin_mapping, linear_fft, log2_fft);
 
     // Compute Decay per bin
     return *this;
