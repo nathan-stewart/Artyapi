@@ -63,9 +63,12 @@ Spectrum precompute_bin_mapping(const Spectrum& source, const Spectrum& destinat
 }
 
 SpectrumProcessor::SpectrumProcessor(size_t display_w, [[maybe_unused]] size_t display_h, size_t window_size)
-: sample_rate(48000.0f)
+: raw(window_size)
+, current_slice(window_size)
+, sample_rate(48000.0f)
 , f0(40.0f)
 , f1(20000.0f)
+
 {
     linear_fft.resize(static_cast<size_t>(window_size / 2 + 1));
     log2_fft.resize(display_w);
@@ -104,9 +107,6 @@ SpectrumProcessor::~SpectrumProcessor()
 
 SpectrumProcessor& SpectrumProcessor::operator()(const Signal& data)
 {
-    if (std::none_of(data.begin(), data.end(), [](float v) { return fabsf(v) > 0.1f; }))
-        std::cout << "No input signal" << std::endl;
-
     // Append data to the circular buffer
     raw.insert(raw.end(), data.begin(), data.end());
 
@@ -118,17 +118,9 @@ SpectrumProcessor& SpectrumProcessor::operator()(const Signal& data)
     }
 
     std::copy(raw.begin(), raw.end(), current_slice.begin());
-    if (std::none_of(current_slice.begin(), current_slice.end(), [](float v) { return fabsf(v) > 0.1f; }))
-        std::cout << "FFT no signal from buffer" << std::endl;
     apply_window(window, current_slice);
-    if (std::none_of(current_slice.begin(), current_slice.end(), [](float v) { return fabsf(v) > 0.1f; }))
-        std::cout << "No signal after window" << std::endl;
     current_slice = filter(hpf, current_slice);
-    if (std::none_of(current_slice.begin(), current_slice.end(), [](float v) { return fabsf(v) > 0.1f; }))
-        std::cout << "No signal after hpf" << std::endl;
     current_slice = filter(lpf, current_slice);
-    if (std::none_of(current_slice.begin(), current_slice.end(), [](float v) { return fabsf(v) > 0.1f; }))
-        std::cout << "No signal after lpf" << std::endl;
     std::copy(current_slice.begin(), current_slice.end(), fftw_in);
     fftwf_execute(plan);
     std::copy(fftw_out, fftw_out + linear_fft.size(), linear_fft.begin());

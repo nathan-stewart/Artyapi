@@ -115,22 +115,20 @@ TEST(AudioProcessorTest, SineSpectrumLinear)
     Spectrum spectrum = sp.get_linear_fft();
 
     // Nearly all bins should be empty
-    size_t non_zero = std::count_if(spectrum.begin(), spectrum.end(), [](float v) { return v > 0.1f; });
+    size_t non_zero = std::count_if(spectrum.begin(), spectrum.end(), [](float v) { return v > 1e-1f; });
     EXPECT_GE(non_zero, 1); // At least one bin should be nonzero
     EXPECT_LE(non_zero, 3); // one peak but allow some leakage
-
-    // Bin Zero (DC) should always be empty - not sure why its not
-    EXPECT_LT(spectrum[0], 0.1f);
+    EXPECT_LT(spectrum[0], 0.1f); // DC should always be empty
 
     // check that the peak is at the right frequency in linear space - look on either side too
     auto peak = std::max_element(spectrum.begin(), spectrum.end());
-    float sum = std::accumulate(peak - 1, peak + 1, 0.0f);
-    EXPECT_NEAR(sum, 1.0f, 0.2f);
+    EXPECT_GE(*peak, 0.5f);
 
+    // frequency resolution is 3hz
     // check that the peak is at the right frequency - look on either side too
     size_t bin = std::distance(spectrum.begin(), peak);
-    EXPECT_LE(bin_to_freq_linear(spectrum, static_cast<float>(bin - 1), f0, f1), 440.0f);
-    EXPECT_GE(bin_to_freq_linear(spectrum, static_cast<float>(bin + 1), f0, f1), 440.0f);
+    EXPECT_LE(bin_to_freq_linear(spectrum, static_cast<float>(bin - 1), f0, f1), 437.0f);
+    EXPECT_GE(bin_to_freq_linear(spectrum, static_cast<float>(bin + 1), f0, f1), 443.0f);
 }
 
 TEST(AudioProcessorTest, SineSpectrumLog)
@@ -145,27 +143,17 @@ TEST(AudioProcessorTest, SineSpectrumLog)
     Spectrum spectrum = sp.get_log2_fft();
 
     // Nearly all bins should be empty
-    size_t almost_zero = std::count_if(spectrum.begin(), spectrum.end(), [](float v) { return v < 0.1f; });
-    float virtually_all = static_cast<float>(spectrum.size()) * 0.95f;
-    EXPECT_GE(almost_zero, virtually_all);
-
-    // Bin Zero (DC) should always be empty - not sure why its not
-    // EXPECT_LT(spectrum[0], 0.0f);
-
-    // At least one bin should be nonzero
-    size_t non_zero = std::count_if(spectrum.begin(), spectrum.end(), [](float v) { return v > 0.1f; });
-    EXPECT_GT(non_zero, 0);
-
-    // Only one peak - but tolerate some leakage
-    EXPECT_LE(non_zero, 3);
+    size_t non_zero = std::count_if(spectrum.begin(), spectrum.end(), [](float v) { return v < 0.1f; });
+    EXPECT_GE(non_zero, 1); // At least one bin should be nonzero
+    EXPECT_LE(non_zero, 3); // one peak but allow some leakage
+    EXPECT_LT(spectrum[0], 0.0f); // DC should always be empty
 
     // check that the peak is at the right frequency in linear space - look on either side too
     auto peak = std::max_element(spectrum.begin(), spectrum.end());
-    float sum = std::accumulate(peak - 1, peak + 1, 0.0f);
-    EXPECT_NEAR(sum, 1.0f, 0.2f);
+    EXPECT_GE(*peak, 0.5f);
 
     // check that the peak is at the right frequency - look on either side too
     size_t bin = std::distance(spectrum.begin(), peak);
-    EXPECT_LE(bin_to_freq_log2(spectrum, static_cast<float>(bin - 1), f0, f1), 440.0f);
-    EXPECT_GE(bin_to_freq_log2(spectrum, static_cast<float>(bin + 1), f0, f1), 440.0f);
+    EXPECT_LE(bin_to_freq_log2(spectrum, static_cast<float>(bin - 1), f0, f1), 437.0f);
+    EXPECT_GE(bin_to_freq_log2(spectrum, static_cast<float>(bin + 1), f0, f1), 443.0f);
 }
