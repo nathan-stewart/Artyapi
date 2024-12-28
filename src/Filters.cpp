@@ -5,59 +5,6 @@
 #include <complex>
 #include <iostream>
 
-#include <pybind11/pybind11.h>
-#include <pybind11/numpy.h>
-#include <pybind11/embed.h>
-
-namespace py = pybind11;
-
-// Singleton class to manage the Python interpreter
-class __attribute__((visibility("default"))) PythonInterpreter {
-public:
-    static PythonInterpreter& getInstance() {
-        static PythonInterpreter instance;
-        return instance;
-    }
-
-private:
-    py::scoped_interpreter guard;
-
-    PythonInterpreter() : guard{} {}
-    ~PythonInterpreter() = default;
-
-    // Delete copy constructor and assignment operator
-    PythonInterpreter(const PythonInterpreter&) = delete;
-    PythonInterpreter& operator=(const PythonInterpreter&) = delete;
-};
-
-FilterCoefficients butterworth(size_t order, float cutoff, float sample_rate, bool hpf)
-{
-    PythonInterpreter::getInstance();
-
-    py::module_ scipy = py::module_::import("scipy.signal");
-    py::tuple result = scipy.attr("butter")(order, 2.0f * cutoff / sample_rate, hpf?"high":"low");
-
-    py::array_t<float> b = result[0].cast<py::array_t<float>>();
-    py::array_t<float> a = result[1].cast<py::array_t<float>>();
-
-    // Access the data directly
-    auto b_unchecked = b.unchecked<1>();
-    auto a_unchecked = a.unchecked<1>();
-
-    std::vector<float> b_vec(b_unchecked.size());
-    std::vector<float> a_vec(a_unchecked.size());
-
-    for (ssize_t i = 0; i < b_unchecked.size(); ++i) {
-        b_vec[i] = b_unchecked(i);
-    }
-
-    for (ssize_t i = 0; i < a_unchecked.size(); ++i) {
-        a_vec[i] = a_unchecked(i);
-    }
-
-    return FilterCoefficients(b_vec,a_vec);
-}
-
 // Function to apply a filter to a signal
 Signal filter(const FilterCoefficients& coeff, const Signal& input)
 {

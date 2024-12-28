@@ -11,6 +11,11 @@
 #include "test_util.h"
 #include <iostream>
 
+FilterCoefficients hpf_2nd_40hz = { {0.9963044f, -1.9926089f, 0.9963044f}, {1.0000000f, -1.9925952f, 0.9926225f}};
+FilterCoefficients hpf_4th_40hz = { {0.9931822f, -3.9727288f, 5.9590931f, -3.9727288f, 0.9931822f}, {1.0000000f, -3.9863177f, 5.9590467f, -3.9591398f, 0.9864109f}};
+FilterCoefficients hpf_4th_1khz = { {0.8426766f, -3.3707065f, 5.0560598f, -3.3707065f, 0.8426766f}, {1.0000000f, -3.6580603f, 5.0314335f, -3.0832283f, 0.7101039f}};    
+FilterCoefficients lpf_4th_1khz = { {0.0000156f,  0.0000622f, 0.0000933f,  0.0000622f, 0.0000156f}, {1.0000000f, -3.6580603f, 5.0314335f, -3.0832283f, 0.7101039f}};
+FilterCoefficients lpf_4th_20khz = { {0.4998150f,  1.9992600f, 2.9988900f,  1.9992600f, 0.4998150f}, {1.0000000f,  2.6386277f, 2.7693098f,  1.3392808f, 0.2498217f}};
 
 TEST(SineWaveGenerator, SineWaveGenerator)
 {
@@ -47,41 +52,6 @@ TEST(NoiseGenerator, Noise)
 }
 
 
-TEST(FilterTest, Butterworth_Coefficients)
-{
-    // Generated coefficients for a 4th order 40Hz, 1kHz, and 20kHz LPF/HPF generated in octave
-    float samplerate = 48000.0f;
-    std::vector<std::tuple<std::string, float, int, FilterCoefficients>> TruthTable = {
-            {"HPF", 40.0f, 2, { {0.9963044f, -1.9926089f, 0.9963044f},                          {1.0000000f, -1.9925952f, 0.9926225f                         }}},
-            {"HPF", 40.0f, 4, { {0.9931822f, -3.9727288f, 5.9590931f, -3.9727288f, 0.9931822f}, {1.0000000f, -3.9863177f, 5.9590467f, -3.9591398f, 0.9864109f}}},
-            {"HPF",  1e3f, 4, { {0.8426766f, -3.3707065f, 5.0560598f, -3.3707065f, 0.8426766f}, {1.0000000f, -3.6580603f, 5.0314335f, -3.0832283f, 0.7101039f}}},
-            {"LPF",  1e3f, 4, { {0.0000156f,  0.0000622f, 0.0000933f,  0.0000622f, 0.0000156f}, {1.0000000f, -3.6580603f, 5.0314335f, -3.0832283f, 0.7101039f}}},
-            {"LPF", 20e3f, 4, { {0.4998150f,  1.9992600f, 2.9988900f,  1.9992600f, 0.4998150f}, {1.0000000f,  2.6386277f, 2.7693098f,  1.3392808f, 0.2498217f}}}
-        };
-
-    for (const auto& [name, freq, order, truth] : TruthTable)
-    {
-        FilterCoefficients computed;
-        if (name == "HPF")
-        {
-            computed = butterworth(order, freq, samplerate, true);
-        }
-        else
-        {
-            computed = butterworth(order, freq, samplerate, false);
-        }
-        ASSERT_EQ(computed.b.size(), order + 1);
-        ASSERT_EQ(computed.a.size(), order + 1);
-        for (int i = 0; i < order + 1; ++i)
-        {
-            // close but not super tight tolerance
-            ASSERT_NEAR(computed.b[i], truth.b[i], 1e-5f);
-            ASSERT_NEAR(computed.a[i], truth.a[i], 1e-5f);
-        }
-    }
-}
-
-
 TEST(FilterTest, Butterworth_Sine_HPF)
 {
     float samplerate = 48000.0f;
@@ -90,7 +60,7 @@ TEST(FilterTest, Butterworth_Sine_HPF)
     float f1 = 1000.0f;                     // 1 kHz
     float f2 = 1000.0f * powf(2.0f,  4.0f); // 16 kHz
 
-    FilterCoefficients hpf = butterworth(4, 1000.0f, samplerate, true);
+    FilterCoefficients hpf = hpf_4th_1khz;
 
     // above and below are 4 octaves either side of cutoff  or
     Signal below = sine_wave(f0, samplerate, samples);
@@ -113,7 +83,7 @@ TEST(FilterTest, Butterworth_LPF_TWICE)
     float f0 = 1000.0f * powf(2.0f, -4.0f); // 62.5 Hz
     float f1 = 1000.0f * powf(2.0f,  4.0f); // 16 kHz
 
-    FilterCoefficients hpf = butterworth(4, 1000.0f, samplerate, true);
+    FilterCoefficients hpf = hpf_4th_1khz;
 
     // above and below are 4 octaves either side of cutoff  or
     Signal below = sine_wave(f0, samplerate, samples);
@@ -141,7 +111,7 @@ TEST(FilterTest, Butterworth_Sine_LPF)
     float f1 = 1000.0f;                     // 1 kHz
     float f2 = 1000.0f * powf(2.0f,  4.0f); // 16 kHz
 
-    FilterCoefficients lpf = butterworth(4, 1000.0f, samplerate, false);
+    FilterCoefficients lpf = lpf_4th_1khz;
 
     // above and below are 4 octaves either side of cutoff  or
     Signal below = sine_wave(f0, samplerate, samples);
@@ -161,8 +131,8 @@ TEST(FilterTest, HPF_LPF)
 {
     float samplerate = 48000.0f;
     size_t samples = 1 << 14;
-    FilterCoefficients hpf = butterworth(2, 40.0f, samplerate, true);
-    FilterCoefficients lpf = butterworth(4, 20000.0f, samplerate, false);
+    FilterCoefficients hpf = hpf_2nd_40hz;
+    FilterCoefficients lpf = lpf_4th_20khz;
     Signal sine_1khz = sine_wave(1000.0f, samplerate, samples);
 
     // rms for +/- 1.0 sine is -3db
