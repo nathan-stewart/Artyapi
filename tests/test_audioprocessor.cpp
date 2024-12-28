@@ -105,30 +105,22 @@ TEST(AudioProcessorTest, BinMapping)
 
 TEST(AudioProcessorTest, SineSpectrumLinear)
 {
-    size_t samples = 1<<24;
+    size_t samples = 1<<14;
     float f0 = 40.0f;
     float f1 = 20000.0f;
+    SpectrumProcessor sp(1920, 480, samples);
 
     Signal sine_440 = sine_wave(440, 48000, samples);
-    SpectrumProcessor sp(1920, 480, 16834);
     sp(sine_440);
     Spectrum spectrum = sp.get_linear_fft();
 
     // Nearly all bins should be empty
-    size_t almost_zero = std::count_if(spectrum.begin(), spectrum.end(), [](float v) { return v < 0.1f; });
-    float virtually_all = static_cast<float>(spectrum.size()) * 0.95f;
-    EXPECT_GE(almost_zero, virtually_all);
+    size_t non_zero = std::count_if(spectrum.begin(), spectrum.end(), [](float v) { return v > 0.1f; });
+    EXPECT_GE(non_zero, 1); // At least one bin should be nonzero
+    EXPECT_LE(non_zero, 3); // one peak but allow some leakage
 
     // Bin Zero (DC) should always be empty - not sure why its not
-    // EXPECT_LT(spectrum[0], 0.0f);
-
-    // At least one bin should be nonzero
-    size_t non_zero = std::count_if(spectrum.begin(), spectrum.end(), [](float v) { return v > 0.1f; });
-
-    EXPECT_GT(non_zero, 0);
-
-    // Only one peak - but tolerate some leakage
-    EXPECT_LE(non_zero, 3);
+    EXPECT_LT(spectrum[0], 0.1f);
 
     // check that the peak is at the right frequency in linear space - look on either side too
     auto peak = std::max_element(spectrum.begin(), spectrum.end());

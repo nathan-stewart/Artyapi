@@ -166,15 +166,12 @@ TEST(FilterTest, HPF_LPF)
     Signal sine_1khz = sine_wave(1000.0f, samplerate, samples);
 
     // rms for +/- 1.0 sine is -3db
-    std::cout << "RMS: " << db(rms(sine_1khz)) << std::endl;
     EXPECT_NEAR(db(rms(sine_1khz)), -3.0f, 0.2f); // 0db in the passband
     sine_1khz = filter(hpf, sine_1khz);
 
-    std::cout << "RMS: " << db(rms(sine_1khz)) << std::endl;
     EXPECT_NEAR(db(rms(sine_1khz)), -3.0f, 0.2f); // 0db in the passband
     sine_1khz = filter(lpf, sine_1khz);
 
-    std::cout << "RMS: " << db(rms(sine_1khz)) << std::endl;
     EXPECT_NEAR(db(rms(sine_1khz)), -3.0f, 0.2f); // 0db in the passband
     EXPECT_NEAR(average(sine_1khz), 0.0f, 0.01f); // Check for DC offset
 
