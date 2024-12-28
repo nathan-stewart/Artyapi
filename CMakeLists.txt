@@ -24,7 +24,7 @@ include_directories(${FFTW3_INCLUDE_DIR})
 add_compile_options(-Wall -Wextra -Wconversion -Wfloat-conversion -Wdouble-promotion -Werror)
 
 # Add the executable
-add_executable(rta src/sdlmain.cpp src/AudioProcessor.cpp src/SpectrumProcessor.cpp src/Filters.cpp)
+add_executable(rta src/sdlmain.cpp src/AudioSource.cpp src/AudioProcessor.cpp src/SpectrumProcessor.cpp src/Filters.cpp)
 
 # Link the SDL2 and FFTW3 libraries
 target_link_libraries(rta SDL2::SDL2 ${FFTW3_LIB})
@@ -43,7 +43,7 @@ FetchContent_MakeAvailable(googletest)
 enable_testing()
 
 # Add the test executable
-add_executable(TestMain tests/test_util.cpp tests/test_audioprocessor.cpp tests/test_filters.cpp  tests/test_circularbuffer.cpp src/AudioProcessor.cpp src/Filters.cpp src/SpectrumProcessor.cpp)
+add_executable(TestMain tests/test_util.cpp tests/test_audioprocessor.cpp tests/test_filters.cpp  tests/test_circularbuffer.cpp tests/test_audiosource.cpp src/AudioProcessor.cpp src/Filters.cpp src/SpectrumProcessor.cpp src/AudioSource.cpp )
 
 # Link the FFTW3 and Google Test libraries to the test executable
 target_link_libraries(TestMain ${FFTW3_LIB} gtest_main)

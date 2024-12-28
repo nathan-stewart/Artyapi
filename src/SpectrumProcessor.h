@@ -3,6 +3,7 @@
 #include <vector>
 #include <boost/circular_buffer.hpp>
 #include <fftw3.h>
+#include "Signal.h"
 #include "Filters.h"
 #include "SpectrumProcessor.h"
 

@@ -1,5 +1,4 @@
-#ifndef AUDIO_PROCESSOR_H
-#define AUDIO_PROCESSOR_H
+#pragma once
 
 #include <vector>
 #include <boost/circular_buffer.hpp>
@@ -27,5 +26,3 @@ private:
     boost::circular_buffer<float>   vrms;
     Spectrum                        log2_fft;
 };
-
-#endif // AUDIO_PROCESSOR_H
