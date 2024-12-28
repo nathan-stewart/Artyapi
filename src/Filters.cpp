@@ -71,17 +71,18 @@ Signal filter(const FilterCoefficients& coeff, const Signal& input)
         throw std::runtime_error("Filter is not normalized");
 
     for (size_t n = 0; n < input.size(); ++n) {
-        output[n] = coeff.b[0] * input[n];
+        float yn = coeff.b[0] * input[n];
         for (size_t i = 1; i < coeff.b.size(); ++i) {
             if (n >= i) {
-                output[n] += coeff.b[i] * input[n - i];
+                yn += coeff.b[i] * input[n - i];
             }
         }
         for (size_t i = 1; i < coeff.a.size(); ++i) {
             if (n >= i) {
-                output[n] -= coeff.a[i] * output[n - i];
+                yn -= coeff.a[i] * output[n - i];
             }
         }
+        output[n] = yn; // Assign the computed value to the output
     }
     if (std::any_of(output.begin(), output.end(), [](float v) { return std::isnan(v); })) {
         std::cerr << "Transformed signal contains NaN" << std::endl;

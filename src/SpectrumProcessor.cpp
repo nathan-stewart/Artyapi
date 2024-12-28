@@ -71,7 +71,7 @@ SpectrumProcessor::SpectrumProcessor(size_t display_w, [[maybe_unused]] size_t d
     log2_fft.resize(display_w);
     bin_mapping = precompute_bin_mapping(linear_fft, log2_fft, f0, f1);
 
-    hpf = butterworth(4, f0, sample_rate, true);
+    hpf = butterworth(2, f0, sample_rate, true);
     lpf = butterworth(4, f1, sample_rate, false);
     window = hanning_window(window_size);
 

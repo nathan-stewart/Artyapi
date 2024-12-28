@@ -50,16 +50,16 @@ TEST(NoiseGenerator, Noise)
 TEST(FilterTest, Butterworth_Coefficients)
 {
     // Generated coefficients for a 4th order 40Hz, 1kHz, and 20kHz LPF/HPF generated in octave
-    int order = 4;
     float samplerate = 48000.0f;
-    std::vector<std::tuple<std::string, float, FilterCoefficients>> TruthTable = {
-            {"HPF", 40.0f, { {0.9931822f, -3.9727288f, 5.9590931f, -3.9727288f, 0.9931822f}, {1.0000000f, -3.9863177f, 5.9590467f, -3.9591398f, 0.9864109f}}},
-            {"HPF",  1e3f, { {0.8426766f, -3.3707065f, 5.0560598f, -3.3707065f, 0.8426766f}, {1.0000000f, -3.6580603f, 5.0314335f, -3.0832283f, 0.7101039f}}},
-            {"LPF",  1e3f, { {0.0000156f,  0.0000622f, 0.0000933f,  0.0000622f, 0.0000156f}, {1.0000000f, -3.6580603f, 5.0314335f, -3.0832283f, 0.7101039f}}},
-            {"LPF", 20e3f, { {0.4998150f,  1.9992600f, 2.9988900f,  1.9992600f, 0.4998150f}, {1.0000000f,  2.6386277f, 2.7693098f,  1.3392808f, 0.2498217f}}}
+    std::vector<std::tuple<std::string, float, int, FilterCoefficients>> TruthTable = {
+            {"HPF", 40.0f, 2, { {0.9963044f, -1.9926089f, 0.9963044f},                          {1.0000000f, -1.9925952f, 0.9926225f                         }}},
+            {"HPF", 40.0f, 4, { {0.9931822f, -3.9727288f, 5.9590931f, -3.9727288f, 0.9931822f}, {1.0000000f, -3.9863177f, 5.9590467f, -3.9591398f, 0.9864109f}}},
+            {"HPF",  1e3f, 4, { {0.8426766f, -3.3707065f, 5.0560598f, -3.3707065f, 0.8426766f}, {1.0000000f, -3.6580603f, 5.0314335f, -3.0832283f, 0.7101039f}}},
+            {"LPF",  1e3f, 4, { {0.0000156f,  0.0000622f, 0.0000933f,  0.0000622f, 0.0000156f}, {1.0000000f, -3.6580603f, 5.0314335f, -3.0832283f, 0.7101039f}}},
+            {"LPF", 20e3f, 4, { {0.4998150f,  1.9992600f, 2.9988900f,  1.9992600f, 0.4998150f}, {1.0000000f,  2.6386277f, 2.7693098f,  1.3392808f, 0.2498217f}}}
         };
 
-    for (const auto& [name, freq, truth] : TruthTable)
+    for (const auto& [name, freq, order, truth] : TruthTable)
     {
         FilterCoefficients computed;
         if (name == "HPF")
@@ -161,7 +161,7 @@ TEST(FilterTest, HPF_LPF)
 {
     float samplerate = 48000.0f;
     size_t samples = 1 << 14;
-    FilterCoefficients hpf = butterworth(4, 40.0f, samplerate, true);
+    FilterCoefficients hpf = butterworth(2, 40.0f, samplerate, true);
     FilterCoefficients lpf = butterworth(4, 20000.0f, samplerate, false);
     Signal sine_1khz = sine_wave(1000.0f, samplerate, samples);
 
