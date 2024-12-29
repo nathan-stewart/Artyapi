@@ -1,5 +1,6 @@
 #include "AudioSource.h"
-
+#include <iostream>
+using namespace std;
 
 AudioSource::AudioSource()
 {
@@ -27,17 +28,17 @@ Signal AudioCapture::read()
 }
 
 
-AudioFile::AudioFile()
+AudioFile::AudioFile(std::filesystem::path path)
 {
+    cout << "AudioFile: " << path << endl;
 }
 
-
-AudioFile::~AudioFile()
+AudioFile::~AudioFile() 
 {
+
 }
 
-
-Signal AudioFile::read()
+Signal AudioFile::read() 
 {
     return Signal();
-}
+};

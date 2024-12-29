@@ -3,19 +3,18 @@ cmake_minimum_required(VERSION 3.10)
 # Set the project name
 project(rta)
 
+# Use pkg-config to get hints about paths
+find_package(PkgConfig REQUIRED)
+
+# Find the libsndfile library
+pkg_check_modules(SNDFILE REQUIRED sndfile)
+include_directories(${SNDFILE_INCLUDE_DIRS})
+link_directories(${SNDFILE_LIBRARY_DIRS})
+
+pkg_check_modules(FFTW3 REQUIRED fftw3f)
+include_directories(${FFTW3_INCLUDE_DIRS})
+link_directories(${FFTW3_LIBRARY_DIRS})
 find_package(SDL2 REQUIRED)
-
-
-# Find the FFTW3 library
-if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64")
-    find_library(FFTW3_LIB fftw3f HINTS /usr/lib/x86_64-linux-gnu)
-    find_path(FFTW3_INCLUDE_DIR fftw3.h HINTS /usr/include)
-elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "armv7l")
-    find_library(FFTW3_LIB fftw3f HINTS /usr/lib/arm-linux-gnueabihf)
-    find_path(FFTW3_INCLUDE_DIR fftw3.h HINTS /usr/include)
-else()
-    message(FATAL_ERROR "Unsupported architecture")
-endif()
 
 # Add the include directories
 include_directories(${FFTW3_INCLUDE_DIR})
@@ -27,7 +26,7 @@ add_compile_options(-Wall -Wextra -Wconversion -Wfloat-conversion -Wdouble-promo
 add_executable(rta src/sdlmain.cpp src/AudioSource.cpp src/AudioProcessor.cpp src/SpectrumProcessor.cpp src/Filters.cpp)
 
 # Link the SDL2 and FFTW3 libraries
-target_link_libraries(rta SDL2::SDL2 ${FFTW3_LIB})
+target_link_libraries(rta SDL2::SDL2 ${SNDFILE_LIBRARIES} ${FFTW3_LIBRARIES})
 
 # Include Google Test
 include(FetchContent)
@@ -46,7 +45,7 @@ enable_testing()
 add_executable(TestMain tests/test_util.cpp tests/test_audioprocessor.cpp tests/test_filters.cpp  tests/test_circularbuffer.cpp tests/test_audiosource.cpp src/AudioProcessor.cpp src/Filters.cpp src/SpectrumProcessor.cpp src/AudioSource.cpp )
 
 # Link the FFTW3 and Google Test libraries to the test executable
-target_link_libraries(TestMain ${FFTW3_LIB} gtest_main)
+target_link_libraries(TestMain ${SNDFILE_LIBRARIES} ${FFTW3_LIBRARIES} gtest_main)
 
 # Add the test to CTest
 add_test(NAME TestMain COMMAND TestMain)

@@ -2,6 +2,7 @@
 #include <gtest/gtest.h>
 #include <vector>
 #include <random>
+#include <sndfile.h>
 
 Signal white_noise(size_t samples)
 {
@@ -70,4 +71,21 @@ int zero_crossings(const Signal& data)
         }
     }
     return crossings;
+}
+
+
+void write_wav_file(const std::string& filename, const Signal& signal, int sample_rate, int channels) {
+    SF_INFO sfinfo;
+    sfinfo.frames = signal.size() / channels;
+    sfinfo.samplerate = sample_rate;
+    sfinfo.channels = channels;
+    sfinfo.format = SF_FORMAT_WAV | SF_FORMAT_PCM_16;
+
+    SNDFILE* outfile = sf_open(filename.c_str(), SFM_WRITE, &sfinfo);
+    if (!outfile) {
+        throw std::runtime_error("Failed to open WAV file for writing: " + filename);
+    }
+
+    sf_write_float(outfile, signal, signal.size());
+    sf_close(outfile);
 }

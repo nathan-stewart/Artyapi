@@ -1,10 +1,10 @@
-#ifndef TEST_UTIL_H
-#define TEST_UTIL_H
+#pragma once
 
 #include "../src/Filters.h"
 #include <vector>
 #include <numeric>
 #include <cstddef>
+#include <string>
 
 Signal white_noise(size_t samples);
 float average(const Signal& data);
@@ -13,4 +13,4 @@ float rms(const Signal& data);
 float peak(const Signal& data);
 float db(float value);
 int zero_crossings(const Signal& data);
-#endif
+void write_wav_file(const std::string& filename, const Signal& signal, int sample_rate, int channels);
