@@ -49,8 +49,6 @@ AudioFile::AudioFile(Filepath path)
 , total_frames(0)
 , current_position(0)
 {
-    std::cout << "Opening file: " << filepath << std::endl;
-
     // Using Headerless PCM 24bit 48khz format
     SF_INFO info;
     info.samplerate = sr;
@@ -64,7 +62,6 @@ AudioFile::AudioFile(Filepath path)
     total_frames = info.frames;
     auto now = std::chrono::steady_clock::now();
     last_read = std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch()).count();
-    std::cout << "Opened file: " << filepath << " with " << channels << " channels, " << sr << " Hz sample rate, and " << total_frames << " frames." << std::endl  << std::flush;
 }
 
 AudioFile::~AudioFile() {
@@ -80,7 +77,6 @@ std::pair<bool, Signal> AudioFile::read()
     auto elapsed = now - last_read;
 
     sf_count_t frames_to_read = static_cast<sf_count_t>(sr * elapsed / 1000000);
-    std::cout << "Elapsed time: " << static_cast<float>(elapsed)/1e6f << " seconds, reading " << frames_to_read << " frames." << std::endl << std::flush;
     Signal signal(frames_to_read); // only returning one channel
 
     sf_seek(infile, current_position, SEEK_SET);
