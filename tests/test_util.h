@@ -13,4 +13,4 @@ float rms(const Signal& data);
 float peak(const Signal& data);
 float db(float value);
 int zero_crossings(const Signal& data);
-void write_wav_file(const std::string& filename, const Signal& signal, int sample_rate, int channels);
+void write_wav_file(const std::string& filename, const Signal& signal, int sample_rate);

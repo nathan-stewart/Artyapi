@@ -74,12 +74,12 @@ int zero_crossings(const Signal& data)
 }
 
 
-void write_wav_file(const std::string& filename, const Signal& signal, int sample_rate, int channels) {
+void write_wav_file(const std::string& filename, const Signal& signal, int sample_rate) {
     SF_INFO sfinfo;
-    sfinfo.frames = signal.size() / channels;
+    sfinfo.frames = signal.size();
     sfinfo.samplerate = sample_rate;
-    sfinfo.channels = channels;
-    sfinfo.format = SF_FORMAT_WAV | SF_FORMAT_PCM_16;
+    sfinfo.channels = 1; // mono
+    sfinfo.format = SF_FORMAT_RAW | SF_FORMAT_PCM_24;
 
     SNDFILE* outfile = sf_open(filename.c_str(), SFM_WRITE, &sfinfo);
     if (!outfile) {

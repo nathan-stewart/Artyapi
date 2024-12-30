@@ -51,7 +51,9 @@ target_link_libraries(TestMain ${SNDFILE_LIBRARIES} ${FFTW3_LIBRARIES} gtest_mai
 add_test(NAME TestMain COMMAND TestMain)
 
 # Add a custom target to run the tests
-add_custom_target(run_tests COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure DEPENDS TestMain)
+
+add_custom_target(run_tests COMMAND ${CMAKE_CTEST_COMMAND} --rerun-failed --gtest_also_run_disabled_tests --gtest_output=all DEPENDS TestMain)
+
 
 # Make the default target the run_tests target
 add_custom_target(default_target ALL DEPENDS run_tests)
