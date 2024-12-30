@@ -20,13 +20,29 @@ find_package(SDL2 REQUIRED)
 include_directories(${FFTW3_INCLUDE_DIR})
 
 # Add global compiler flags
-add_compile_options(-Wall -Wextra -Wconversion -Wfloat-conversion -Wdouble-promotion -Werror)
+add_compile_options(
+  -Wall
+  -Werror
+  -Wextra
+  -Wconversion
+  -Wfloat-conversion
+  -Wdouble-promotion
+)
 
 # Add the executable
-add_executable(rta src/sdlmain.cpp src/AudioSource.cpp src/AudioProcessor.cpp src/SpectrumProcessor.cpp src/Filters.cpp)
+add_executable(rta
+  src/sdlmain.cpp
+  src/AudioSource.cpp
+  src/AudioProcessor.cpp
+  src/SpectrumProcessor.cpp
+  src/Filters.cpp
+)
 
 # Link the SDL2 and FFTW3 libraries
-target_link_libraries(rta SDL2::SDL2 ${SNDFILE_LIBRARIES} ${FFTW3_LIBRARIES})
+target_link_libraries(rta
+  SDL2::SDL2
+  ${SNDFILE_LIBRARIES}
+  ${FFTW3_LIBRARIES})
 
 # Include Google Test
 include(FetchContent)
@@ -42,7 +58,17 @@ FetchContent_MakeAvailable(googletest)
 enable_testing()
 
 # Add the test executable
-add_executable(TestMain tests/test_util.cpp tests/test_audioprocessor.cpp tests/test_filters.cpp  tests/test_circularbuffer.cpp tests/test_audiosource.cpp src/AudioProcessor.cpp src/Filters.cpp src/SpectrumProcessor.cpp src/AudioSource.cpp )
+add_executable(TestMain
+  tests/test_util.cpp
+  tests/test_audioprocessor.cpp
+  tests/test_filters.cpp
+  tests/test_circularbuffer.cpp
+  tests/test_audiosource.cpp
+  src/AudioProcessor.cpp
+  src/Filters.cpp
+  src/SpectrumProcessor.cpp
+  src/AudioSource.cpp
+)
 
 # Link the FFTW3 and Google Test libraries to the test executable
 target_link_libraries(TestMain ${SNDFILE_LIBRARIES} ${FFTW3_LIBRARIES} gtest_main)
@@ -52,7 +78,9 @@ add_test(NAME TestMain COMMAND TestMain)
 
 # Add a custom target to run the tests
 
-add_custom_target(run_tests COMMAND ${CMAKE_CTEST_COMMAND} --rerun-failed --gtest_also_run_disabled_tests --gtest_output=all DEPENDS TestMain)
+add_custom_target(run_tests
+  COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure --rerun-failed  DEPENDS TestMain
+)
 
 
 # Make the default target the run_tests target
