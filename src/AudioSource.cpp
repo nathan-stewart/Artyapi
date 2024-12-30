@@ -7,6 +7,7 @@
 using namespace std;
 
 AudioSource::AudioSource()
+: sr(48000)
 {
 }
 
@@ -45,13 +46,14 @@ AudioFile::AudioFile(Filepath path)
 : filepath(path)
 , infile(nullptr)
 , channels(1)
-, sample_rate(48000)
 , total_frames(0)
 , current_position(0)
 {
     std::cout << "Opening file: " << filepath << std::endl;
+
+    // Using Headerless PCM 24bit 48khz format
     SF_INFO info;
-    info.samplerate = sample_rate;
+    info.samplerate = sr;
     info.channels = 1; // mono
     info.format = SF_FORMAT_RAW | SF_FORMAT_PCM_24;
     infile = sf_open(filepath.string().c_str(), SFM_READ, &info);
@@ -59,13 +61,10 @@ AudioFile::AudioFile(Filepath path)
     {
         throw std::runtime_error("Error opening file: " + filepath.string());
     }
-
-    sample_rate = info.samplerate;
-    channels = info.channels;
     total_frames = info.frames;
     auto now = std::chrono::steady_clock::now();
     last_read = std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch()).count();
-    std::cout << "Opened file: " << filepath << " with " << channels << " channels, " << sample_rate << " Hz sample rate, and " << total_frames << " frames." << std::endl  << std::flush;
+    std::cout << "Opened file: " << filepath << " with " << channels << " channels, " << sr << " Hz sample rate, and " << total_frames << " frames." << std::endl  << std::flush;
 }
 
 AudioFile::~AudioFile() {
@@ -80,7 +79,7 @@ std::pair<bool, Signal> AudioFile::read()
     auto now = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
     auto elapsed = now - last_read;
 
-    sf_count_t frames_to_read = static_cast<sf_count_t>(sample_rate * elapsed / 1000000);
+    sf_count_t frames_to_read = static_cast<sf_count_t>(sr * elapsed / 1000000);
     std::cout << "Elapsed time: " << static_cast<float>(elapsed)/1e6f << " seconds, reading " << frames_to_read << " frames." << std::endl << std::flush;
     Signal signal(frames_to_read); // only returning one channel
 

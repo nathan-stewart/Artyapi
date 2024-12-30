@@ -42,5 +42,7 @@ TEST(AudioSource, FileSource)
     EXPECT_LE(average(recovered), 1e-3);
     EXPECT_NEAR(rms(recovered), 0.707f, 1e-3);
     EXPECT_NEAR(peak(recovered), 1.0f, 1e-6);
-    EXPECT_EQ(zero_crossings(recovered), 1000);
+ 
+    float generated_frequency = (static_cast<float>(zero_crossings(recovered)) / 2.0f) * (af.sample_rate() / static_cast<float>(recovered.size()));
+    EXPECT_NEAR(generated_frequency, 1000.0f , 1.0f);
 }

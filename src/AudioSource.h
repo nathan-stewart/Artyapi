@@ -10,6 +10,10 @@ class AudioSource
 public:
     AudioSource();
     ~AudioSource();
+    float sample_rate() const { return static_cast<float>(sr); }
+
+protected:
+    int sr;
 
     virtual std::pair<bool, Signal> read() = 0;
 };
@@ -29,8 +33,8 @@ public:
     AudioFile(std::filesystem::path path);
     ~AudioFile();
 
-    virtual std::pair<bool, Signal>  read() override;
-    void                     get_wav_in_dir() const;
+    virtual std::pair<bool, Signal> read() override;
+    void                            get_wav_in_dir() const;
 
 private:
     bool open_next_file();
@@ -38,7 +42,6 @@ private:
     Filepath    filepath;
     SNDFILE     *infile;
     int         channels;
-    int         sample_rate;
     sf_count_t  total_frames;
     sf_count_t  current_position;
     size_t      last_read;
