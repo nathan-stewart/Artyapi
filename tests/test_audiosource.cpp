@@ -28,12 +28,19 @@ TEST(AudioSource, FileSource)
 
     bool done;
     Signal signal;
+    Signal recovered;
     size_t count = 0;
     do
     {
         std::tie(done, signal) = af.read();
         std::cout << "Samples read: " << signal.size() << " of " << samples << std::endl;
         count += signal.size();
+        recovered.insert(recovered.end(), signal.begin(), signal.end());
     } while (!done);
     EXPECT_EQ(count, samples);
+    EXPECT_EQ(recovered.size(), samples);
+    EXPECT_LE(average(recovered), 1e-3);
+    EXPECT_NEAR(rms(recovered), 0.707f, 1e-3);
+    EXPECT_NEAR(peak(recovered), 1.0f, 1e-6);
+    EXPECT_EQ(zero_crossings(recovered), 1000);
 }

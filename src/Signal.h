@@ -23,6 +23,8 @@ struct Signal {
     size_t size() const { return data.size(); }
     void resize(size_t newSize) { data.resize(newSize); }
     void fill(float value) { std::fill(data.begin(), data.end(), value); }
+    auto insert(iterator pos, iterator first, iterator last) { return data.insert(pos, first, last); } 
+    
     operator float* () { return data.data(); }
     operator const float*() const  { return data.data(); }
     
