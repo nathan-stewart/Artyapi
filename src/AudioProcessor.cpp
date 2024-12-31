@@ -41,10 +41,10 @@ AudioProcessor::~AudioProcessor()
 
 void AudioProcessor::setup_plots()
 {
-    float dpi = 100.0f;
+    // float dpi = 100.0f;
     // Volume Plot is filled below rms and peak is a line plot
     gnuplot << "set multiplot layout 2,1\n";
-    gnuplot << "set terminal wxt size " << disp_w / dpi << "," << disp_h / dpi << " font 'Arial,10'\n";
+    // gnuplot << "set terminal wxt size " << disp_w / dpi << "," << disp_h / dpi << " font 'Arial,10'\n";
     gnuplot << "set size 1,0.5\n";
     gnuplot << "set origin 0,0.5\n";
     gnuplot << "set title 'Volume'\n";
