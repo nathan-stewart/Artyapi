@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-
+set(CMAKE_VERBOSE_MAKEFILE ON)
 # Set the project name
 project(rta)
 
@@ -20,6 +20,9 @@ link_directories(${FFTW3_LIBRARY_DIRS})
 find_package(Boost REQUIRED COMPONENTS iostreams system filesystem)
 include_directories(${Boost_INCLUDE_DIRS})
 
+# Explicitly specify the paths to the Boost libraries
+link_directories(/usr/lib/x86_64-linux-gnu)
+
 # Add the include directories
 include_directories(${FFTW3_INCLUDE_DIR})
 
@@ -35,7 +38,7 @@ add_compile_options(
 
 # Add the executable
 add_executable(rta
-  src/main.cpp 
+  src/main.cpp
   src/AudioSource.cpp
   src/AudioProcessor.cpp
   src/SpectrumProcessor.cpp
@@ -44,9 +47,14 @@ add_executable(rta
 
 # Link the necessary libraries
 target_link_libraries(rta
-  ${Boost_LIBRARIES}
+  ${Boost_IOSTREAMS_LIBRARY}
+  ${Boost_SYSTEM_LIBRARY}
+  ${Boost_FILESYSTEM_LIBRARY}
   ${SNDFILE_LIBRARIES}
   ${FFTW3_LIBRARIES})
+
+message(STATUS "Boost libraries: ${Boost_LIBRARIES}")
+message(STATUS "Boost libraries: ${Boost_LIBRARY_DIRS}")
 
 # Include Google Test
 include(FetchContent)
@@ -75,7 +83,13 @@ add_executable(TestMain
 )
 
 # Link the FFTW3 and Google Test libraries to the test executable
-target_link_libraries(TestMain ${SNDFILE_LIBRARIES} ${FFTW3_LIBRARIES} gtest_main)
+target_link_libraries(TestMain
+  ${Boost_IOSTREAMS_LIBRARY}
+  ${Boost_SYSTEM_LIBRARY}
+  ${Boost_FILESYSTEM_LIBRARY}
+  ${SNDFILE_LIBRARIES}
+  ${FFTW3_LIBRARIES}
+  gtest_main)
 
 # Add the test to CTest
 add_test(NAME TestMain COMMAND TestMain)
