@@ -17,13 +17,16 @@ public:
     ~AudioProcessor();
 
     void process(const Signal& data);
-    void setup_plot();
+    void setup_plots();
 
 private:
     size_t disp_w;
     size_t disp_h;
-    float  history;
-
+    
+    enum class DisplayMode {
+        Volume,
+        Spectrum,
+    }                               display_mode;
     Gnuplot                         gnuplot;
     SpectrumProcessor               process_spectrum;
     boost::circular_buffer<float>   vpk;
