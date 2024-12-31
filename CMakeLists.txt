@@ -11,10 +11,14 @@ pkg_check_modules(SNDFILE REQUIRED sndfile)
 include_directories(${SNDFILE_INCLUDE_DIRS})
 link_directories(${SNDFILE_LIBRARY_DIRS})
 
+# FFTW3
 pkg_check_modules(FFTW3 REQUIRED fftw3f)
 include_directories(${FFTW3_INCLUDE_DIRS})
 link_directories(${FFTW3_LIBRARY_DIRS})
-find_package(SDL2 REQUIRED)
+
+# Boost
+find_package(Boost REQUIRED COMPONENTS iostreams system filesystem)
+include_directories(${Boost_INCLUDE_DIRS})
 
 # Add the include directories
 include_directories(${FFTW3_INCLUDE_DIR})
@@ -31,16 +35,16 @@ add_compile_options(
 
 # Add the executable
 add_executable(rta
-  src/sdlmain.cpp
+  src/main.cpp 
   src/AudioSource.cpp
   src/AudioProcessor.cpp
   src/SpectrumProcessor.cpp
   src/Filters.cpp
 )
 
-# Link the SDL2 and FFTW3 libraries
+# Link the necessary libraries
 target_link_libraries(rta
-  SDL2::SDL2
+  ${Boost_LIBRARIES}
   ${SNDFILE_LIBRARIES}
   ${FFTW3_LIBRARIES})
 

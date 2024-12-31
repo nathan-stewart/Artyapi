@@ -3,6 +3,7 @@
 #include <vector>
 #include <boost/circular_buffer.hpp>
 #include <fftw3.h>
+#include <gnuplot-iostream.h>
 #include "Filters.h"
 #include "SpectrumProcessor.h"
 
@@ -16,11 +17,14 @@ public:
     ~AudioProcessor();
 
     void process(const Signal& data);
+    void setup_plot();
 
 private:
     size_t disp_w;
     size_t disp_h;
+    float  history;
 
+    Gnuplot                         gnuplot;
     SpectrumProcessor               process_spectrum;
     boost::circular_buffer<float>   vpk;
     boost::circular_buffer<float>   vrms;

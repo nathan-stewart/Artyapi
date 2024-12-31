@@ -38,6 +38,15 @@ AudioProcessor::~AudioProcessor()
 {
 }
 
+void AudioProcessor::setup_plot()
+{
+    // Plot heatmap
+    gnuplot << "set pm3d map\n";
+    gnuplot << "set palette rgbformulae 33,13,10\n";
+    gnuplot << "splot '-' using 1:2:3 with pm3d\n";
+    gnuplot.send1d(data);
+
+}
 
 void AudioProcessor::process(const Signal& data)
 {
