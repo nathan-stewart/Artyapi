@@ -37,7 +37,7 @@ TEST(AudioSource, FileSource)
     EXPECT_LE(average(recovered), 1e-3);
     EXPECT_NEAR(rms(recovered), 0.707f, 1e-3);
     EXPECT_NEAR(peak(recovered), 1.0f, 1e-6);
- 
+
     float generated_frequency = (static_cast<float>(zero_crossings(recovered)) / 2.0f) * (af.sample_rate() / static_cast<float>(recovered.size()));
     EXPECT_NEAR(generated_frequency, 1000.0f , 1.0f);
 
@@ -58,24 +58,24 @@ TEST(AudioSource, FilePlayback)
 
     AudioFile af(sine_file);
     auto start = std::chrono::steady_clock::now();
-    for (auto t :  {200ms, 200ms, 400ms})
+    for (auto t :  {100ms, 200ms, 400ms})
     {
         // sleep for 100ms
         std::this_thread::sleep_for(std::chrono::milliseconds(t));
         auto now = std::chrono::steady_clock::now();
-        float elapsed = static_cast<float>(std::chrono::duration_cast<std::chrono::microseconds>(now - start).count())/1e3f;
+        float elapsed = static_cast<float>(std::chrono::duration_cast<std::chrono::microseconds>(now - start).count())/1e6f;
         start = now;
         std::tie(done, signal) = af.read();
-        
-        float expected = elapsed * static_cast<float>(sample_rate) / 1e6f;
-        if (!done) 
+
+        size_t tolerance = 10;
+        size_t expected = static_cast<size_t>(elapsed * static_cast<float>(sample_rate) + 0.5f);
+        if (!done) // if done may be short of the expected size
         {
-            // done may be short of the expected size
-            std::cout << "Sleep for " << elapsed << "ms, expected " << expected << " samples, got " << signal.size() << " samples\n";
-            EXPECT_NEAR(static_cast<float>(signal.size()), expected, 10.0f);
+            std::cout << "Sleep for " << elapsed * 1e3f << "ms, expected " << expected << " samples, got " << signal.size() << " samples\n";
+            EXPECT_GE(signal.size(), expected - tolerance);
+            EXPECT_LE(signal.size(), expected + tolerance);
         }
-        
-    } while (!done);
-   
+
+    }
     std::filesystem::remove(sine_file);
 }

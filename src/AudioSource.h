@@ -5,7 +5,7 @@
 #include <utility>
 #include "Signal.h"
 
-class AudioSource 
+class AudioSource
 {
 public:
     AudioSource();
@@ -38,10 +38,9 @@ public:
 
 private:
     bool open_next_file();
-    
+
     Filepath    filepath;
     SNDFILE     *infile;
-    int         channels;
     sf_count_t  total_frames;
     sf_count_t  current_position;
     size_t      last_read;

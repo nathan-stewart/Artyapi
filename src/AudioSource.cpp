@@ -45,9 +45,6 @@ std::string to_lowercase(const std::string& str) {
 AudioFile::AudioFile(Filepath path)
 : filepath(path)
 , infile(nullptr)
-, channels(1)
-, total_frames(0)
-, current_position(0)
 {
     // Using Headerless PCM 24bit 48khz format
     SF_INFO info;
@@ -60,8 +57,8 @@ AudioFile::AudioFile(Filepath path)
         throw std::runtime_error("Error opening file: " + filepath.string());
     }
     total_frames = info.frames;
-    auto now = std::chrono::steady_clock::now();
-    last_read = std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch()).count();
+    current_position = 0;
+    last_read = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
 }
 
 AudioFile::~AudioFile() {
@@ -75,20 +72,23 @@ std::pair<bool, Signal> AudioFile::read()
     bool done = false;
     auto now = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
     auto elapsed = now - last_read;
-
-    sf_count_t frames_to_read = static_cast<sf_count_t>(sr * elapsed / 1000000);
-    Signal signal(frames_to_read); // only returning one channel
+    sf_count_t frames_to_read = static_cast<sf_count_t>(max(sr * elapsed / 1000000, 500UL));
+    sf_count_t frames_remaining = total_frames - current_position;
+    frames_to_read = min(frames_remaining, frames_to_read);
+    Signal signal(frames_to_read);
+    last_read = now;
 
     sf_seek(infile, current_position, SEEK_SET);
-    sf_count_t frames_read = sf_readf_float(infile, signal, frames_to_read);
+    auto frames_read = sf_readf_float(infile, signal, frames_to_read);
     current_position += frames_read;
-
-    // Resize the signal if we read fewer frames than requested (e.g., end of file)
     if (frames_read < frames_to_read)
     {
-        done = true;
         signal.resize(frames_read);
     }
 
+    if (current_position >= total_frames)
+    {
+        done = true;
+    }
     return std::make_pair(done, signal);
 }
