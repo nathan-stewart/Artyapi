@@ -6,6 +6,28 @@
 
 using namespace std;
 
+std::unique_ptr<AudioSource> AudioSourceFactory::createAudioSource(const std::string& source)
+{
+    std::unique_ptr<AudioSource> audio_source;
+    if (source == "device")
+    {
+        audio_source = std::make_unique<AudioCapture>();
+    }
+    else if (source == "file")
+    {
+        audio_source = std::make_unique<AudioFile>("/home/username/Downloads/440.wav");
+    }
+    else if (source == "directory")
+    {
+        audio_source = std::make_unique<AudioFile>(source);
+    }
+    else
+    {
+        throw std::runtime_error("Unknown audio source: " + source);
+    }
+    return audio_source;
+}
+
 AudioSource::AudioSource()
 : sr(48000)
 {
@@ -39,6 +61,44 @@ std::string to_lowercase(const std::string& str) {
     std::string lower_str = str;
     std::transform(lower_str.begin(), lower_str.end(), lower_str.begin(), ::tolower);
     return lower_str;
+}
+
+
+AudioFileHandler::AudioFileHandler(Filepath path)
+: current(nullptr)
+{
+    wav_files(get_wav_in_dir());
+    if (wav_files.empty())
+    {
+        throw std::runtime_error("No wav files found in directory: " + path.string());
+    }
+}
+
+
+AudioFileHandler::~AudioFileHandler()
+{
+}
+
+
+std::vector<Filepath> AudioFileHandler::get_wav_in_dir() const
+{
+    std::vector<Filepath> wav_files;
+    for (const auto& entry : std::filesystem::directory_iterator(path))
+    {
+        if (entry.is_regular_file() && to_lowercase(entry.path().extension().string()) == ".wav")
+        {
+            wav_files.push_back(entry.path());
+        }
+    }
+    return wav_files;
+}
+
+
+Signal AudioFileHandler::read()
+{
+    Signal signal(4800);
+    
+    return signal;
 }
 
 

@@ -10,7 +10,7 @@ pkg_check_modules(FFTW3 REQUIRED fftw3f)
 include_directories(${FFTW3_INCLUDE_DIRS})
 link_directories(${FFTW3_LIBRARY_DIRS})
 
-find_package(Boost REQUIRED COMPONENTS iostreams system filesystem)
+find_package(Boost REQUIRED COMPONENTS iostreams system filesystem program_options)
 include_directories(${Boost_INCLUDE_DIRS})
 
 link_directories(/usr/lib/x86_64-linux-gnu)
@@ -40,6 +40,7 @@ target_link_libraries(rta
   ${Boost_IOSTREAMS_LIBRARY}
   ${Boost_SYSTEM_LIBRARY}
   ${Boost_FILESYSTEM_LIBRARY}
+  ${Boost_PROGRAM_OPTIONS_LIBRARY}
   ${SNDFILE_LIBRARIES}
   ${FFTW3_LIBRARIES})
 

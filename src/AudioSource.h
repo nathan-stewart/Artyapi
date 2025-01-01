@@ -5,43 +5,62 @@
 #include <utility>
 #include "Signal.h"
 
+using Filepath = std::filesystem::path;
+
 class AudioSource
 {
 public:
     AudioSource();
     ~AudioSource();
     float sample_rate() const { return static_cast<float>(sr); }
+    virtual Signal read() = 0;
 
 protected:
     int sr;
 
-    virtual std::pair<bool, Signal> read() = 0;
+    Signal read() = 0;
 };
 
-using Filepath = std::filesystem::path;
-using Timestamp = std::chrono::steady_clock::time_point;
+
 class AudioCapture : public AudioSource
 {
 public:
     AudioCapture();
     ~AudioCapture();
-    virtual std::pair<bool, Signal> read() override;
+    Signal read() override;
 };
 
-class AudioFile : public AudioSource {
+
+class AudioFileHandler : public AudioSource 
+{
 public:
-    AudioFile(std::filesystem::path path);
+    AudioFileHandler(Filepath path);
+    ~AudioFileHandler();
+    std::vector<Filepath> get_wav_in_dir() const;
+    Signal read() override;
+private:
+    std::vector<Filepath> wav_files;
+    std::unique_ptr<AudioFile> current;
+};
+
+
+class AudioFile {
+public:
+    AudioFile(Filepath path);
     ~AudioFile();
 
-    virtual std::pair<bool, Signal> read() override;
-    void                            get_wav_in_dir() const;
+    std::pair<bool, Signal> read();
 
 private:
-    bool open_next_file();
-
     Filepath    filepath;
     SNDFILE     *infile;
     sf_count_t  total_frames;
     sf_count_t  current_position;
     size_t      last_read;
+};
+
+class AudioSourceFactory
+{
+public:
+    static std::unique_ptr<AudioSource> createAudioSource(const std::string& source);
 };
