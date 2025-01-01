@@ -1,30 +1,20 @@
 cmake_minimum_required(VERSION 3.10)
-set(CMAKE_VERBOSE_MAKEFILE ON)
-# Set the project name
 project(rta)
 
-# Use pkg-config to get hints about paths
 find_package(PkgConfig REQUIRED)
-
-# Find the libsndfile library
 pkg_check_modules(SNDFILE REQUIRED sndfile)
 include_directories(${SNDFILE_INCLUDE_DIRS})
 link_directories(${SNDFILE_LIBRARY_DIRS})
 
-# FFTW3
 pkg_check_modules(FFTW3 REQUIRED fftw3f)
 include_directories(${FFTW3_INCLUDE_DIRS})
 link_directories(${FFTW3_LIBRARY_DIRS})
 
-# Boost
 find_package(Boost REQUIRED COMPONENTS iostreams system filesystem)
 include_directories(${Boost_INCLUDE_DIRS})
 
-# Explicitly specify the paths to the Boost libraries
 link_directories(/usr/lib/x86_64-linux-gnu)
 
-# Add the include directories
-include_directories(${FFTW3_INCLUDE_DIR})
 
 # Add global compiler flags
 add_compile_options(
@@ -52,9 +42,6 @@ target_link_libraries(rta
   ${Boost_FILESYSTEM_LIBRARY}
   ${SNDFILE_LIBRARIES}
   ${FFTW3_LIBRARIES})
-
-message(STATUS "Boost libraries: ${Boost_LIBRARIES}")
-message(STATUS "Boost libraries: ${Boost_LIBRARY_DIRS}")
 
 # Include Google Test
 include(FetchContent)
@@ -96,10 +83,12 @@ add_test(NAME TestMain COMMAND TestMain)
 
 # Add a custom target to run the tests
 
-add_custom_target(run_tests
-  COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure --rerun-failed  DEPENDS TestMain
+add_custom_target(tests 
+  COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure  DEPENDS TestMain
 )
 
 
+add_custom_target(run COMMAND rta DEPENDS rta)
+
 # Make the default target the run_tests target
-add_custom_target(default_target ALL DEPENDS run_tests)
+add_custom_target(default_target ALL DEPENDS tests)

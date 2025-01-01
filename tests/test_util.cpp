@@ -74,7 +74,8 @@ int zero_crossings(const Signal& data)
 }
 
 
-void write_wav_file(const std::string& filename, const Signal& signal, int sample_rate) {
+void write_wav_file(const std::string& filename, const Signal& signal, int sample_rate) 
+{
     SF_INFO sfinfo;
     sfinfo.frames = signal.size();
     sfinfo.samplerate = sample_rate;

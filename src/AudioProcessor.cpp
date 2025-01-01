@@ -39,30 +39,19 @@ AudioProcessor::~AudioProcessor()
 {
 }
 
-void AudioProcessor::setup_plots()
+
+void AudioProcessor::create_volume_plot()
 {
     // float dpi = 100.0f;
     // Volume Plot is filled below rms and peak is a line plot
-    gnuplot << "set multiplot layout 2,1\n";
-    // gnuplot << "set terminal wxt size " << disp_w / dpi << "," << disp_h / dpi << " font 'Arial,10'\n";
-    gnuplot << "set size 1,0.5\n";
-    gnuplot << "set origin 0,0.5\n";
+    
     gnuplot << "set title 'Volume'\n";
     gnuplot << "set xrange [0:" << disp_w << "]\n";
-    gnuplot << "set yrange [0:1]\n";
-    gnuplot << "set xlabel 'Time'\n";
-    gnuplot << "set ylabel 'Volume'\n";
+    gnuplot << "set yrange [-96:12]\n";
+    gnuplot << "set ylabel 'SPL'\n";
     gnuplot << "plot '-' with lines title 'RMS', '-' with lines title 'Peak'\n";
-    gnuplot.send1d(vrms);
-    gnuplot.send1d(vpk);
-    gnuplot << "set size 1,0.5\n";
-    gnuplot << "set origin 0,0\n";
-
-    // gnuplot << "set title 'Spectrum'\n";
-    // Spectral plot is pixel based heat map
-
-
 }
+
 
 void AudioProcessor::process(const Signal& data)
 {
@@ -71,4 +60,17 @@ void AudioProcessor::process(const Signal& data)
 
     process_volume(data, vrms, vpk);
     process_spectrum(data);
+}
+
+void AudioProcessor::update_plot()
+{
+    switch (display_mode)
+    {
+    case DisplayMode::Volume:
+        // gnuplot.send1d(vrms);
+        // gnuplot.send1d(vpk);
+        break;
+    case DisplayMode::Spectrum:
+        break;
+    }
 }

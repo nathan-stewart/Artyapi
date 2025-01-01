@@ -1,25 +1,27 @@
-#include <iostream>
-#include <vector>
-#include <gnuplot-iostream.h>
+#include "AudioProcessor.h"
 
-int main() {
-    Gnuplot gp;
 
-    // Prepare data
-    std::vector<std::vector<double>> data;
-    int width = 10;
-    int height = 10;
-    for (int x = 0; x < width; ++x) {
-        for (int y = 0; y < height; ++y) {
-            data.push_back({static_cast<double>(x), static_cast<double>(y), static_cast<double>(x * y)});
-        }
+Signal sine_wave(float frequency, float sample_rate, size_t samples)
+{
+    Signal sine_wave(samples);
+    float amplitude = 1.0f;
+    float phase = 0.0f;
+    float increment = 2.0f * M_PIf * frequency / sample_rate;
+    for (size_t i = 0; i < samples; ++i) {
+        sine_wave[i] = amplitude * std::sin(phase);
+        phase += increment;
     }
+    return sine_wave;
+}
 
-    // Plot heatmap
-    gp << "set pm3d map\n";
-    gp << "set palette rgbformulae 33,13,10\n";
-    gp << "splot '-' using 1:2:3 with pm3d\n";
-    gp.send1d(data);
-
+int main() 
+{
+    Signal data = sine_wave(440.0f, 48e3f, 1 << 16);
+    AudioProcessor ap;
+    while (true)
+    {
+        ap.process(data);
+        ap.update_plot();
+    }        
     return 0;
 }

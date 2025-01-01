@@ -17,8 +17,9 @@ public:
     ~AudioProcessor();
 
     void process(const Signal& data);
-    void setup_plots();
-
+    void create_volume_plot();
+    void update_plot();
+    
 private:
     size_t disp_w;
     size_t disp_h;
