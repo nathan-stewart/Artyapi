@@ -13,6 +13,20 @@ link_directories(${FFTW3_LIBRARY_DIRS})
 find_package(Boost REQUIRED COMPONENTS iostreams system filesystem program_options)
 include_directories(${Boost_INCLUDE_DIRS})
 
+
+find_path(PORTAUDIO_INCLUDE_DIR portaudio.h)
+find_library(PORTAUDIO_LIBRARY NAMES portaudio)
+
+if (PORTAUDIO_INCLUDE_DIR AND PORTAUDIO_LIBRARY)
+    set(PORTAUDIO_FOUND TRUE)
+    message(STATUS "Found PortAudio: ${PORTAUDIO_LIBRARY}")
+else()
+    set(PORTAUDIO_FOUND FALSE)
+    message(FATAL_ERROR "Could not find PortAudio")
+endif()
+
+include_directories(${PORTAUDIO_INCLUDE_DIR})
+
 link_directories(/usr/lib/x86_64-linux-gnu)
 
 
@@ -41,6 +55,7 @@ target_link_libraries(rta
   ${Boost_SYSTEM_LIBRARY}
   ${Boost_FILESYSTEM_LIBRARY}
   ${Boost_PROGRAM_OPTIONS_LIBRARY}
+  ${PORTAUDIO_LIBRARY}
   ${SNDFILE_LIBRARIES}
   ${FFTW3_LIBRARIES})
 
@@ -75,6 +90,7 @@ target_link_libraries(TestMain
   ${Boost_IOSTREAMS_LIBRARY}
   ${Boost_SYSTEM_LIBRARY}
   ${Boost_FILESYSTEM_LIBRARY}
+  ${PORTAUDIO_LIBRARY}
   ${SNDFILE_LIBRARIES}
   ${FFTW3_LIBRARIES}
   gtest_main)

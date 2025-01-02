@@ -20,25 +20,23 @@ TEST(AudioSource, FileSource)
     ASSERT_NE((std::filesystem::status(sine_file).permissions() & std::filesystem::perms::owner_read), std::filesystem::perms::none);
 
 
-    AudioFile af(sine_file);
+    AudioFileHandler af(sine_file);
 
-    bool done;
     Signal signal;
     Signal recovered;
     size_t count = 0;
     do
     {
-        std::tie(done, signal) = af.read();
+        signal = af.read();
         count += signal.size();
         recovered.insert(recovered.end(), signal.begin(), signal.end());
-    } while (!done);
-    EXPECT_EQ(count, samples);
+    } while (count < samples);
     EXPECT_EQ(recovered.size(), samples);
     EXPECT_LE(average(recovered), 1e-3);
     EXPECT_NEAR(rms(recovered), 0.707f, 1e-3);
     EXPECT_NEAR(peak(recovered), 1.0f, 1e-6);
 
-    float generated_frequency = (static_cast<float>(zero_crossings(recovered)) / 2.0f) * (af.sample_rate() / static_cast<float>(recovered.size()));
+    float generated_frequency = (static_cast<float>(zero_crossings(recovered)) / 2.0f) * (sample_rate / static_cast<float>(recovered.size()));
     EXPECT_NEAR(generated_frequency, 1000.0f , 1.0f);
 
     std::filesystem::remove(sine_file);
@@ -53,10 +51,9 @@ TEST(AudioSource, FilePlayback)
     Filepath sine_file = tempdir / "sine_1khz.wav";
     write_wav_file(sine_file, sine_1khz, static_cast<int>(sample_rate));
 
-     bool done;
     Signal signal;
 
-    AudioFile af(sine_file);
+    AudioFileHandler af(sine_file);
     auto start = std::chrono::steady_clock::now();
     for (auto t :  {100ms, 200ms, 400ms})
     {
@@ -65,17 +62,13 @@ TEST(AudioSource, FilePlayback)
         auto now = std::chrono::steady_clock::now();
         float elapsed = static_cast<float>(std::chrono::duration_cast<std::chrono::microseconds>(now - start).count())/1e6f;
         start = now;
-        std::tie(done, signal) = af.read();
+        signal = af.read();
 
         size_t tolerance = 10;
         size_t expected = static_cast<size_t>(elapsed * static_cast<float>(sample_rate) + 0.5f);
-        if (!done) // if done may be short of the expected size
-        {
-            std::cout << "Sleep for " << elapsed * 1e3f << "ms, expected " << expected << " samples, got " << signal.size() << " samples\n";
-            EXPECT_GE(signal.size(), expected - tolerance);
-            EXPECT_LE(signal.size(), expected + tolerance);
-        }
-
+        std::cout << "Sleep for " << elapsed * 1e3f << "ms, expected " << expected << " samples, got " << signal.size() << " samples\n";
+        EXPECT_GE(signal.size(), expected - tolerance);
+        EXPECT_LE(signal.size(), expected + tolerance);
     }
     std::filesystem::remove(sine_file);
 }
