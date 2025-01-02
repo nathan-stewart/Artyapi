@@ -50,6 +50,7 @@ public:
     ~WavFile();
 
     Signal read(size_t frames_to_read);
+    void rewind() { current_position = 0; }
 
 private:
     Filepath    filepath;

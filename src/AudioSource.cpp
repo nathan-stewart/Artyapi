@@ -139,11 +139,11 @@ std::string to_lowercase(const std::string& str) {
 
 AudioFileHandler::AudioFileHandler(Filepath path)
 : AudioSource(path)
-, folder(path)
 , current(nullptr)
 {
     if (std::filesystem::is_directory(path))
     {
+        folder = path;
         wav_files = get_wav_in_dir();
         if (wav_files.empty())
         {
@@ -151,11 +151,13 @@ AudioFileHandler::AudioFileHandler(Filepath path)
         }
     } else if (std::filesystem::is_regular_file(path) && path.extension() == ".wav")
     {
+        folder = "";
         current = std::make_unique<WavFile>(path);
     } else
     {
         throw std::runtime_error("Invalid file or directory: " + path.string());
     }
+    last_read = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
 }
 
 
@@ -185,6 +187,7 @@ Signal AudioFileHandler::read()
     auto elapsed = now - last_read;
     sf_count_t frames_to_read = static_cast<sf_count_t>(max(static_cast<sf_count_t>(sample_rate) * elapsed / 1000000, 500UL));
     Signal signal(frames_to_read);
+
     last_read = now;
     if (!current)
     {
@@ -192,16 +195,16 @@ Signal AudioFileHandler::read()
     }
 
     signal = current->read(frames_to_read);
+
     if (signal.size() < static_cast<size_t>(frames_to_read))
     {
-        if (std::filesystem::is_directory(folder))
+        if (!folder.empty())
         {
             wav_files = get_wav_in_dir();
             current = nullptr;
-        } else // not actually a folder and we just have one file - loop it
-        if (std::filesystem::is_regular_file(folder) && folder.extension() == ".wav")
+        } else if (current)
         {
-            current = std::make_unique<WavFile>(folder);
+            current->rewind();
         }
     }
     return signal;
@@ -227,7 +230,8 @@ WavFile::WavFile(std::string path)
     current_position = 0;
 }
 
-WavFile::~WavFile() {
+WavFile::~WavFile()
+{
     if (infile) {
         sf_close(infile);
     }
@@ -237,6 +241,7 @@ Signal WavFile::read(size_t frames_to_read)
 {
     sf_count_t frames_remaining = total_frames - current_position;
     frames_to_read = min(frames_remaining, static_cast<sf_count_t>(frames_to_read));
+    cout << "Reading " << frames_to_read << " frames from " << filepath << endl;
     Signal signal(frames_to_read);
 
     sf_seek(infile, current_position, SEEK_SET);
@@ -244,6 +249,7 @@ Signal WavFile::read(size_t frames_to_read)
     current_position += frames_read;
     if (frames_read < frames_to_read)
     {
+        std::cout << "Resizing\n";
         signal.resize(frames_read);
     }
 
