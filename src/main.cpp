@@ -16,9 +16,9 @@ Signal sine_wave(float frequency, float sample_rate, size_t samples)
     return sine_wave;
 }
 
-int main(int argc, char** argv) 
+int main(int argc, char** argv)
 {
-    std::unique_ptr<AudioSource> source = nullptr
+    std::unique_ptr<AudioSource> source = nullptr;
     namespace po = boost::program_options;
     po::options_description desc("rta - a Real Time Analyzer / SPL meter\nAllowed options");
     desc.add_options()
@@ -45,6 +45,6 @@ int main(int argc, char** argv)
         Signal data = source->read();
         ap.process(data);
         ap.update_plot();
-    }        
+    }
     return 0;
 }

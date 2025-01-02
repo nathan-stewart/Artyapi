@@ -2,57 +2,130 @@
 #include <iostream>
 #include <algorithm>
 #include <thread>
+#include <mutex>
 #include <sndfile.h>
 
 using namespace std;
 
-std::unique_ptr<AudioSource> AudioSourceFactory::createAudioSource(const std::string& source)
+// Define the callback function
+int paCallback(const void *inputBuffer, void *,
+                      unsigned long framesPerBuffer,
+                      const PaStreamCallbackTimeInfo*,
+                      PaStreamCallbackFlags statusFlags,
+                      void *userData)
 {
-    std::unique_ptr<AudioSource> audio_source;
-    if (source == "device")
+    // Cast userData to your custom data type
+    AudioCapture *audioCapture = static_cast<AudioCapture*>(userData);
+
+    // Cast inputBuffer to the correct type
+    const float *in = static_cast<const float*>(inputBuffer);
+    if ((statusFlags & paInputOverflow) == 0)
     {
-        audio_source = std::make_unique<AudioCapture>();
+        // Lock the mutex to protect the buffer
+        std::lock_guard<std::mutex> lock(audioCapture->bufferMutex);
+
+        // Copy the input data to the buffer
+        audioCapture->buffer.insert(audioCapture->buffer.end(), in, in + framesPerBuffer);
     }
-    else if (source == "file")
-    {
-        audio_source = std::make_unique<AudioFile>("/home/username/Downloads/440.wav");
-    }
-    else if (source == "directory")
-    {
-        audio_source = std::make_unique<AudioFile>(source);
-    }
-    else
-    {
-        throw std::runtime_error("Unknown audio source: " + source);
-    }
-    return audio_source;
+    // else skip the buffer on overflow so we can catch up
+    return paContinue;
 }
 
-AudioSource::AudioSource()
-: sr(48000)
+PaDeviceIndex AudioCapture::find_device(string device_name)
 {
+    PaDeviceIndex numDevices = Pa_GetDeviceCount();
+    if (numDevices < 0)
+    {
+        throw std::runtime_error("Failed to get number of devices");
+    }
+
+    PaDeviceIndex deviceIndex = paNoDevice;
+    for (PaDeviceIndex i = 0; i < numDevices; i++)
+    {
+        const PaDeviceInfo *deviceInfo = Pa_GetDeviceInfo(i);
+        if (deviceInfo && deviceInfo->name == device_name)
+        {
+            deviceIndex = i;
+            return deviceIndex;
+        }
+    }
+
+    if (deviceIndex == paNoDevice)
+    {
+        Pa_Terminate();
+        throw std::runtime_error("Failed to find specified PortAudio device");
+    }
+    return paNoDevice;
 }
 
-
-AudioSource:: ~AudioSource()
+AudioCapture::AudioCapture(std::string device_name)
+: AudioSource(device_name)
+, sample_rate(48e3f)
+, buffer(1 << 16)
 {
-}
+    PaError err = Pa_Initialize();
+    if (err != paNoError)
+    {
+        throw std::runtime_error("Failed to initialize PortAudio");
+    }
 
+    // Get the device from the path given
+    PaDeviceIndex deviceIndex = find_device(device_name);
 
-AudioCapture::AudioCapture()
-{
+    err = Pa_OpenDefaultStream(&stream,
+                               1, // number of input channels
+                               0, // number of output channels
+                               paFloat32, // sample format
+                               sample_rate,
+                               256, // frames per buffer
+                               paCallback, // callback function
+                               this); // user data
+
+    PaStreamParameters input_params = {deviceIndex,
+                                       1,
+                                       paFloat32,
+                                       Pa_GetDeviceInfo(deviceIndex)->defaultLowInputLatency,
+                                       nullptr};
+    err = Pa_OpenStream(&stream,
+                        &input_params,
+                        nullptr, // no output parameters
+                        sample_rate,
+                        256, // frames per buffer
+                        paClipOff, // no clipping
+                        paCallback, // callback function
+                        this); // user data
+
+    if (err != paNoError)
+    {
+        Pa_Terminate();
+        throw std::runtime_error("Failed to open PortAudio stream");
+    }
+
+    err = Pa_StartStream(stream);
+    if (err != paNoError)
+    {
+        Pa_CloseStream(stream);
+        Pa_Terminate();
+        throw std::runtime_error("Failed to start PortAudio stream");
+    }
+    throw std::runtime_error("Failed to find device: " + device_name);
 }
 
 
 AudioCapture::~AudioCapture()
 {
+    Pa_StopStream(stream);
+    Pa_CloseStream(stream);
+    Pa_Terminate();
 }
 
-
-std::pair<bool, Signal> AudioCapture::read()
+Signal AudioCapture::read()
 {
-    Signal signal(4800);
-    return std::make_pair(false, signal);
+    Signal signal(buffer.size());
+    std::lock_guard<std::mutex> lock(bufferMutex);
+    std::copy(buffer.begin(), buffer.end(), signal.begin());
+    buffer.clear();
+    return signal;
 }
 
 
@@ -65,12 +138,23 @@ std::string to_lowercase(const std::string& str) {
 
 
 AudioFileHandler::AudioFileHandler(Filepath path)
-: current(nullptr)
+: AudioSource(path)
+, folder(path)
+, current(nullptr)
 {
-    wav_files(get_wav_in_dir());
-    if (wav_files.empty())
+    if (std::filesystem::is_directory(path))
     {
-        throw std::runtime_error("No wav files found in directory: " + path.string());
+        wav_files = get_wav_in_dir();
+        if (wav_files.empty())
+        {
+            throw std::runtime_error("No wav files found in directory: " + path.string());
+        }
+    } else if (std::filesystem::is_regular_file(path) && path.extension() == ".wav")
+    {
+        current = std::make_unique<WavFile>(path);
+    } else
+    {
+        throw std::runtime_error("Invalid file or directory: " + path.string());
     }
 }
 
@@ -83,7 +167,7 @@ AudioFileHandler::~AudioFileHandler()
 std::vector<Filepath> AudioFileHandler::get_wav_in_dir() const
 {
     std::vector<Filepath> wav_files;
-    for (const auto& entry : std::filesystem::directory_iterator(path))
+    for (const auto& entry : std::filesystem::directory_iterator(folder))
     {
         if (entry.is_regular_file() && to_lowercase(entry.path().extension().string()) == ".wav")
         {
@@ -94,61 +178,94 @@ std::vector<Filepath> AudioFileHandler::get_wav_in_dir() const
 }
 
 
+
 Signal AudioFileHandler::read()
 {
-    Signal signal(4800);
-    
+    auto now = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+    auto elapsed = now - last_read;
+    sf_count_t frames_to_read = static_cast<sf_count_t>(max(static_cast<sf_count_t>(sample_rate) * elapsed / 1000000, 500UL));
+    Signal signal(frames_to_read);
+    last_read = now;
+    if (!current)
+    {
+        current = std::make_unique<WavFile>(wav_files.front());
+    }
+
+    signal = current->read(frames_to_read);
+    if (signal.size() < static_cast<size_t>(frames_to_read))
+    {
+        if (std::filesystem::is_directory(folder))
+        {
+            wav_files = get_wav_in_dir();
+            current = nullptr;
+        } else // not actually a folder and we just have one file - loop it
+        if (std::filesystem::is_regular_file(folder) && folder.extension() == ".wav")
+        {
+            current = std::make_unique<WavFile>(folder);
+        }
+    }
     return signal;
 }
 
 
-AudioFile::AudioFile(Filepath path)
+WavFile::WavFile(std::string path)
 : filepath(path)
 , infile(nullptr)
+, sample_rate (48e3f)
 {
     // Using Headerless PCM 24bit 48khz format
     SF_INFO info;
-    info.samplerate = sr;
+    info.samplerate = static_cast<int>(sample_rate);
     info.channels = 1; // mono
     info.format = SF_FORMAT_RAW | SF_FORMAT_PCM_24;
-    infile = sf_open(filepath.string().c_str(), SFM_READ, &info);
+    infile = sf_open(filepath.c_str(), SFM_READ, &info);
     if (!infile)
     {
         throw std::runtime_error("Error opening file: " + filepath.string());
     }
     total_frames = info.frames;
     current_position = 0;
-    last_read = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
 }
 
-AudioFile::~AudioFile() {
+WavFile::~WavFile() {
     if (infile) {
         sf_close(infile);
     }
 }
 
-std::pair<bool, Signal> AudioFile::read()
+Signal WavFile::read(size_t frames_to_read)
 {
-    bool done = false;
-    auto now = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
-    auto elapsed = now - last_read;
-    sf_count_t frames_to_read = static_cast<sf_count_t>(max(sr * elapsed / 1000000, 500UL));
     sf_count_t frames_remaining = total_frames - current_position;
-    frames_to_read = min(frames_remaining, frames_to_read);
+    frames_to_read = min(frames_remaining, static_cast<sf_count_t>(frames_to_read));
     Signal signal(frames_to_read);
-    last_read = now;
 
     sf_seek(infile, current_position, SEEK_SET);
-    auto frames_read = sf_readf_float(infile, signal, frames_to_read);
+    auto frames_read = static_cast<size_t>(sf_readf_float(infile, signal, frames_to_read));
     current_position += frames_read;
     if (frames_read < frames_to_read)
     {
         signal.resize(frames_read);
     }
 
-    if (current_position >= total_frames)
+    return signal;
+}
+
+
+std::unique_ptr<AudioSource> AudioSourceFactory::createAudioSource(const std::string& source)
+{
+    std::unique_ptr<AudioSource> audio_source;
+    if (std::filesystem::is_directory(source) ||
+       (std::filesystem::is_regular_file(source) && std::filesystem::path(source).extension() == ".wav"))
     {
-        done = true;
+        audio_source = std::make_unique<AudioFileHandler>(source);
     }
-    return std::make_pair(done, signal);
+    else if (source == "device")
+    {
+        audio_source = std::make_unique<AudioCapture>(source);
+    }
+    else
+    {
+        throw std::runtime_error("Unknown audio source: " + source);
+    }
+    return audio_source;
 }
