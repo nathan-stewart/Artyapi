@@ -44,7 +44,8 @@ void AudioProcessor::create_volume_plot()
 {
     // float dpi = 100.0f;
     // Volume Plot is filled below rms and peak is a line plot
-    
+    // gnuplot << "set terminal fbdev\n";
+    gnuplot << "set terminal x11\n";
     gnuplot << "set title 'Volume'\n";
     gnuplot << "set xrange [0:" << disp_w << "]\n";
     gnuplot << "set yrange [-96:12]\n";
@@ -67,10 +68,12 @@ void AudioProcessor::update_plot()
     switch (display_mode)
     {
     case DisplayMode::Volume:
-        // gnuplot.send1d(vrms);
+        gnuplot.send1d(vrms);
         // gnuplot.send1d(vpk);
+        gnuplot << "e\n"; // End of data
         break;
     case DisplayMode::Spectrum:
         break;
     }
+
 }
