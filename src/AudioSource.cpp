@@ -81,7 +81,7 @@ PaDeviceIndex AudioCapture::find_device(string device)
 AudioCapture::AudioCapture(std::string device_name)
 : AudioSource(device_name)
 , sample_rate(48e3f)
-, buffer(1 << 16)
+, buffer(256)
 {
     PaError err = Pa_Initialize();
     if (err != paNoError)
@@ -100,7 +100,7 @@ AudioCapture::AudioCapture(std::string device_name)
                         &input_params,
                         nullptr, // no output parameters
                         sample_rate,
-                        256, // frames per buffer
+                        buffer.size(), // frames per buffer
                         paClipOff, // no clipping
                         paCallback, // callback function
                         this); // user data
@@ -131,7 +131,6 @@ AudioCapture::~AudioCapture()
 Signal AudioCapture::read()
 {
     Signal signal(buffer.size());
-    cout << "Reading " << buffer.size() << " samples from audio capture\n";
     std::lock_guard<std::mutex> lock(bufferMutex);
     std::copy(buffer.begin(), buffer.end(), signal.begin());
     buffer.clear();
@@ -201,20 +200,28 @@ Signal AudioFileHandler::read()
     last_read = now;
     if (!current)
     {
+        // start a new file
         current = std::make_unique<WavFile>(wav_files.front());
+        wav_files.erase(wav_files.begin());
     }
 
     signal = current->read(frames_to_read);
 
     if (signal.size() < static_cast<size_t>(frames_to_read))
     {
-        if (!folder.empty())
+        if (folder.empty())
         {
-            wav_files = get_wav_in_dir();
-            current = nullptr;
-        } else if (current)
-        {
+            // single file mode - rewind
             current->rewind();
+        } else
+        {
+            // go to the next file
+            if (wav_files.empty())
+            {
+                // queue empty - rescan directory
+                wav_files = get_wav_in_dir();
+            }
+            current = nullptr;
         }
     }
     return signal;
@@ -251,7 +258,6 @@ Signal WavFile::read(size_t frames_to_read)
 {
     sf_count_t frames_remaining = total_frames - current_position;
     frames_to_read = min(frames_remaining, static_cast<sf_count_t>(frames_to_read));
-    cout << "Reading " << frames_to_read << " frames from " << filepath << endl;
     Signal signal(frames_to_read);
 
     sf_seek(infile, current_position, SEEK_SET);
@@ -259,7 +265,6 @@ Signal WavFile::read(size_t frames_to_read)
     current_position += frames_read;
     if (frames_read < frames_to_read)
     {
-        std::cout << "Resizing\n";
         signal.resize(frames_read);
     }
 

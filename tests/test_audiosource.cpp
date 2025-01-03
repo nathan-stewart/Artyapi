@@ -53,3 +53,50 @@ TEST(AudioSource, FilePlayback)
 
     std::filesystem::remove(sine_file);
 }
+
+TEST(AudioSource, DirPlayback)
+{
+    Filepath tempdir = std::filesystem::temp_directory_path() / "tesdata";
+    std::filesystem::create_directory(tempdir);
+
+    float sample_rate = 48e3f;
+    size_t samples = 48000;
+    std::vector<std::tuple<Filepath, float, Signal>> tempfiles = {
+        {tempdir / "sine_1khz.wav", 1e3f, sine_wave(1000.0f, sample_rate, samples)},
+        {tempdir / "sine_2khz.wav", 2e3f, sine_wave(2000.0f, sample_rate, samples)},
+        {tempdir / "sine_3khz.wav", 3e3f, sine_wave(3000.0f, sample_rate, samples)}};
+    
+    for (auto [filename, f, signal] : tempfiles)
+    {
+        write_wav_file(filename, signal, static_cast<int>(sample_rate));
+    }
+
+    // Test dir playback - all three are same lenth, but different frequencies
+    AudioFileHandler af(tempdir);
+    for (auto c : tempfiles)
+    {
+        Signal signal;
+        Signal recovered;
+        while (recovered.size() < samples)
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            signal = af.read();
+            recovered.insert(recovered.end(), signal.begin(), signal.end());
+        }
+
+        EXPECT_EQ(recovered.size(), samples);
+        EXPECT_LE(average(recovered), 1e-3);
+        EXPECT_NEAR(rms(recovered), 0.707f, 1e-3);
+        EXPECT_NEAR(peak(recovered), 1.0f, 1e-6);
+        float recovered_freq = (static_cast<float>(zero_crossings(recovered)) / 2.0f) * (sample_rate / static_cast<float>(recovered.size()));
+        EXPECT_NEAR(recovered_freq, std::get<1>(c), 2.0f);
+}
+    
+    // cleanup
+    for (auto [filename, f, signal] : tempfiles)
+    {
+        std::filesystem::remove(filename);
+    }
+    std::filesystem::remove(tempdir);
+
+}
