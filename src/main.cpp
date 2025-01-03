@@ -23,7 +23,7 @@ int main(int argc, char** argv)
     po::options_description desc("rta - a Real Time Analyzer / SPL meter\nAllowed options");
     desc.add_options()
         ("help", "produce help message")
-        ("source", po::value<std::string>(), "data source - a device, file, or directory of wav files");
+        ("source", po::value<std::string>()->default_value("0"), "data source - a device, file, or directory of wav files");
 
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -37,6 +37,10 @@ int main(int argc, char** argv)
     if (vm.count("source"))
     {
         std::unique_ptr<AudioSource> source = AudioSourceFactory::createAudioSource(vm["source"].as<std::string>());
+    }
+    if (!source)
+    {
+        throw std::runtime_error("No source found");
     }
 
     AudioProcessor ap;

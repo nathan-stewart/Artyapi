@@ -40,13 +40,23 @@ PaDeviceIndex AudioCapture::find_device(string device_name)
     }
 
     PaDeviceIndex deviceIndex = paNoDevice;
-    for (PaDeviceIndex i = 0; i < numDevices; i++)
+
+    // Numeric device index parameter
+    if (std::all_of(device_name.begin(), device_name.end(), ::isdigit))
     {
-        const PaDeviceInfo *deviceInfo = Pa_GetDeviceInfo(i);
-        if (deviceInfo && deviceInfo->name == device_name)
+        deviceIndex = stoi(device_name);
+        if (deviceIndex >= 0 && deviceIndex < numDevices)
         {
-            deviceIndex = i;
             return deviceIndex;
+        }
+        throw std::runtime_error("Invalid device index: " + device_name);
+    } 
+    else  // List devices
+    {
+        for (PaDeviceIndex i = 0; i < numDevices; i++)
+        {
+            const PaDeviceInfo *deviceInfo = Pa_GetDeviceInfo(i);
+            cout << "Device " << i << ": " << deviceInfo->name << endl;
         }
     }
 
@@ -55,7 +65,7 @@ PaDeviceIndex AudioCapture::find_device(string device_name)
         Pa_Terminate();
         throw std::runtime_error("Failed to find specified PortAudio device");
     }
-    return paNoDevice;
+    return deviceIndex;
 }
 
 AudioCapture::AudioCapture(std::string device_name)
@@ -71,16 +81,8 @@ AudioCapture::AudioCapture(std::string device_name)
 
     // Get the device from the path given
     PaDeviceIndex deviceIndex = find_device(device_name);
-
-    err = Pa_OpenDefaultStream(&stream,
-                               1, // number of input channels
-                               0, // number of output channels
-                               paFloat32, // sample format
-                               sample_rate,
-                               256, // frames per buffer
-                               paCallback, // callback function
-                               this); // user data
-
+    // getting channel_count > maxchans - not sure why
+    
     PaStreamParameters input_params = {deviceIndex,
                                        1,
                                        paFloat32,
@@ -265,13 +267,13 @@ std::unique_ptr<AudioSource> AudioSourceFactory::createAudioSource(const std::st
     {
         audio_source = std::make_unique<AudioFileHandler>(source);
     }
-    else if (source == "device")
+    else
     {
         audio_source = std::make_unique<AudioCapture>(source);
     }
-    else
+    if (!audio_source)
     {
-        throw std::runtime_error("Unknown audio source: " + source);
+        throw std::runtime_error("Failed to create audio source");
     }
     return audio_source;
 }
