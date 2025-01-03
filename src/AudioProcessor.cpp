@@ -68,9 +68,9 @@ void AudioProcessor::update_plot()
     switch (display_mode)
     {
     case DisplayMode::Volume:
-        gnuplot.send1d(vrms);
+        // gnuplot.send1d(vrms);
         // gnuplot.send1d(vpk);
-        gnuplot << "e\n"; // End of data
+        // gnuplot << "e\n"; // End of data
         break;
     case DisplayMode::Spectrum:
         break;

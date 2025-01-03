@@ -153,11 +153,6 @@ AudioFileHandler::AudioFileHandler(Filepath path)
     if (std::filesystem::is_directory(path))
     {
         folder = path;
-        wav_files = get_wav_in_dir();
-        if (wav_files.empty())
-        {
-            throw std::runtime_error("No wav files found in directory: " + path.string());
-        }
     } else if (std::filesystem::is_regular_file(path) && path.extension() == ".wav")
     {
         folder = "";
@@ -183,6 +178,7 @@ std::vector<Filepath> AudioFileHandler::get_wav_in_dir() const
     {
         if (entry.is_regular_file() && to_lowercase(entry.path().extension().string()) == ".wav")
         {
+            cout << "Found file: " << entry.path() << endl;
             wav_files.push_back(entry.path());
         }
     }
@@ -198,32 +194,39 @@ Signal AudioFileHandler::read()
     sf_count_t frames_to_read = static_cast<sf_count_t>(max(static_cast<sf_count_t>(sample_rate) * elapsed / 1000000, 500UL));
     Signal signal(frames_to_read);
 
+    // If folder is empty and current is not - we're in single file mode
+    // If folder is set, scan that directory for files
     last_read = now;
     if (!current)
     {
-        // start a new file
-        current = std::make_unique<WavFile>(wav_files.front());
-        cout << "Reading file: " << wav_files.front() << endl;
-        wav_files.erase(wav_files.begin());
+        if (wav_files.empty())
+        {
+            cout << "No files in directory: " << folder << endl;
+            // rescan directory
+            wav_files = get_wav_in_dir();
+        } else
+        {
+            current = std::make_unique<WavFile>(wav_files.front());
+            cout << "Reading file: " << wav_files.front() << endl;
+            wav_files.erase(wav_files.begin());
+        }
     }
 
     signal = current->read(frames_to_read);
 
+    // If we didn't read enough frames, rewind or go to the next file
     if (signal.size() < static_cast<size_t>(frames_to_read))
     {
-        if (folder.empty())
+        if (folder.empty()) // single file mode - rewind
         {
-            // single file mode - rewind
             current->rewind();
-        } else
+        } else // directory mode
         {
-            // go to the next file
-            if (wav_files.empty())
+            current = nullptr;     // signal to start the next file
+            if (wav_files.empty()) // queue empty - rescan directory
             {
-                // queue empty - rescan directory
                 wav_files = get_wav_in_dir();
             }
-            current = nullptr;
         }
     }
     return signal;

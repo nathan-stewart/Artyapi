@@ -56,7 +56,7 @@ TEST(AudioSource, FilePlayback)
 
 TEST(AudioSource, DirPlayback)
 {
-    Filepath tempdir = std::filesystem::temp_directory_path() / "tesdata";
+    Filepath tempdir = std::filesystem::temp_directory_path() / "testdata";
     std::filesystem::create_directory(tempdir);
 
     float sample_rate = 48e3f;
@@ -65,7 +65,7 @@ TEST(AudioSource, DirPlayback)
         {tempdir / "sine_1khz.wav", 1e3f, sine_wave(1000.0f, sample_rate, samples)},
         {tempdir / "sine_2khz.wav", 2e3f, sine_wave(2000.0f, sample_rate, samples)},
         {tempdir / "sine_3khz.wav", 3e3f, sine_wave(3000.0f, sample_rate, samples)}};
-    
+
     for (auto [filename, f, signal] : tempfiles)
     {
         write_wav_file(filename, signal, static_cast<int>(sample_rate));
@@ -91,7 +91,7 @@ TEST(AudioSource, DirPlayback)
         float recovered_freq = (static_cast<float>(zero_crossings(recovered)) / 2.0f) * (sample_rate / static_cast<float>(recovered.size()));
         EXPECT_NEAR(recovered_freq, std::get<1>(c), 2.0f);
 }
-    
+
     // cleanup
     for (auto [filename, f, signal] : tempfiles)
     {
