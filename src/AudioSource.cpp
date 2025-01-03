@@ -31,7 +31,7 @@ int paCallback(const void *inputBuffer, void *,
     return paContinue;
 }
 
-PaDeviceIndex AudioCapture::find_device(string device_name)
+PaDeviceIndex AudioCapture::find_device(string device)
 {
     PaDeviceIndex numDevices = Pa_GetDeviceCount();
     if (numDevices < 0)
@@ -42,14 +42,24 @@ PaDeviceIndex AudioCapture::find_device(string device_name)
     PaDeviceIndex deviceIndex = paNoDevice;
 
     // Numeric device index parameter
-    if (std::all_of(device_name.begin(), device_name.end(), ::isdigit))
+    if (std::all_of(device.begin(), device.end(), ::isdigit))
     {
-        deviceIndex = stoi(device_name);
+        deviceIndex = stoi(device);
         if (deviceIndex >= 0 && deviceIndex < numDevices)
         {
+            const PaDeviceInfo *deviceInfo = Pa_GetDeviceInfo(deviceIndex);
+            if (!deviceInfo)
+            {
+                throw std::runtime_error("Failed to get device info for device index: " + device);
+            }
+            if (deviceInfo->maxInputChannels == 0)
+            {
+                string errmsg = string("Device ") + deviceInfo->name + " has no input channels: ";
+                throw std::runtime_error(errmsg);
+            }
             return deviceIndex;
         }
-        throw std::runtime_error("Invalid device index: " + device_name);
+        throw std::runtime_error("Invalid device index: " + device);
     }
     else  // List devices
     {
@@ -81,11 +91,6 @@ AudioCapture::AudioCapture(std::string device_name)
 
     // Get the device from the path given
     PaDeviceIndex deviceIndex = find_device(device_name);
-    const PaDeviceInfo *deviceInfo = Pa_GetDeviceInfo(deviceIndex);
-    cout << "Selected device index " << deviceIndex << ": " << deviceInfo->name << endl;
-
-    // getting channel_count > maxchans - not sure why
-
     PaStreamParameters input_params = {deviceIndex,
                                        1,
                                        paFloat32,
