@@ -1,6 +1,7 @@
 #pragma once
 #include <sndfile.h>
 #include <filesystem>
+#include <boost/filesystem.hpp>
 #include <chrono>
 #include <utility>
 #include <portaudio.h>

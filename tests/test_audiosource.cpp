@@ -4,23 +4,25 @@
 #include <iostream>
 #include <sndfile.h>
 #include <filesystem>
+#include <boost/filesystem.hpp>
 #include <thread>
 
 using namespace std::chrono_literals;
 
 TEST(AudioSource, FilePlayback)
 {
-    Filepath tempdir = std::filesystem::temp_directory_path();
+    boost::filesystem::path tempdir = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path("%%%%-%%%%-%%%%-%%%%");
+    boost::filesystem::create_directory(tempdir);
     float sample_rate = 48e3f;
     size_t samples = 48000;
     Signal   sine_1khz = sine_wave(1000.0f, sample_rate, samples);
-    Filepath sine_file = tempdir / "sine_1khz.wav";
+    std::filesystem::path  sine_file = (tempdir / "sine_1khz.wav").string();
     write_wav_file(sine_file, sine_1khz, static_cast<int>(sample_rate));
 
     Signal signal;
     Signal recovered;
 
-    AudioFileHandler af(sine_file);
+    AudioFileHandler af(sine_file.string());
     auto start = std::chrono::steady_clock::now();
     for (auto t :  {100ms, 200ms, 300ms, 400ms})
     {
@@ -56,23 +58,24 @@ TEST(AudioSource, FilePlayback)
 
 TEST(AudioSource, DirPlayback)
 {
-    Filepath tempdir = std::filesystem::temp_directory_path() / "testdata";
-    std::filesystem::create_directory(tempdir);
+    boost::filesystem::path tempdir = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path("%%%%-%%%%-%%%%-%%%%");
+    boost::filesystem::create_directory(tempdir);
+    boost::filesystem::create_directory(tempdir);
 
     float sample_rate = 48e3f;
     size_t samples = 48000;
-    std::vector<std::tuple<Filepath, float, Signal>> tempfiles = {
+    std::vector<std::tuple<boost::filesystem::path, float, Signal>> tempfiles = {
         {tempdir / "sine_1khz.wav", 1e3f, sine_wave(1000.0f, sample_rate, samples)},
         {tempdir / "sine_2khz.wav", 2e3f, sine_wave(2000.0f, sample_rate, samples)},
         {tempdir / "sine_3khz.wav", 3e3f, sine_wave(3000.0f, sample_rate, samples)}};
 
     for (auto [filename, f, signal] : tempfiles)
     {
-        write_wav_file(filename, signal, static_cast<int>(sample_rate));
+        write_wav_file(filename.string(), signal, static_cast<int>(sample_rate));
     }
 
     // Test dir playback - all three are same lenth, but different frequencies
-    AudioFileHandler af(tempdir);
+    AudioFileHandler af(tempdir.string());
     for (auto c : tempfiles)
     {
         Signal signal;
@@ -95,8 +98,8 @@ TEST(AudioSource, DirPlayback)
     // cleanup
     for (auto [filename, f, signal] : tempfiles)
     {
-        std::filesystem::remove(filename);
+        boost::filesystem::remove(filename);
     }
-    std::filesystem::remove(tempdir);
+    boost::filesystem::remove(tempdir);
 
 }

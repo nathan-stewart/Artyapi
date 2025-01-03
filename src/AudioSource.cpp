@@ -204,12 +204,19 @@ Signal AudioFileHandler::read()
             cout << "No files in directory: " << folder << endl;
             // rescan directory
             wav_files = get_wav_in_dir();
-        } else
+        } 
+        if (!wav_files.empty())
         {
             current = std::make_unique<WavFile>(wav_files.front());
             cout << "Reading file: " << wav_files.front() << endl;
             wav_files.erase(wav_files.begin());
         }
+    }
+
+    if (!current) // no file to read yet
+    {
+        signal.resize(0);
+        return signal;
     }
 
     signal = current->read(frames_to_read);
