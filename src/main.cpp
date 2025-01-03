@@ -36,7 +36,7 @@ int main(int argc, char** argv)
 
     if (vm.count("source"))
     {
-        std::unique_ptr<AudioSource> source = AudioSourceFactory::createAudioSource(vm["source"].as<std::string>());
+        source = AudioSourceFactory::createAudioSource(vm["source"].as<std::string>());
     }
     if (!source)
     {

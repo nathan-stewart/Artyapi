@@ -50,7 +50,7 @@ PaDeviceIndex AudioCapture::find_device(string device_name)
             return deviceIndex;
         }
         throw std::runtime_error("Invalid device index: " + device_name);
-    } 
+    }
     else  // List devices
     {
         for (PaDeviceIndex i = 0; i < numDevices; i++)
@@ -81,8 +81,11 @@ AudioCapture::AudioCapture(std::string device_name)
 
     // Get the device from the path given
     PaDeviceIndex deviceIndex = find_device(device_name);
+    const PaDeviceInfo *deviceInfo = Pa_GetDeviceInfo(deviceIndex);
+    cout << "Selected device index " << deviceIndex << ": " << deviceInfo->name << endl;
+
     // getting channel_count > maxchans - not sure why
-    
+
     PaStreamParameters input_params = {deviceIndex,
                                        1,
                                        paFloat32,
@@ -110,7 +113,6 @@ AudioCapture::AudioCapture(std::string device_name)
         Pa_Terminate();
         throw std::runtime_error("Failed to start PortAudio stream");
     }
-    throw std::runtime_error("Failed to find device: " + device_name);
 }
 
 
@@ -124,6 +126,7 @@ AudioCapture::~AudioCapture()
 Signal AudioCapture::read()
 {
     Signal signal(buffer.size());
+    cout << "Reading " << buffer.size() << " samples from audio capture\n";
     std::lock_guard<std::mutex> lock(bufferMutex);
     std::copy(buffer.begin(), buffer.end(), signal.begin());
     buffer.clear();
