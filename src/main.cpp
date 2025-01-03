@@ -60,6 +60,7 @@ int main(int argc, char** argv)
     
     size_t frame_count = 0;
     AudioProcessor ap(1920, 480, 16384);
+    ap.create_volume_plot();
     while (true)
     {
         Signal data = source->read();
