@@ -53,7 +53,6 @@ public:
 
 private:
     boost::circular_buffer<float>   raw;
-    Signal             current_slice;
     float              sample_rate;
     float              f0;
     float              f1;

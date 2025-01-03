@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.10)
 project(rta)
+# Set the build type to Debug
+set(
+   Debug)
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(SNDFILE REQUIRED sndfile)
@@ -39,6 +42,14 @@ add_compile_options(
   -Wfloat-conversion
   -Wdouble-promotion
 )
+
+if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+  add_compile_options(-O0)
+  set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g")
+else()
+  add_compile_options(-O3)
+endif()
+
 
 # Add the executable
 add_executable(rta

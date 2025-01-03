@@ -65,7 +65,6 @@ Spectrum precompute_bin_mapping(const Spectrum& source, const Spectrum& destinat
 
 SpectrumProcessor::SpectrumProcessor(size_t display_w, [[maybe_unused]] size_t display_h, size_t window_size)
 : raw(window_size)
-, current_slice(window_size)
 , sample_rate(48000.0f)
 , f0(40.0f)
 , f1(20000.0f)
@@ -109,50 +108,48 @@ SpectrumProcessor::~SpectrumProcessor()
     plan = nullptr;
 }
 
+void nan_check(const Signal& data, string message)
+{
+    if ( any_of(data.begin(), data.end(), [](float sample) { return std::isnan(sample); }) )
+        throw std::runtime_error(message);
+}
 
 SpectrumProcessor& SpectrumProcessor::operator()(const Signal& data)
 {
     if (data.size() == 0)
         return *this;
 
-    if (any_of(data.begin(), data.end(), [](float sample) { return std::isnan(sample); }))
-        throw std::runtime_error("NaN in data");
-
-    if (any_of(current_slice.begin(), current_slice.end(), [](float sample) { return std::isnan(sample); }))
-        throw std::runtime_error("NaN in current_slice");
     // Append data to the circular buffer
     raw.insert(raw.end(), data.begin(), data.end());
 
     // if buffer isn't full - fill it up with copies of what we have
     while (raw.size() < raw.capacity())
     {
-        size_t n = raw.capacity() - raw.size();
-        raw.insert(raw.end(), data.begin(), data.begin() + n);
+        raw.insert(raw.end(), data.begin(), data.begin() + data.size());
     }
-    if (any_of(current_slice.begin(), current_slice.end(), [](float sample) { return std::isnan(sample); }))
-        throw std::runtime_error("NaN in current_slice");
 
-    std::copy(raw.begin(), raw.end(), current_slice.begin());
-    cout << "Applying Window" << endl;
-    if (any_of(current_slice.begin(), current_slice.end(), [](float sample) { return std::isnan(sample); }))
-        throw std::runtime_error("NaN in current_slice");
+    // get a copy of the circular buffer for the window
+    Signal current_slice(raw);
+    nan_check(current_slice, "NaN in current_slice");
+
     apply_window(window, current_slice);
-    cout << "Applying HPF" << endl;
-    cout << "Buffer size: " << current_slice.size() << endl;
-    if (any_of(current_slice.begin(), current_slice.end(), [](float sample) { return std::isnan(sample); }))
-        throw std::runtime_error("NaN in current_slice");
+    nan_check(current_slice, "NaN after Windowing");
+
     current_slice = filter(hpf, current_slice);
-    cout << "Applying LPF" << endl;
+    nan_check(current_slice, "NaN after HPF");
+
     current_slice = filter(lpf, current_slice);
-    cout << "Copying to FFT buffer" << endl;
+    nan_check(current_slice, "NaN after LPF");
+
     std::copy(current_slice.begin(), current_slice.end(), fftw_in);
-    cout << "Executing FFT" << endl;
+    nan_check(current_slice, "NaN in fftw_in");
+
     fftwf_execute(plan);
-    cout << "Copying FFT to linear_fft" << endl;
+
     std::copy(fftw_out, fftw_out + linear_fft.size(), linear_fft.begin());
-    cout << "Normalizing FFT" << endl;
+
     normalize_fft();
-    cout << "Mapping Bins" << endl;
+
     map_bins(bin_mapping, linear_fft, log2_fft);
 
     // Compute Decay per bin

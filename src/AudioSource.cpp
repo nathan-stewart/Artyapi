@@ -178,6 +178,7 @@ AudioFileHandler::~AudioFileHandler()
 std::vector<Filepath> AudioFileHandler::get_wav_in_dir() const
 {
     std::vector<Filepath> wav_files;
+    cout << "Scanning directory: " << folder << endl;
     for (const auto& entry : std::filesystem::directory_iterator(folder))
     {
         if (entry.is_regular_file() && to_lowercase(entry.path().extension().string()) == ".wav")
@@ -202,6 +203,7 @@ Signal AudioFileHandler::read()
     {
         // start a new file
         current = std::make_unique<WavFile>(wav_files.front());
+        cout << "Reading file: " << wav_files.front() << endl;
         wav_files.erase(wav_files.begin());
     }
 

@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <cstddef>
+#include <boost/circular_buffer.hpp>
 
 // Signal is just a typed vector<float>
 struct Signal {
@@ -12,6 +13,7 @@ struct Signal {
     Signal(size_t size, float value = 0.0f) : data(size, value) {}
     Signal(const std::vector<float>& vec) : data(vec) {}
     Signal(std::vector<float>&& vec) : data(std::move(vec)) {}
+    Signal(const boost::circular_buffer<float>& buf) : data(buf.begin(), buf.end()) {}
 
    // Type aliases for iterators
     using iterator = std::vector<float>::iterator;
