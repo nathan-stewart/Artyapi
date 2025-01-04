@@ -26,10 +26,10 @@ TEST(VolumeProcessorTest, VolumeZeros)
     boost::circular_buffer<float> vpk(10);
     process_volume(zeros, vrms, vpk);
     ASSERT_EQ(vrms.size(), 1);
-    ASSERT_NEAR(vrms.back(),  0.0f, 0.01f);
+    ASSERT_LE(vrms.back(), -96.0f);
 
     ASSERT_EQ(vpk.size(), 1);
-    ASSERT_NEAR(vpk.back(), 0.0f, 0.01f);
+    ASSERT_LT(vpk.back(), -96.0f);
 }
 
 
@@ -42,10 +42,10 @@ TEST(AudioProcessorTest, VolumeOnes)
 
     process_volume(ones, vrms, vpk);
     ASSERT_EQ(vrms.size(), 1);
-    ASSERT_NEAR(vrms.back(),  1.0f, 0.01f);
+    ASSERT_NEAR(vrms.back(),  0.0f, 0.01f);
 
     ASSERT_EQ(vpk.size(), 1);
-    ASSERT_NEAR(vpk.back(), 1.0f, 0.01f);
+    ASSERT_NEAR(vpk.back(), 0.0f, 0.01f);
 }
 
 
@@ -60,8 +60,8 @@ TEST(AudioProcessorTest, VolumeSine)
 
     EXPECT_EQ(vrms.size(), 1);
     EXPECT_EQ(vpk.size(), 1);
-    ASSERT_NEAR(db(vrms.back()),  -3.0f, 0.1f);
-    ASSERT_NEAR(db(vpk.back()),  0.0f, 0.1f);
+    ASSERT_NEAR(vrms.back(),  -3.0f, 0.1f);
+    ASSERT_NEAR(vpk.back(),  0.0f, 0.1f);
 }
 
 

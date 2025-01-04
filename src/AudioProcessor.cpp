@@ -19,8 +19,8 @@ void  process_volume(const Signal& data, boost::circular_buffer<float>& vrms, bo
     }
 
     rms = sqrtf(rms / static_cast<float>(data.size()));
-    vrms.push_back(rms);
-    vpk.push_back(pk);
+    vrms.push_front(20 * std::log10(rms + LOGMIN));
+    vpk.push_front (20 * std::log10(pk  + LOGMIN));
 }
 
 
@@ -31,7 +31,9 @@ AudioProcessor::AudioProcessor(size_t display_w, size_t display_h, size_t window
 , process_spectrum(display_w, display_h, window_size)
 {
     vpk.set_capacity(display_w);
+    vpk.assign(display_w, -96.0f);
     vrms.set_capacity(display_w);
+    vrms.assign(display_w, -96.0f);
 }
 
 
@@ -46,7 +48,7 @@ void AudioProcessor::create_volume_plot()
     // Volume Plot is filled below rms and peak is a line plot
     // gnuplot << "set terminal fbdev\n";
     gnuplot << "set terminal x11 size 1920,480\n";    
-    gnuplot << "set xrange [0:" << disp_w << "]\n";
+    gnuplot << "set xrange [" << disp_w << ":0]\n";
     gnuplot << "set yrange [-96:12]\n";
     gnuplot << "set ytics 12\n";
     gnuplot << "set mytics 4\n";
@@ -60,11 +62,6 @@ void AudioProcessor::create_volume_plot()
     gnuplot << "set bmargin at screen 0.02\n";
     gnuplot << "set tmargin at screen 0.97\n";
     gnuplot << "unset xtics\n";
-    gnuplot << "plot '-' with lines title 'RMS' lc rgb 'white', '-' with lines title 'Peak' lc rgb 'white'\n";
-
-    gnuplot.send1d(vrms);
-    gnuplot.send1d(vpk);
-    gnuplot << "e\n"; // End of data
 }
 
 
@@ -82,9 +79,12 @@ void AudioProcessor::update_plot()
     switch (display_mode)
     {
     case DisplayMode::Volume:
-        // gnuplot.send1d(vrms);
-        // gnuplot.send1d(vpk);
-        // gnuplot << "e\n"; // End of data
+        gnuplot << "set xrange [" << disp_w << ":0]\n";
+        gnuplot << "plot '-' with lines title 'RMS' lc rgb 'red', '-' with lines title 'Peak' lc rgb 'white'\n";
+        gnuplot.send1d(vrms);
+        gnuplot.send1d(vpk);
+        gnuplot << "e\n"; // End of data
+        std::cout << "Vpeak min: " << *std::min_element(vpk.begin(), vpk.end()) << " Vpeak max: " << *std::max_element(vpk.begin(), vpk.end()) << std::endl;
         break;
     case DisplayMode::Spectrum:
         break;
