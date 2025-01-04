@@ -19,11 +19,15 @@ public:
     void process(const Signal& data);
     void create_volume_plot();
     void update_plot();
-    
+
 private:
     size_t disp_w;
     size_t disp_h;
-    
+    float margin_left;
+    float margin_right;
+    float margin_top;
+    float margin_bottom;
+
     enum class DisplayMode {
         Volume,
         Spectrum,

@@ -2,7 +2,10 @@
 #include "AudioSource.h"
 #include <boost/program_options.hpp>
 #include <iostream>
+#include <thread>
+#include <chrono>
 
+const float target_period =  1.0f/30.0f;
 Signal sine_wave(float frequency, float sample_rate, size_t samples)
 {
     Signal sine_wave(samples);
@@ -16,20 +19,6 @@ Signal sine_wave(float frequency, float sample_rate, size_t samples)
     return sine_wave;
 }
 
-void check_fps(size_t &frame_count)
-{
-    static auto previous = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
-    auto now = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
-    float  elapsed = static_cast<float>(now - previous)/1e6f;
-    frame_count++;
-    if (elapsed > 5.0f)
-    {
-        previous = now;
-        float fps = static_cast<float>(frame_count) / elapsed;
-        std::cout << "FPS: " << std::fixed << std::setprecision(2) << fps << std::endl;
-        frame_count = 0;
-    }
-}
 
 int main(int argc, char** argv)
 {
@@ -57,16 +46,24 @@ int main(int argc, char** argv)
     {
         throw std::runtime_error("No source found");
     }
-    
-    size_t frame_count = 0;
+
     AudioProcessor ap(1920, 480, 16384);
     ap.create_volume_plot();
+
+    auto previous = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
     while (true)
     {
+        // Don't need to run faster than 30fps or so
+        auto now = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+        float  elapsed = static_cast<float>(now - previous)/1e6f;
+        if (elapsed < target_period)
+        {
+            std::this_thread::sleep_for(std::chrono::microseconds(static_cast<int>((target_period - elapsed) * 1e6f)));
+        }
+        previous = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
         Signal data = source->read();
         ap.process(data);
         ap.update_plot();
-        check_fps(++frame_count);
     }
     return 0;
 }

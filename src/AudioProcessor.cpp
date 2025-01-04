@@ -27,13 +27,19 @@ void  process_volume(const Signal& data, boost::circular_buffer<float>& vrms, bo
 AudioProcessor::AudioProcessor(size_t display_w, size_t display_h, size_t window_size)
 : disp_w(display_w)
 , disp_h(display_h)
+, margin_left(0.02f)
+, margin_right(0.97f)
+, margin_top(0.02f)
+, margin_bottom(0.97f)
 , display_mode(DisplayMode::Volume)
 , process_spectrum(display_w, display_h, window_size)
 {
-    vpk.set_capacity(display_w);
-    vpk.assign(display_w, -96.0f);
-    vrms.set_capacity(display_w);
-    vrms.assign(display_w, -96.0f);
+    size_t plottable_width = static_cast<size_t>(static_cast<float>(disp_w) * (margin_right - margin_left));
+    // size_t plottable_height = static_cast<size_t>(static_cast<float>(disp_w) * (margin_bottom - margin_top));
+    vpk.set_capacity(plottable_width);
+    vpk.assign(plottable_width, -96.0f);
+    vrms.set_capacity(plottable_width);
+    vrms.assign(plottable_width, -96.0f);
 }
 
 
@@ -47,8 +53,8 @@ void AudioProcessor::create_volume_plot()
     // float dpi = 100.0f;
     // Volume Plot is filled below rms and peak is a line plot
     // gnuplot << "set terminal fbdev\n";
-    gnuplot << "set terminal x11 size 1920,480\n";    
-    gnuplot << "set xrange [" << disp_w << ":0]\n";
+    gnuplot << "set terminal x11 size 1920,480\n";
+    gnuplot << "set xrange [1824:0]\n";
     gnuplot << "set yrange [-96:12]\n";
     gnuplot << "set ytics 12\n";
     gnuplot << "set mytics 4\n";
@@ -79,12 +85,33 @@ void AudioProcessor::update_plot()
     switch (display_mode)
     {
     case DisplayMode::Volume:
-        gnuplot << "set xrange [" << disp_w << ":0]\n";
-        gnuplot << "plot '-' with lines title 'RMS' lc rgb 'red', '-' with lines title 'Peak' lc rgb 'white'\n";
+        std::cout << "Vrms: " << vrms.size() << " entries" << std::endl;
+        std::cout << "Vrms: " << vrms.back() << " db" << std::endl;
+        gnuplot << "set xrange [" << std::to_string(disp_w) << ":0]" << std::endl;
+        if (gnuplot.fail()) {
+            std::cerr << "Gnuplot failed to plot" << std::endl;
+            throw std::runtime_error("Gnuplot failed to plot");
+        }
+        // gnuplot << "plot '-' with lines title 'RMS' lc rgb 'red', '-' with lines title 'Peak' lc rgb 'white'\n";
+        gnuplot << "plot '-' with lines title 'RMS' lc rgb 'red'"  << std::endl;
+        if (gnuplot.fail()) {
+            std::cerr << "Gnuplot failed to plot" << std::endl;
+            throw std::runtime_error("Gnuplot failed to plot");
+        }
         gnuplot.send1d(vrms);
-        gnuplot.send1d(vpk);
-        gnuplot << "e\n"; // End of data
-        std::cout << "Vpeak min: " << *std::min_element(vpk.begin(), vpk.end()) << " Vpeak max: " << *std::max_element(vpk.begin(), vpk.end()) << std::endl;
+        if (gnuplot.fail()) {
+            std::cerr << "Gnuplot failed to plot" << std::endl;
+            throw std::runtime_error("Gnuplot failed to plot");
+        }
+        // gnuplot.send1d(vpk);
+        gnuplot << "e"  << std::endl; // End of data
+        if (gnuplot.fail()) {
+            std::cerr << "Gnuplot failed to plot" << std::endl;
+            throw std::runtime_error("Gnuplot failed to plot");
+        }
+        assert(false);
+        //std::cout << "Vrms: " << vrms.back() << " db" << std::endl;
+        // std::cout << "Vpeak min: " << *std::min_element(vpk.begin(), vpk.end()) << " Vpeak max: " << *std::max_element(vpk.begin(), vpk.end()) << std::endl;
         break;
     case DisplayMode::Spectrum:
         break;
