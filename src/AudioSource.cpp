@@ -182,6 +182,7 @@ std::vector<Filepath> AudioFileHandler::get_wav_in_dir() const
             wav_files.push_back(entry.path());
         }
     }
+    std::sort(wav_files.begin(), wav_files.end());
     return wav_files;
 }
 
@@ -194,17 +195,20 @@ Signal AudioFileHandler::read()
     sf_count_t frames_to_read = static_cast<sf_count_t>(max(static_cast<sf_count_t>(sample_rate) * elapsed / 1000000, 500UL));
     Signal signal(frames_to_read);
 
-    // If folder is empty and current is not - we're in single file mode
-    // If folder is set, scan that directory for files
     last_read = now;
+    if (!current and folder.empty())
+    {
+        throw std::runtime_error("No file or directory specified");
+    }
+
     if (!current)
     {
         if (wav_files.empty())
         {
-            cout << "No files in directory: " << folder << endl;
-            // rescan directory
+            cout << "Rescan directory: " << folder << endl;
             wav_files = get_wav_in_dir();
-        } 
+        }
+
         if (!wav_files.empty())
         {
             current = std::make_unique<WavFile>(wav_files.front());
@@ -221,7 +225,8 @@ Signal AudioFileHandler::read()
 
     signal = current->read(frames_to_read);
 
-    // If we didn't read enough frames, rewind or go to the next file
+    // If we didn't read enough frames we're at the end of the file
+    // either rewind (single file mode) or rescan directory
     if (signal.size() < static_cast<size_t>(frames_to_read))
     {
         if (folder.empty()) // single file mode - rewind
