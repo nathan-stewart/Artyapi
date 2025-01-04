@@ -9,6 +9,8 @@ pkg_check_modules(SNDFILE REQUIRED sndfile)
 include_directories(${SNDFILE_INCLUDE_DIRS})
 link_directories(${SNDFILE_LIBRARY_DIRS})
 
+find_package(SDL2 REQUIRED)
+
 pkg_check_modules(FFTW3 REQUIRED fftw3f)
 include_directories(${FFTW3_INCLUDE_DIRS})
 link_directories(${FFTW3_LIBRARY_DIRS})
@@ -68,7 +70,8 @@ target_link_libraries(rta
   ${Boost_PROGRAM_OPTIONS_LIBRARY}
   ${PORTAUDIO_LIBRARY}
   ${SNDFILE_LIBRARIES}
-  ${FFTW3_LIBRARIES})
+  ${FFTW3_LIBRARIES}
+  SDL2::SDL2)
 
 # Include Google Test
 include(FetchContent)
@@ -104,6 +107,7 @@ target_link_libraries(TestMain
   ${PORTAUDIO_LIBRARY}
   ${SNDFILE_LIBRARIES}
   ${FFTW3_LIBRARIES}
+  SDL2::SDL2
   gtest_main)
 
 # Add the test to CTest
@@ -111,12 +115,27 @@ add_test(NAME TestMain COMMAND TestMain)
 
 # Add a custom target to run the tests
 
-add_custom_target(tests 
+add_custom_target(tests
   COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure  DEPENDS TestMain
 )
+
+# Add the executable for automated unit tests
+add_executable(plot_test
+  src/Plotter.cpp
+  tests/test_plotter.cpp
+  tests/test_util.cpp
+  # Add other unit test files here
+)
+
+target_link_libraries(plot_test
+  SDL2::SDL2
+  ${SNDFILE_LIBRARIES}
+  gtest_main)
 
 
 add_custom_target(run COMMAND rta DEPENDS rta)
 
 # Make the default target the run_tests target
 add_custom_target(default_target ALL DEPENDS tests)
+
+add_custom_target(test_plot COMMAND plot_test DEPENDS plot_test)

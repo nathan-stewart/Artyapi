@@ -4,6 +4,7 @@
 #include <random>
 #include <sndfile.h>
 
+
 Signal white_noise(size_t samples)
 {
     std::vector<float> white_noise(samples);
@@ -74,7 +75,7 @@ int zero_crossings(const Signal& data)
 }
 
 
-void write_wav_file(const std::string& filename, const Signal& signal, int sample_rate) 
+void write_wav_file(const std::string& filename, const Signal& signal, int sample_rate)
 {
     SF_INFO sfinfo;
     sfinfo.frames = signal.size();
