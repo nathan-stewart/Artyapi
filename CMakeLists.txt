@@ -47,7 +47,7 @@ add_compile_options(
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
   add_compile_options(-O0)
-  set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g")
+  add_compile_options(-g)
 else()
   add_compile_options(-O3)
 endif()

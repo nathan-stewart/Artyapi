@@ -39,7 +39,9 @@ void AudioProcessor::process(const Signal& data)
     if (data.size() == 0)
         return;
 
-    vrms, vpk = process_volume(data);
-    process_spectrum(data);
+    auto [vrms_val, vpk_val] = process_volume(data);
+    vrms = vrms_val;
+    vpk = vpk_val;
+    spectrum(data);
 }
 

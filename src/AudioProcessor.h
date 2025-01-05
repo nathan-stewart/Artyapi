@@ -7,7 +7,7 @@
 #include "SpectrumProcessor.h"
 #include "Signal.h"
 
-std::pair<float,float>  process_volume(const Signal& data, boost::circular_buffer<float>& vrms, boost::circular_buffer<float>& vpk);
+std::pair<float,float>  process_volume(const Signal& data);
 
 class AudioProcessor
 {
