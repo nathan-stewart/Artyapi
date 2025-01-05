@@ -6,6 +6,7 @@
 #include <utility>
 #include "SpectrumProcessor.h"
 #include "Signal.h"
+#include "Plotter.h"
 
 std::pair<float,float>  process_volume(const Signal& data);
 
@@ -23,4 +24,5 @@ private:
     float                        vpk;
     SpectrumProcessor             spectrum;
     std::vector<Spectrum>         history;
+    Plotter                       plotter;
 };

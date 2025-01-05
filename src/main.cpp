@@ -1,9 +1,10 @@
-#include "AudioProcessor.h"
-#include "AudioSource.h"
 #include <boost/program_options.hpp>
 #include <iostream>
 #include <thread>
 #include <chrono>
+#include "AudioSource.h"
+#include "AudioProcessor.h"
+#include "Plotter.h"
 
 const float target_period =  1.0f/30.0f;
 Signal sine_wave(float frequency, float sample_rate, size_t samples)
@@ -48,7 +49,6 @@ int main(int argc, char** argv)
     }
 
     AudioProcessor ap(1920, 480, 16384);
-
     auto previous = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
     while (true)
     {

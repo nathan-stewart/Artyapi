@@ -137,17 +137,46 @@ void Plotter::plotSpectrum(const vector<pair<float,float>>& spectrum)
     }
     spectral.push_front(colorized);
 
-    clear();
+
+    // Create a texture to hold the pixel data
+    SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, static_cast<int>(width), static_cast<int>(height));
+    if (!texture) {
+        throw runtime_error("Failed to create texture");
+    }
+
+    // Lock the texture to get a pointer to the pixel data
+    void* pixels;
+    int pitch;
+    if (SDL_LockTexture(texture, nullptr, &pixels, &pitch) != 0) {
+        SDL_DestroyTexture(texture);
+        throw runtime_error("Failed to lock texture");
+    }
+
+    // Update the pixel data
+    Uint32* pixel_data = static_cast<Uint32*>(pixels);
     for (size_t y = 0; y < spectral.size(); ++y)
     {
         for (size_t x = 0; x < spectral[y].size(); ++x)
         {
-            SDL_SetRenderDrawColor(renderer, spectral[y][x].r, spectral[y][x].g, spectral[y][x].b, spectral[y][x].a);
-            SDL_RenderDrawPoint(renderer, static_cast<int>(x), static_cast<int>(y));
+            SDL_Color color = spectral[y][x];
+            pixel_data[y * width + x] = SDL_MapRGBA(SDL_AllocFormat(SDL_PIXELFORMAT_RGBA8888), color.r, color.g, color.b, color.a);
         }
     }
+
+    // Unlock the texture
+    SDL_UnlockTexture(texture);
+
+    // Clear the renderer
+    clear();
+
+    // Copy the texture to the renderer
+    SDL_RenderCopy(renderer, texture, nullptr, nullptr);
+
+    // Present the renderer
     SDL_RenderPresent(renderer);
-}
+
+    // Destroy the texture
+    SDL_DestroyTexture(texture);}
 
 void Plotter::clear()
 {

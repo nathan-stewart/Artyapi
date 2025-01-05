@@ -60,6 +60,7 @@ add_executable(rta
   src/AudioProcessor.cpp
   src/SpectrumProcessor.cpp
   src/Filters.cpp
+  src/Plotter.cpp
 )
 
 # Link the necessary libraries
@@ -97,6 +98,7 @@ add_executable(TestMain
   src/Filters.cpp
   src/SpectrumProcessor.cpp
   src/AudioSource.cpp
+  src/Plotter.cpp
 )
 
 # Link the FFTW3 and Google Test libraries to the test executable

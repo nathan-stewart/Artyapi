@@ -25,6 +25,8 @@ std::pair<float,float> process_volume(const Signal& data)
 
 AudioProcessor::AudioProcessor(size_t fft_bins, size_t fft_history, size_t window_size)
 : spectrum(fft_bins, fft_history, window_size)
+, plotter(fft_bins, fft_history, Plotter::PlotMode::Spectrum, false)
+
 {
 }
 
