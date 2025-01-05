@@ -2,50 +2,50 @@
 #include <iostream>
 
 using namespace std;
-tuple<int, int, int> HSVtoRGB(float h, float s, float v)
+SDL_Color HSVtoRGB(float h, float s, float v)
 {
-    float r, g, b;
+    Uint8 r, g, b, a = 255;
     float hf = h / 60.0f;
-    int i = static_cast<int>(hf);
+    Uint8 i = static_cast<Uint8>(hf);
     float f = hf - static_cast<float>(i);
-    float pv = v * (1 - s / 255.0f);
-    float qv = v * (1 - s / 255.0f * f);
-    float tv = v * (1 - s / 255.0f * (1 - f));
+    Uint8 pv = static_cast<Uint8>(255.0f*(v * (1 - s / 255.0f)));
+    Uint8 qv = static_cast<Uint8>(255.0f*(v * (1 - s / 255.0f * f)));
+    Uint8 tv = static_cast<Uint8>(255.0f*(v * (1 - s / 255.0f * (1 - f))));
 
     switch (i) {
         case 0:
-            r = v;
+            r = static_cast<Uint8>(255.0f * v);
             g = tv;
             b = pv;
             break;
         case 1:
             r = qv;
-            g = v;
+            g = static_cast<Uint8>(255.0f * v);
             b = pv;
             break;
         case 2:
             r = pv;
-            g = v;
+            g = static_cast<Uint8>(255.0f * v);
             b = tv;
             break;
         case 3:
             r = pv;
             g = qv;
-            b = v;
+            b = static_cast<Uint8>(255.0f * v);
             break;
         case 4:
             r = tv;
             g = pv;
-            b = v;
+            b = static_cast<Uint8>(255.0f * v);
             break;
         case 5:
         default:
-            r = v;
+            r = static_cast<Uint8>(255.0f * v);
             g = pv;
             b = qv;
             break;
     }
-    return tuple<int, int, int>(static_cast<int>(r * 255.0f), static_cast<int>(g * 255.0f), static_cast<int>(b * 255.0f));
+    return {r, g, b, a};
 }
 
 Plotter::Plotter(size_t width, size_t height, PlotMode mode, bool rotate)
@@ -121,22 +121,31 @@ void Plotter::plotVolume(float rms, float pk)
 
 void Plotter::plotSpectrum(const vector<pair<float,float>>& spectrum)
 {
-    assert(spectrum.size() == width);
-    
-    // transform float,float pair vector to vector of SDL_Color
-    vector<SDL_Color> colors;
-    colors.reserve(spectrum.size());
+    // enforce width and range constraints
+    if (spectrum.size() != width || 
+        any_of(spectrum.begin(), spectrum.end(), [](const auto& p) { return p.first < 0.0f || p.first > 1.0f || p.second < 0.0f || p.second > 1.0f; }))
+    {
+        throw invalid_argument("Invalid spectrum");
+    }
+     
+    // transform vector of pair<float,float> to vector of SDL_Color
+    vector<SDL_Color> colorized;
     for (const auto& [bin, decay] : spectrum)
     {
-        float h = 0;
-        float s = 255.0f * decay;
-        float v = 255.0f * bin;
-        auto [r,g,b] = HSVtoRGB(h, s, v);
-        colors.push_back({static_cast<Uint8>(r), static_cast<Uint8>(g), static_cast<Uint8>(b), 255});
+        auto color = HSVtoRGB(0, decay, bin);
+        colorized.push_back(color);
     }
-    spectral.push_front(vector<SDL_Color>(width, {0, 0, 0, 255}));
-    clear();
+    spectral.push_front(colorized);
 
+    clear();
+    for (size_t y = 0; y < spectral.size(); ++y)
+    {
+        for (size_t x = 0; x < spectral[y].size(); ++x)
+        {
+            SDL_SetRenderDrawColor(renderer, spectral[y][x].r, spectral[y][x].g, spectral[y][x].b, spectral[y][x].a);
+            SDL_RenderDrawPoint(renderer, static_cast<int>(x), static_cast<int>(y));
+        }
+    }
     SDL_RenderPresent(renderer);
 }
 

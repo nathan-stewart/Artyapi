@@ -56,6 +56,7 @@ TEST(Plotter, Spectrum)
     size_t bins_per_tick = static_cast<size_t>(bins / octaves) / 3;
     vector<pair<float,float>> spectral(bins);
 
+    // draw 3 ticks per octave, with every other tick showing color (Decay parameter)
     for (size_t t = 0; t < history;  ++t)
     {
         for (size_t b = 0; b < bins; ++b)
@@ -63,10 +64,6 @@ TEST(Plotter, Spectrum)
             size_t n = b / bins_per_tick;
             bool is_tick = b % bins_per_tick == 0;
             spectral[b] = make_pair(is_tick ? 1.0f : 0.0f, (n%2) ? 0.0f : 1.0f);
-            if (t == 0)
-            {
-                cout << "n: " << setw(3) << n << " b: " << setw(4) << b << " bins_per_tick: " << setw(4) << bins_per_tick << endl;
-            }
         }
         plotter.plotSpectrum(spectral);
     }

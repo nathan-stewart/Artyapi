@@ -5,7 +5,7 @@
 #include <tuple>
 #include <boost/circular_buffer.hpp>
 
-std::tuple<int, int, int> HSVtoRGB(float h, float s, float v);
+SDL_Color HSVtoRGB(float h, float s, float v);
 
 class Plotter {
 public:
