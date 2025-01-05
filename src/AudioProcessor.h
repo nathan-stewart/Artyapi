@@ -1,40 +1,26 @@
 #pragma once
 
 #include <vector>
-#include <boost/circular_buffer.hpp>
 #include <fftw3.h>
-#include <gnuplot-iostream.h>
 #include "Filters.h"
+#include <utility>
 #include "SpectrumProcessor.h"
+#include "Signal.h"
 
-void  process_volume(const Signal& data, boost::circular_buffer<float>& vrms, boost::circular_buffer<float>& vpk);
+std::pair<float,float>  process_volume(const Signal& data, boost::circular_buffer<float>& vrms, boost::circular_buffer<float>& vpk);
 
 class AudioProcessor
 {
 public:
     friend class AudioProcessorTest;
-    AudioProcessor(size_t display_w=1920, size_t display_h=480, size_t window_size=16834);
+    AudioProcessor(size_t fft_bins=1920, size_t fft_history=480, size_t window_size=16834);
     ~AudioProcessor();
 
     void process(const Signal& data);
-    void create_volume_plot();
-    void update_plot();
 
 private:
-    size_t disp_w;
-    size_t disp_h;
-    float margin_left;
-    float margin_right;
-    float margin_top;
-    float margin_bottom;
-
-    enum class DisplayMode {
-        Volume,
-        Spectrum,
-    }                               display_mode;
-    Gnuplot                         gnuplot;
-    SpectrumProcessor               process_spectrum;
-    boost::circular_buffer<float>   vpk;
-    boost::circular_buffer<float>   vrms;
-    Spectrum                        log2_fft;
+    float                        vrms;
+    float                        vpk;
+    SpectrumProcessor             spectrum;
+    std::vector<Spectrum>         history;
 };

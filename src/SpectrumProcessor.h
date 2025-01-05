@@ -46,10 +46,9 @@ public:
     SpectrumProcessor(size_t display_w, size_t display_h, size_t window_size);
     ~SpectrumProcessor();
 
-    SpectrumProcessor& operator()(const Signal& data);
-    void                normalize_fft();
-    Spectrum            get_linear_fft() const { return linear_fft; }
-    Spectrum            get_log2_fft() const { return log2_fft; }
+    Spectrum operator()(const Signal& data);
+    void     normalize_fft();
+    Spectrum get_linear_fft() const { return linear_fft; }
 
 private:
     boost::circular_buffer<float>   raw;

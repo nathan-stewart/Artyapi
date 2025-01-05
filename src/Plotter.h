@@ -2,6 +2,10 @@
 
 #include <SDL2/SDL.h>
 #include <vector>
+#include <tuple>
+#include <boost/circular_buffer.hpp>
+
+std::tuple<int, int, int> HSVtoRGB(float h, float s, float v);
 
 class Plotter {
 public:
@@ -13,14 +17,17 @@ public:
     Plotter(size_t width, size_t height, PlotMode mode, bool rotate = false);
     ~Plotter();
 
-    void plotVolume(const std::vector<float>& vrms, const std::vector<float>& vpk);
-    void plotSpectrum(const std::vector<std::vector<float>>& log2fft);
+    void plotVolume(float rms, float pk);
+    void plotSpectrum(const std::vector<std::pair<float,float>>& spectrum);
     void clear();
 
 private:
     void initSDL();
     void destroySDL();
-    void drawPixel(int x, int y, Uint8 r, Uint8 g, Uint8 b);
+
+    boost::circular_buffer<float> vrms;
+    boost::circular_buffer<float> vpk;
+    boost::circular_buffer<std::vector<SDL_Color>> spectral;
 
     size_t width;
     size_t height;

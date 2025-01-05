@@ -76,10 +76,10 @@ SpectrumProcessor::SpectrumProcessor(size_t display_w, [[maybe_unused]] size_t d
 
     // 2nd order butterworth 40Hz HPF - 4th order is unstable
     hpf = {{0.9963044f, -1.9926089f, 0.9963044f}, {1.0000000f, -1.9925952f, 0.9926225f}};
-    
+
     // 4th order butterowrth 20khz LPF
     lpf = { {0.4998150f,  1.9992600f, 2.9988900f,  1.9992600f, 0.4998150f}, {1.0000000f,  2.6386277f, 2.7693098f,  1.3392808f, 0.2498217f}};
-    
+
     window = hanning_window(window_size);
 
     fftw_in = fftwf_alloc_real(window_size);
@@ -114,10 +114,13 @@ void nan_check(const Signal& data, string message)
         throw std::runtime_error(message);
 }
 
-SpectrumProcessor& SpectrumProcessor::operator()(const Signal& data)
+Spectrum SpectrumProcessor::operator()(const Signal& data)
 {
     if (data.size() == 0)
-        return *this;
+    {
+        log2_fft.fill(0.0f);
+        return log2_fft;
+    }
 
     // Append data to the circular buffer
     raw.insert(raw.end(), data.begin(), data.end());
@@ -153,7 +156,9 @@ SpectrumProcessor& SpectrumProcessor::operator()(const Signal& data)
     map_bins(bin_mapping, linear_fft, log2_fft);
 
     // Compute Decay per bin
-    return *this;
+
+    // return spectrum
+    return log2_fft;
 }
 
 

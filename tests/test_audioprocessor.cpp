@@ -22,14 +22,10 @@ TEST(VolumeProcessorTest, VolumeZeros)
 {
     size_t samples = 1<<24;
     Signal zeros(samples, 0.0f);
-    boost::circular_buffer<float> vrms(10);
-    boost::circular_buffer<float> vpk(10);
-    process_volume(zeros, vrms, vpk);
-    ASSERT_EQ(vrms.size(), 1);
-    ASSERT_LE(vrms.back(), -96.0f);
+    auto [vrms,vpk] = process_volume(zeros);
 
-    ASSERT_EQ(vpk.size(), 1);
-    ASSERT_LT(vpk.back(), -96.0f);
+    ASSERT_LT(vrms, -96.0f);
+    ASSERT_LT(vpk, -96.0f);
 }
 
 
@@ -37,15 +33,10 @@ TEST(AudioProcessorTest, VolumeOnes)
 {
     size_t samples = 1<<24;
     Signal ones(samples, 1.0f);
-    boost::circular_buffer<float> vrms(10);
-    boost::circular_buffer<float> vpk(10);
 
-    process_volume(ones, vrms, vpk);
-    ASSERT_EQ(vrms.size(), 1);
-    ASSERT_NEAR(vrms.back(),  0.0f, 0.01f);
-
-    ASSERT_EQ(vpk.size(), 1);
-    ASSERT_NEAR(vpk.back(), 0.0f, 0.01f);
+    auto [vrms, vpk] = process_volume(ones);
+    ASSERT_NEAR(vrms,  0.0f, 0.01f);
+    ASSERT_NEAR(vpk, 0.0f, 0.01f);
 }
 
 
@@ -53,15 +44,11 @@ TEST(AudioProcessorTest, VolumeSine)
 {
     size_t samples = 1<<16;
     size_t sample_rate = 48000;
-    boost::circular_buffer<float> vrms(10);
-    boost::circular_buffer<float> vpk(10);
     Signal sine_440 = sine_wave(440, float(sample_rate), samples);
-    process_volume(sine_440, vrms, vpk);
+    auto [vrms, vpk] = process_volume(sine_440);
 
-    EXPECT_EQ(vrms.size(), 1);
-    EXPECT_EQ(vpk.size(), 1);
-    ASSERT_NEAR(vrms.back(),  -3.0f, 0.1f);
-    ASSERT_NEAR(vpk.back(),  0.0f, 0.1f);
+    ASSERT_NEAR(vrms,  -3.0f, 0.1f);
+    ASSERT_NEAR(vpk,  0.0f, 0.1f);
 }
 
 
@@ -148,8 +135,7 @@ TEST(AudioProcessorTest, SineSpectrumLog)
 
     Signal sine_440 = sine_wave(440, 48000, samples);
     SpectrumProcessor sp(1920, 480, 16834);
-    sp(sine_440);
-    Spectrum spectrum = sp.get_log2_fft();
+    Spectrum spectrum = sp(sine_440);
 
     // Nearly all bins should be empty
     size_t non_zero = std::count_if(spectrum.begin(), spectrum.end(), [](float v) { return v > 0.1f; });
@@ -159,7 +145,7 @@ TEST(AudioProcessorTest, SineSpectrumLog)
 
     // check that the peak is at the right frequency in linear space - look on either side too
     auto peak = std::max_element(spectrum.begin(), spectrum.end());
-    
+
     // the peak may be spread across a couple of bins but it should be close to 1.0
     float sum = 0.0f;
     std::for_each(peak -1,peak + 1, [&sum](float v) { sum += std::abs(v); });

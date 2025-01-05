@@ -48,7 +48,6 @@ int main(int argc, char** argv)
     }
 
     AudioProcessor ap(1920, 480, 16384);
-    ap.create_volume_plot();
 
     auto previous = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
     while (true)
@@ -63,7 +62,6 @@ int main(int argc, char** argv)
         previous = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
         Signal data = source->read();
         ap.process(data);
-        ap.update_plot();
     }
     return 0;
 }
