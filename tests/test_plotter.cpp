@@ -54,18 +54,19 @@ TEST(Plotter, Spectrum)
 
     size_t octaves = static_cast<size_t>(ceil(log2(f1/f0)));
     size_t bins_per_tick = static_cast<size_t>(bins / octaves) / 3;
-    cout << "Octaves: " << octaves << " bins per tick: " << bins_per_tick << endl;
-    for (size_t b = 0; b <= bins; b += bins_per_tick)
-    {
-        float n = static_cast<float>(b) / static_cast<float>(bins_per_tick);
-        cout << b << " " << f0 * pow(2.0f, n/3) << " Hz" << endl;
-    }
-    vector<pair<float,float>> spectral(history);
+    vector<pair<float,float>> spectral(bins);
+
     for (size_t t = 0; t < history;  ++t)
     {
         for (size_t b = 0; b < bins; ++b)
         {
-            spectral[b] = make_pair((b % bins_per_tick) ? 1.0f : 0.0f, 0.0f);
+            size_t n = b / bins_per_tick;
+            bool is_tick = b % bins_per_tick == 0;
+            spectral[b] = make_pair(is_tick ? 1.0f : 0.0f, (n%2) ? 0.0f : 1.0f);
+            if (t == 0)
+            {
+                cout << "n: " << setw(3) << n << " b: " << setw(4) << b << " bins_per_tick: " << setw(4) << bins_per_tick << endl;
+            }
         }
         plotter.plotSpectrum(spectral);
     }

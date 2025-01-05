@@ -121,11 +121,8 @@ void Plotter::plotVolume(float rms, float pk)
 
 void Plotter::plotSpectrum(const vector<pair<float,float>>& spectrum)
 {
-    if (spectrum.size() != width)
-    {
-        cerr << "Spectrum size does not match width" << endl;
-        return;
-    }
+    assert(spectrum.size() == width);
+    
     // transform float,float pair vector to vector of SDL_Color
     vector<SDL_Color> colors;
     colors.reserve(spectrum.size());
