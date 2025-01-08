@@ -1,6 +1,5 @@
 #pragma once
 #include <sndfile.h>
-#include <filesystem>
 #include <boost/filesystem.hpp>
 #include <chrono>
 #include <utility>
@@ -9,7 +8,7 @@
 #include <boost/circular_buffer.hpp>
 #include "Signal.h"
 
-using Filepath = std::filesystem::path;
+using Filepath = boost::filesystem::path;
 
 class AudioSource
 {
@@ -47,7 +46,7 @@ private:
 
 class WavFile {
 public:
-    WavFile(std::string path);
+    WavFile(const Filepath& path);
     ~WavFile();
 
     Signal read(size_t frames_to_read);
@@ -65,7 +64,7 @@ private:
 class AudioFileHandler : public AudioSource
 {
 public:
-    AudioFileHandler(Filepath path);
+    AudioFileHandler(std::string name);
     ~AudioFileHandler();
     std::vector<Filepath> get_wav_in_dir() const;
     Signal read() override;

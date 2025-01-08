@@ -3,20 +3,21 @@
 #include <gtest/gtest.h>
 #include <iostream>
 #include <sndfile.h>
-#include <filesystem>
 #include <boost/filesystem.hpp>
 #include <thread>
 
 using namespace std::chrono_literals;
+using namespace std;
+namespace fs = boost::filesystem;
 
 TEST(AudioSource, FilePlayback)
 {
-    boost::filesystem::path tempdir = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path("%%%%-%%%%-%%%%-%%%%");
-    boost::filesystem::create_directory(tempdir);
+    fs::path tempdir = fs::temp_directory_path() / fs::unique_path("%%%%-%%%%-%%%%-%%%%");
+    fs::create_directory(tempdir);
     float sample_rate = 48e3f;
     size_t samples = 48000;
     Signal   sine_1khz = sine_wave(1000.0f, sample_rate, samples);
-    std::filesystem::path  sine_file = (tempdir / "sine_1khz.wav").string();
+    fs::path  sine_file = (tempdir / "sine_1khz.wav").string();
     write_wav_file(sine_file, sine_1khz, static_cast<int>(sample_rate));
 
     Signal signal;
@@ -53,18 +54,18 @@ TEST(AudioSource, FilePlayback)
     float generated_frequency = (static_cast<float>(zero_crossings(recovered)) / 2.0f) * (sample_rate / static_cast<float>(recovered.size()));
     EXPECT_NEAR(generated_frequency, 1000.0f , 1.0f);
 
-    std::filesystem::remove(sine_file);
+    fs::remove(sine_file);
 }
 
 TEST(AudioSource, DirPlayback)
 {
-    boost::filesystem::path tempdir = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path("%%%%-%%%%-%%%%-%%%%");
-    boost::filesystem::create_directory(tempdir);
-    boost::filesystem::create_directory(tempdir);
+    fs::path tempdir = fs::temp_directory_path() / fs::unique_path("%%%%-%%%%-%%%%-%%%%");
+    fs::create_directory(tempdir);
+    fs::create_directory(tempdir);
 
     float sample_rate = 48e3f;
     size_t samples = 48000;
-    std::vector<std::tuple<boost::filesystem::path, float, Signal>> tempfiles = {
+    std::vector<std::tuple<fs::path, float, Signal>> tempfiles = {
         {tempdir / "sine_1khz.wav", 1e3f, sine_wave(1000.0f, sample_rate, samples)},
         {tempdir / "sine_2khz.wav", 2e3f, sine_wave(2000.0f, sample_rate, samples)},
         {tempdir / "sine_3khz.wav", 3e3f, sine_wave(3000.0f, sample_rate, samples)}};
@@ -98,8 +99,8 @@ TEST(AudioSource, DirPlayback)
     // cleanup
     for (auto [filename, f, signal] : tempfiles)
     {
-        boost::filesystem::remove(filename);
+        fs::remove(filename);
     }
-    boost::filesystem::remove(tempdir);
+    fs::remove(tempdir);
 
 }

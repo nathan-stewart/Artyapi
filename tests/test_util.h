@@ -5,6 +5,7 @@
 #include <numeric>
 #include <cstddef>
 #include <string>
+#include <boost/filesystem.hpp>
 
 Signal white_noise(size_t samples);
 float average(const Signal& data);
@@ -13,4 +14,4 @@ float rms(const Signal& data);
 float peak(const Signal& data);
 float db(float value);
 int zero_crossings(const Signal& data);
-void write_wav_file(const std::string& filename, const Signal& signal, int sample_rate);
+void write_wav_file(const boost::filesystem::path& filename, const Signal& signal, int sample_rate);

@@ -75,7 +75,7 @@ int zero_crossings(const Signal& data)
 }
 
 
-void write_wav_file(const std::string& filename, const Signal& signal, int sample_rate)
+void write_wav_file(const boost::filesystem::path& filename, const Signal& signal, int sample_rate)
 {
     SF_INFO sfinfo;
     sfinfo.frames = signal.size();
@@ -85,7 +85,7 @@ void write_wav_file(const std::string& filename, const Signal& signal, int sampl
 
     SNDFILE* outfile = sf_open(filename.c_str(), SFM_WRITE, &sfinfo);
     if (!outfile) {
-        throw std::runtime_error("Failed to open WAV file for writing: " + filename);
+        throw std::runtime_error("Failed to open WAV file for writing: " + filename.string());
     }
 
     sf_write_float(outfile, signal, signal.size());

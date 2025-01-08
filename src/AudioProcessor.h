@@ -20,9 +20,10 @@ public:
     void process(const Signal& data);
 
 private:
+    SpectrumProcessor            spectrum;
+    Plotter                      plotter;
+
     float                        vrms;
     float                        vpk;
-    SpectrumProcessor             spectrum;
-    std::vector<Spectrum>         history;
-    Plotter                       plotter;
+    std::vector<Spectrum>        history;
 };

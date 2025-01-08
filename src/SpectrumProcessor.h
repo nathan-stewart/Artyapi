@@ -13,6 +13,7 @@ struct Spectrum {
 
     // Constructors for convenience
     Spectrum() = default;
+    virtual ~Spectrum() = default;
     Spectrum(size_t size) : data(size) {}
     Spectrum(const std::vector<float>& vec) : data(vec) {}
     Spectrum(std::vector<float>&& vec) : data(std::move(vec)) {}
@@ -32,35 +33,33 @@ struct Spectrum {
 
 };
 
-float bin_to_freq_linear(const Spectrum& spectrum, float bin, float f0, float f1);
-float bin_to_freq_log2(const Spectrum& spectrum, float bin, float f0, float f1);
-float freq_to_lin_fractional_bin(const Spectrum& spectrum, float freq, float f0, float f1);
-float freq_to_log_fractional_bin(const Spectrum& spectrum, float freq, float f0, float f1);
+float bin_to_freq_linear(size_t num_bins, float bin, float f0, float f1);
+float bin_to_freq_log2(size_t num_bins, float bin, float f0, float f1);
+float freq_to_lin_fractional_bin(size_t num_bins, float freq, float f0, float f1);
+float freq_to_log_fractional_bin(size_t num_bins, float freq, float f0, float f1);
 
-Spectrum precompute_bin_mapping(const Spectrum &linear_fft, const Spectrum &log_fft, float f0, float f1);
 void map_bins(const Spectrum& bin_mapping, const Spectrum& source, Spectrum& destination);
+Spectrum precompute_bin_mapping(size_t lin_fft_bins, size_t log_fft_bins, float f0, float f1);
 
 class SpectrumProcessor
 {
 public:
-    SpectrumProcessor(size_t display_w, size_t display_h, size_t window_size);
-    ~SpectrumProcessor();
+    SpectrumProcessor(size_t window_size, size_t log_bin_count);
+    virtual ~SpectrumProcessor();
 
-    Spectrum operator()(const Signal& data);
-    void     normalize_fft();
-    Spectrum get_linear_fft() const { return linear_fft; }
+    virtual Spectrum operator()(const Signal& data);
 
 private:
     boost::circular_buffer<float>   raw;
     float              sample_rate;
     float              f0;
     float              f1;
+    size_t             lin_fft_bins;
+    size_t             log_fft_bins;
     Signal             window;
     FilterCoefficients hpf;
     FilterCoefficients lpf;
     Spectrum           bin_mapping;
-    Spectrum           linear_fft;
-    Spectrum           log2_fft;
     float*             fftw_in;
     float*             fftw_out;
     fftwf_plan         plan;

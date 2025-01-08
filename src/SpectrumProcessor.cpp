@@ -3,36 +3,33 @@
 #include <iostream>
 using namespace std;
 
-float bin_to_freq_linear(const Spectrum& spectrum, float bin, float f0, float f1)
+float bin_to_freq_linear(size_t num_bins, float bin, float f0, float f1)
 {
-    int num_bins = static_cast<int>(spectrum.size());
     float log2_bin_index = bin / static_cast<float>(num_bins);
     return f0 + log2_bin_index * (f1 - f0);
 }
 
 
-float bin_to_freq_log2(const Spectrum& spectrum, float bin, float f0, float f1)
+float bin_to_freq_log2(size_t num_bins, float bin, float f0, float f1)
 {
-    int num_bins = static_cast<int>(spectrum.size());
     float bin_index = bin / static_cast<float>(num_bins);
     return f0 * std::pow(2.0f, static_cast<float>(log2(f1 / f0)) * bin_index);
 }
 
 
-float freq_to_lin_fractional_bin(const Spectrum& spectrum, float freq, float f0, float f1)
+float freq_to_lin_fractional_bin(size_t num_bins, float freq, float f0, float f1)
 {
-    float num_bins = static_cast<float>(spectrum.size());
     float bin_fraction = (freq - f0) / (f1 - f0);
-    return bin_fraction * num_bins;
+    return bin_fraction * static_cast<float>(num_bins);
 }
 
 
-float freq_to_log_fractional_bin(const Spectrum& spectrum, float freq, float f0, float f1)
+float freq_to_log_fractional_bin(size_t num_bins, float freq, float f0, float f1)
 {
-    float num_bins = static_cast<float>(spectrum.size());
     float log2_bin_index = std::log2(freq / f0) / std::log2(f1 / f0);
-    return log2_bin_index * num_bins;
+    return log2_bin_index * static_cast<float>(num_bins);
 }
+
 
 void map_bins(const Spectrum& mapping, const Spectrum& source, Spectrum& destination)
 {
@@ -52,27 +49,25 @@ void map_bins(const Spectrum& mapping, const Spectrum& source, Spectrum& destina
     }
 }
 
-Spectrum precompute_bin_mapping(const Spectrum& source, const Spectrum& destination, float f0, float f1)
+Spectrum precompute_bin_mapping(size_t lin_fft_bins, size_t log_fft_bins, float f0, float f1)
 {
-    size_t linear_size = source.size();
-    Spectrum mapping(linear_size);
-    for (size_t i = 0; i < linear_size; ++i) {
-        float freq = bin_to_freq_linear(source, static_cast<float>(i), f0, f1);
-        mapping[i] = freq_to_log_fractional_bin(destination, freq, f0, f1);
+    Spectrum bin_mapping(log_fft_bins);
+    for (size_t i = 0; i < lin_fft_bins; ++i) {
+        float freq = bin_to_freq_linear(lin_fft_bins, static_cast<float>(i), f0, f1);
+        bin_mapping[i] = freq_to_log_fractional_bin(log_fft_bins, freq, f0, f1);
     }
-    return mapping;
+    return bin_mapping;
 }
 
-SpectrumProcessor::SpectrumProcessor(size_t display_w, [[maybe_unused]] size_t display_h, size_t window_size)
+SpectrumProcessor::SpectrumProcessor(size_t window_size, size_t log_bin_count)
 : raw(window_size)
 , sample_rate(48000.0f)
 , f0(40.0f)
 , f1(20000.0f)
-
+, lin_fft_bins(static_cast<size_t>(window_size / 2 + 1))
+, log_fft_bins(log_bin_count)
 {
-    linear_fft.resize(static_cast<size_t>(window_size / 2 + 1));
-    log2_fft.resize(display_w);
-    bin_mapping = precompute_bin_mapping(linear_fft, log2_fft, f0, f1);
+    bin_mapping = precompute_bin_mapping(lin_fft_bins, log_fft_bins, f0, f1);
 
     // 2nd order butterworth 40Hz HPF - 4th order is unstable
     hpf = {{0.9963044f, -1.9926089f, 0.9963044f}, {1.0000000f, -1.9925952f, 0.9926225f}};
@@ -116,12 +111,14 @@ void nan_check(const Signal& data, string message)
 
 Spectrum SpectrumProcessor::operator()(const Signal& data)
 {
+    Spectrum linear_fft(lin_fft_bins);
+    Spectrum log2_fft(log_fft_bins);
     if (data.size() == 0)
     {
         log2_fft.fill(0.0f);
         return log2_fft;
     }
-
+    
     // Append data to the circular buffer
     raw.insert(raw.end(), data.begin(), data.end());
 
@@ -151,7 +148,10 @@ Spectrum SpectrumProcessor::operator()(const Signal& data)
 
     std::copy(fftw_out, fftw_out + linear_fft.size(), linear_fft.begin());
 
-    normalize_fft();
+    // normalize FFT
+    float norm = 2.0f / static_cast<float>(linear_fft.size());
+    std::transform(linear_fft.begin(), linear_fft.end(), linear_fft.begin(),
+                   [norm](float v) { return v * norm; });
 
     map_bins(bin_mapping, linear_fft, log2_fft);
 
@@ -161,12 +161,4 @@ Spectrum SpectrumProcessor::operator()(const Signal& data)
     return log2_fft;
 }
 
-
-void SpectrumProcessor::normalize_fft()
-{
-    // normalize FFT
-    float norm = 2.0f / static_cast<float>(linear_fft.size());
-    std::transform(linear_fft.begin(), linear_fft.end(), linear_fft.begin(),
-                   [norm](float v) { return v * norm; });
-}
 

@@ -24,12 +24,13 @@ std::pair<float,float> process_volume(const Signal& data)
 
 
 AudioProcessor::AudioProcessor(size_t fft_bins, size_t fft_history, size_t window_size)
-: spectrum(fft_bins, fft_history, window_size)
+: spectrum(window_size, fft_bins)
 , plotter(fft_bins, fft_history, Plotter::PlotMode::Spectrum, false)
-
+, vrms(-96.0f)
+, vpk(-96.0f)
+, history(fft_history)
 {
 }
-
 
 AudioProcessor::~AudioProcessor()
 {

@@ -6,6 +6,7 @@
 #include <sndfile.h>
 
 using namespace std;
+namespace fs =  boost::filesystem;
 
 // Define the callback function
 int paCallback(const void *inputBuffer, void *,
@@ -146,14 +147,15 @@ std::string to_lowercase(const std::string& str) {
 }
 
 
-AudioFileHandler::AudioFileHandler(Filepath path)
-: AudioSource(path)
+AudioFileHandler::AudioFileHandler(std::string name)
+: AudioSource(name)
 , current(nullptr)
 {
-    if (std::filesystem::is_directory(path))
+    Filepath path(name);
+    if (fs::is_directory(path))
     {
         folder = path;
-    } else if (std::filesystem::is_regular_file(path) && path.extension() == ".wav")
+    } else if (fs::is_regular_file(path) && path.extension() == ".wav")
     {
         folder = "";
         current = std::make_unique<WavFile>(path);
@@ -174,9 +176,9 @@ std::vector<Filepath> AudioFileHandler::get_wav_in_dir() const
 {
     std::vector<Filepath> wav_files;
     cout << "Scanning directory: " << folder << endl;
-    for (const auto& entry : std::filesystem::directory_iterator(folder))
+    for (const auto& entry : fs::directory_iterator(folder))
     {
-        if (entry.is_regular_file() && to_lowercase(entry.path().extension().string()) == ".wav")
+        if (fs::is_regular_file(entry) && to_lowercase(entry.path().extension().string()) == ".wav")
         {
             cout << "Found file: " << entry.path() << endl;
             wav_files.push_back(entry.path());
@@ -245,11 +247,15 @@ Signal AudioFileHandler::read()
 }
 
 
-WavFile::WavFile(std::string path)
+WavFile::WavFile(const Filepath& path)
 : filepath(path)
 , infile(nullptr)
 , sample_rate (48e3f)
 {
+    if (!fs::is_regular_file(filepath))
+    {
+        throw std::runtime_error("Invalid file: " + filepath.string());
+    }
     // Using Headerless PCM 24bit 48khz format
     SF_INFO info;
     info.samplerate = static_cast<int>(sample_rate);
@@ -292,8 +298,8 @@ Signal WavFile::read(size_t frames_to_read)
 std::unique_ptr<AudioSource> AudioSourceFactory::createAudioSource(const std::string& source)
 {
     std::unique_ptr<AudioSource> audio_source;
-    if (std::filesystem::is_directory(source) ||
-       (std::filesystem::is_regular_file(source) && std::filesystem::path(source).extension() == ".wav"))
+    if (fs::is_directory(source) ||
+       (fs::is_regular_file(source) && fs::path(source).extension() == ".wav"))
     {
         audio_source = std::make_unique<AudioFileHandler>(source);
     }

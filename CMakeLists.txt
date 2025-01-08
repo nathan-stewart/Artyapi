@@ -43,6 +43,7 @@ add_compile_options(
   -Wconversion
   -Wfloat-conversion
   -Wdouble-promotion
+  -std=c++17
 )
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
