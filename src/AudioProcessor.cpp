@@ -37,6 +37,33 @@ AudioProcessor::~AudioProcessor()
 }
 
 
+SpectralHistory transpose(const boost::circular_buffer<Spectrum>& history) 
+{
+    if (history.empty()) return {};
+
+    size_t bins = history[0].size();
+    size_t slices = history.size();
+    SpectralHistory transposed(bins, std::vector<float>(slices));
+    for (size_t i = 0; i < bins; ++i)
+    {
+        for (size_t j = 0; j < slices; ++j)
+        {
+            transposed[i][j] = history[j][i];
+        }
+    }
+    return transposed;
+}
+
+Spectrum AudioProcessor::calculate_decay_rates()
+{
+    SpectralHistory transposed = transpose(history);
+    Spectrum decay_rates;
+    for (auto& bin : transposed)
+    {
+    }
+    return decay_rates;
+}
+
 void AudioProcessor::process(const Signal& data)
 {
     if (data.size() == 0)
@@ -45,6 +72,7 @@ void AudioProcessor::process(const Signal& data)
     auto [vrms_val, vpk_val] = process_volume(data);
     vrms = vrms_val;
     vpk = vpk_val;
-    spectrum(data);
+    history.push_front(spectrum(data));
+    calculate_decay_rates();
 }
 

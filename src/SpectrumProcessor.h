@@ -1,5 +1,4 @@
 #pragma once
-
 #include <vector>
 #include <boost/circular_buffer.hpp>
 #include <fftw3.h>
