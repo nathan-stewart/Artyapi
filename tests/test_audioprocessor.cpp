@@ -7,7 +7,9 @@
 #include <random>
 #include <boost/circular_buffer.hpp>
 #include "test_util.h"
+#include <iostream>
 
+using namespace std;
 
 class AudioProcessorTest : public ::testing::Test
 {
@@ -63,9 +65,11 @@ TEST(AudioProcessorTest, BinToFrequency)
     EXPECT_NEAR(bin_to_freq_linear(linear_count, static_cast<float>(linear_count), f0, f1),          f1, 0.1f);
 
 
+
     size_t log_count = 1920;
     EXPECT_NEAR(bin_to_freq_log2(log_count, static_cast<float>        (0), f0, f1),          f0, 0.1f);
-    EXPECT_NEAR(bin_to_freq_log2(log_count,                       1881.0f, f0, f1), 1.7628e+04f, 0.5f);
+    EXPECT_NEAR(bin_to_freq_log2(log_count,                          1880, f0, f1), 1.7571e+04f, 0.5f);
+    EXPECT_NEAR(bin_to_freq_log2(log_count,                          1881, f0, f1), 1.7628e+04f, 0.5f);
     EXPECT_NEAR(bin_to_freq_log2(log_count, static_cast<float>(log_count), f0, f1),          f1, 0.1f);
 
 
@@ -99,13 +103,28 @@ TEST(AudioProcessorTest, BinMapping)
     auto just_before = destination.begin() + b - 1;
     ASSERT_NEAR(std::accumulate(just_before, just_before + 4, 0.0f), 1.0f, 0.1f);
 
-    // pick a range of frequencies which lie and see if they sum
-    source.fill(0.0f);
-    float p = bin_to_freq_log2(destination.size(), 1880, f0, f1);
-    EXPECT_NEAR(p, 1.7571e+04, 1.0f);
+    source.fill(0.0f); // zero out previous test
 
-    float q = bin_to_freq_log2(destination.size(), 1881, f0, f1);
-    EXPECT_NEAR(q, 1.7628e+04 , 1.0f);
+    // verify that multiple inputs sum to approximately the same output
+    size_t test_bin = destination.size() - 1;
+    float p = bin_to_freq_log2(destination.size(), static_cast<float>(test_bin), f0, f1);
+    float q = bin_to_freq_log2(destination.size(), static_cast<float>(test_bin + 1), f0, f1);
+    cout << "Output bin " << test_bin << " covers frequencies " << p << " - " << q << endl;
+
+    size_t r = static_cast<size_t>(freq_to_lin_fractional_bin(source.size(), floor(p), f0, f1));
+    size_t s = static_cast<size_t>(freq_to_lin_fractional_bin(source.size(), ceil(q), f0, f1));
+    cout << "Input bins " << r << " - " << s << endl;
+    size_t distance = s - r;
+    cout << "distance = " << s - r << endl;
+
+    for (auto i = source.begin() + r; i != source.begin() + s; ++i)
+    {
+        *i = 1.0f;
+    }
+    map_bins(mapping, source, destination);
+    cout << "Output sum = " << std::accumulate(destination.begin(), destination.end(), 0.0f) << endl;
+    EXPECT_NEAR(destination[test_bin], static_cast<float>(distance), 0.5f);
+
 
     // float r = freq_to_lin_fractional_bin(source.size(), p, f0, f1);
     // float s = freq_to_lin_fractional_bin(source.size(), q, f0, f1);
