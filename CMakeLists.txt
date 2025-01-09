@@ -36,6 +36,7 @@ link_directories(/usr/lib/x86_64-linux-gnu)
 
 
 # Add global compiler flags
+# -fsanitize=address
 add_compile_options(
   -Wall
   -Werror
@@ -44,11 +45,12 @@ add_compile_options(
   -Wfloat-conversion
   -Wdouble-promotion
   -std=c++17
+  -g
 )
+
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
   add_compile_options(-O0)
-  add_compile_options(-g)
 else()
   add_compile_options(-O3)
 endif()

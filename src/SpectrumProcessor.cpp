@@ -5,15 +5,15 @@ using namespace std;
 
 float bin_to_freq_linear(size_t num_bins, float bin, float f0, float f1)
 {
-    float log2_bin_index = bin / static_cast<float>(num_bins);
-    return f0 + log2_bin_index * (f1 - f0);
+    float range_fraction = bin / static_cast<float>(num_bins);
+    return f0 + range_fraction * (f1 - f0);
 }
 
 
 float bin_to_freq_log2(size_t num_bins, float bin, float f0, float f1)
 {
-    float bin_index = bin / static_cast<float>(num_bins);
-    return f0 * std::pow(2.0f, static_cast<float>(log2(f1 / f0)) * bin_index);
+    float range_fraction = bin / static_cast<float>(num_bins);
+    return f0 * std::pow(2.0f, range_fraction * static_cast<float>(log2(f1 / f0)));
 }
 
 
@@ -51,7 +51,7 @@ void map_bins(const Spectrum& mapping, const Spectrum& source, Spectrum& destina
 
 Spectrum precompute_bin_mapping(size_t lin_fft_bins, size_t log_fft_bins, float f0, float f1)
 {
-    Spectrum bin_mapping(log_fft_bins);
+    Spectrum bin_mapping(lin_fft_bins);
     for (size_t i = 0; i < lin_fft_bins; ++i) {
         float freq = bin_to_freq_linear(lin_fft_bins, static_cast<float>(i), f0, f1);
         bin_mapping[i] = freq_to_log_fractional_bin(log_fft_bins, freq, f0, f1);
@@ -118,7 +118,7 @@ Spectrum SpectrumProcessor::operator()(const Signal& data)
         log2_fft.fill(0.0f);
         return log2_fft;
     }
-    
+
     // Append data to the circular buffer
     raw.insert(raw.end(), data.begin(), data.end());
 
