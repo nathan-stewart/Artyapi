@@ -175,12 +175,10 @@ AudioFileHandler::~AudioFileHandler()
 std::vector<Filepath> AudioFileHandler::get_wav_in_dir() const
 {
     std::vector<Filepath> wav_files;
-    cout << "Scanning directory: " << folder << endl;
     for (const auto& entry : fs::directory_iterator(folder))
     {
         if (fs::is_regular_file(entry) && to_lowercase(entry.path().extension().string()) == ".wav")
         {
-            cout << "Found file: " << entry.path() << endl;
             wav_files.push_back(entry.path());
         }
     }
@@ -207,14 +205,12 @@ Signal AudioFileHandler::read()
     {
         if (wav_files.empty())
         {
-            cout << "Rescan directory: " << folder << endl;
             wav_files = get_wav_in_dir();
         }
 
         if (!wav_files.empty())
         {
             current = std::make_unique<WavFile>(wav_files.front());
-            cout << "Reading file: " << wav_files.front() << endl;
             wav_files.erase(wav_files.begin());
         }
     }
