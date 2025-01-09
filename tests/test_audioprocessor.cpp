@@ -106,7 +106,7 @@ TEST(AudioProcessorTest, BinMapping)
     source.fill(0.0f); // zero out previous test
 
     // verify that multiple inputs sum to approximately the same output
-    size_t test_bin = destination.size() - 1;
+    size_t test_bin = destination.size() - 2;
     float p = bin_to_freq_log2(destination.size(), static_cast<float>(test_bin), f0, f1);
     float q = bin_to_freq_log2(destination.size(), static_cast<float>(test_bin + 1), f0, f1);
     cout << "Output bin " << test_bin << " covers frequencies " << p << " - " << q << endl;
@@ -122,12 +122,9 @@ TEST(AudioProcessorTest, BinMapping)
         *i = 1.0f;
     }
     map_bins(mapping, source, destination);
-    cout << "Output sum = " << std::accumulate(destination.begin(), destination.end(), 0.0f) << endl;
-    EXPECT_NEAR(destination[test_bin], static_cast<float>(distance), 0.5f);
-
-
-    // float r = freq_to_lin_fractional_bin(source.size(), p, f0, f1);
-    // float s = freq_to_lin_fractional_bin(source.size(), q, f0, f1);
+    // Output should sum to count of input bins set to 1.0
+    EXPECT_NEAR(std::accumulate(source.begin(), source.end(), 0.0f), static_cast<float>(distance), 0.5f);
+    EXPECT_NEAR(std::accumulate(destination.begin(), destination.end(), 0.0f), static_cast<float>(distance), 0.5f);
 }
 
 TEST(AudioProcessorTest, SineSpectrum)
