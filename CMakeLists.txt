@@ -15,6 +15,11 @@ pkg_check_modules(FFTW3 REQUIRED fftw3f)
 include_directories(${FFTW3_INCLUDE_DIRS})
 link_directories(${FFTW3_LIBRARY_DIRS})
 
+find_library(FFTW3F_THREADS_LIBRARY NAMES fftw3f_threads)
+if (NOT FFTW3F_THREADS_LIBRARY)
+    message(FATAL_ERROR "Could not find fftw3f_threads library")
+endif()
+
 find_package(Boost REQUIRED COMPONENTS iostreams system filesystem program_options)
 include_directories(${Boost_INCLUDE_DIRS})
 
@@ -75,6 +80,7 @@ target_link_libraries(rta
   ${PORTAUDIO_LIBRARY}
   ${SNDFILE_LIBRARIES}
   ${FFTW3_LIBRARIES}
+  ${FFTW3F_THREADS_LIBRARY}
   SDL2::SDL2)
 
 # Include Google Test
@@ -112,6 +118,7 @@ target_link_libraries(TestMain
   ${PORTAUDIO_LIBRARY}
   ${SNDFILE_LIBRARIES}
   ${FFTW3_LIBRARIES}
+  ${FFTW3F_THREADS_LIBRARY}
   SDL2::SDL2
   gtest_main)
 

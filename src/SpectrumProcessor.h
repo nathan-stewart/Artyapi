@@ -2,6 +2,8 @@
 #include <vector>
 #include <boost/circular_buffer.hpp>
 #include <fftw3.h>
+#include <thread>
+#include <mutex>
 #include "Signal.h"
 #include "Filters.h"
 #include "SpectrumProcessor.h"
@@ -46,9 +48,10 @@ public:
     SpectrumProcessor(size_t window_size, size_t log_bin_count);
     virtual ~SpectrumProcessor();
 
-    virtual Spectrum operator()(const Signal& data);
+    virtual std::vector<Spectrum> operator()(const Signal& data);
 
 private:
+    mutable std::mutex              buffer_mutex;
     boost::circular_buffer<float>   raw;
     float              sample_rate;
     float              f0;

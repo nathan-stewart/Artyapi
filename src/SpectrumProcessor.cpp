@@ -1,6 +1,8 @@
 #include "SpectrumProcessor.h"
 #include <cmath>
 #include <iostream>
+#include <algorithm>
+
 using namespace std;
 
 float bin_to_freq_linear(size_t num_bins, float bin, float f0, float f1)
@@ -60,13 +62,14 @@ Spectrum precompute_bin_mapping(size_t lin_fft_bins, size_t log_fft_bins, float 
 }
 
 SpectrumProcessor::SpectrumProcessor(size_t window_size, size_t log_bin_count)
-: raw(window_size)
+: raw(window_size * 2) // allow sliding windows
 , sample_rate(48000.0f)
 , f0(40.0f)
 , f1(20000.0f)
 , lin_fft_bins(static_cast<size_t>(window_size / 2 + 1))
 , log_fft_bins(log_bin_count)
 {
+    std::lock_guard<std::mutex> lock(buffer_mutex);
     bin_mapping = precompute_bin_mapping(lin_fft_bins, log_fft_bins, f0, f1);
 
     // 2nd order butterworth 40Hz HPF - 4th order is unstable
@@ -76,6 +79,8 @@ SpectrumProcessor::SpectrumProcessor(size_t window_size, size_t log_bin_count)
     lpf = { {0.4998150f,  1.9992600f, 2.9988900f,  1.9992600f, 0.4998150f}, {1.0000000f,  2.6386277f, 2.7693098f,  1.3392808f, 0.2498217f}};
 
     window = hanning_window(window_size);
+
+    fftwf_init_threads();
 
     fftw_in = fftwf_alloc_real(window_size);
     fftw_out = fftwf_alloc_real(window_size);
@@ -95,6 +100,7 @@ SpectrumProcessor::SpectrumProcessor(size_t window_size, size_t log_bin_count)
 
 SpectrumProcessor::~SpectrumProcessor()
 {
+    fftwf_cleanup_threads();
     fftwf_destroy_plan(plan);
     fftwf_free(fftw_in);
     fftwf_free(fftw_out);
@@ -109,56 +115,57 @@ void nan_check(const Signal& data, string message)
         throw std::runtime_error(message);
 }
 
-Spectrum SpectrumProcessor::operator()(const Signal& data)
+vector<Spectrum> SpectrumProcessor::operator()(const Signal& data)
 {
-    Spectrum linear_fft(lin_fft_bins);
-    Spectrum log2_fft(log_fft_bins);
+    vector<Spectrum> output;
     if (data.size() == 0)
     {
-        log2_fft.fill(0.0f);
-        return log2_fft;
+        return output;
     }
 
-    // Append data to the circular buffer
-    raw.insert(raw.end(), data.begin(), data.end());
-
-    // if buffer isn't full - fill it up with copies of what we have
-    while (raw.size() < raw.capacity())
     {
-        raw.insert(raw.end(), data.begin(), data.begin() + data.size());
+        std::lock_guard<std::mutex> lock(buffer_mutex);
+        // Append data to the circular buffer
+        raw.insert(raw.end(), data.begin(), data.end());
+
+        // first time through if buffer isn't full
+        // fill it up with copies of what we have
+        while (raw.size() < raw.capacity())
+        {
+            raw.insert(raw.end(), data.begin(), data.begin() + data.size());
+        }
     }
 
-    // get a copy of the circular buffer for the window
-    Signal current_slice(raw);
-    nan_check(current_slice, "NaN in current_slice");
+    Spectrum linear_fft(lin_fft_bins);
+    Signal slice(window.size());
+    size_t step_size = 64; // 64 samples per step
+    for (size_t i = 0; i < data.size(); i += step_size)
+    {
+        Spectrum log2_fft(log_fft_bins);
+        // get a copy of the circular buffer for the window
+        {
+            std::lock_guard<std::mutex> lock(buffer_mutex);
+            copy(raw.begin(), raw.begin() + window.size(), slice.begin());
+        }
 
-    apply_window(window, current_slice);
-    nan_check(current_slice, "NaN after Windowing");
+        apply_window(window, slice);
+        slice = filter(hpf, raw);
+        slice = filter(lpf, raw);
+        nan_check(raw, "NaN after LPF");
 
-    current_slice = filter(hpf, current_slice);
-    nan_check(current_slice, "NaN after HPF");
+        std::copy(slice.begin(), slice.end(), fftw_in);
+        fftwf_execute(plan);
+        std::copy(fftw_out, fftw_out + linear_fft.size(), linear_fft.begin());
 
-    current_slice = filter(lpf, current_slice);
-    nan_check(current_slice, "NaN after LPF");
+        // normalize FFT
+        float norm = 2.0f / static_cast<float>(linear_fft.size());
+        std::transform(linear_fft.begin(), linear_fft.end(), linear_fft.begin(),
+                       [norm](float v) { return v * norm; });
 
-    std::copy(current_slice.begin(), current_slice.end(), fftw_in);
-    nan_check(current_slice, "NaN in fftw_in");
-
-    fftwf_execute(plan);
-
-    std::copy(fftw_out, fftw_out + linear_fft.size(), linear_fft.begin());
-
-    // normalize FFT
-    float norm = 2.0f / static_cast<float>(linear_fft.size());
-    std::transform(linear_fft.begin(), linear_fft.end(), linear_fft.begin(),
-                   [norm](float v) { return v * norm; });
-
-    map_bins(bin_mapping, linear_fft, log2_fft);
-
-    // Compute Decay per bin
-
-    // return spectrum
-    return log2_fft;
+        map_bins(bin_mapping, linear_fft, log2_fft);
+        output.push_back(log2_fft);
+    }
+    return output;
 }
 
 

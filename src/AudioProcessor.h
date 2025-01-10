@@ -4,6 +4,7 @@
 #include <boost/circular_buffer.hpp>
 #include <utility>
 #include <thread>
+#include <mutex>
 #include "Filters.h"
 #include "SpectrumProcessor.h"
 #include "Signal.h"
@@ -13,13 +14,13 @@
 // from the audio data. It uses a SpectrumProcessor to calculate the spectrum of
 // the audio data and a Plotter to display the results.
 // The AudioProcessor class:
-//      Takes a Signal object as input and processes the audio data. 
+//      Takes a Signal object as input and processes the audio data.
 //      Calculates Peak and RMS volume levels from the audio data.
-//      Calculates the  FFT 
+//      Calculates the  FFT
 //      Calculates the decay rates from the FFT data.
 //      Displays the results using a Plotter object.
 //
-// The FFT can run on a separate thread to improve performance, testing indicates it can 
+// The FFT can run on a separate thread to improve performance, testing indicates it can
 // run around 36kfps on a 1.4Ghz AMD Ryzen 5 5500U
 
 std::pair<float,float>  process_volume(const Signal& data);
@@ -37,6 +38,7 @@ public:
     Spectrum calculate_decay_rates();
 
 private:
+    mutable std::mutex               historyMutex;
     SpectrumProcessor                spectrum;
     Plotter                          plotter;
 

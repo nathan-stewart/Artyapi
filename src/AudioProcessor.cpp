@@ -5,9 +5,11 @@
 #include <complex>
 #include <iostream>
 
-const float LOGMIN = 1e-10f;
 
-std::pair<float,float> process_volume(const Signal& data)
+const float LOGMIN = 1e-10f;
+using namespace std;
+
+pair<float,float> process_volume(const Signal& data)
 {
     float rms = 0.0f;
     float pk = 0.0f;
@@ -15,11 +17,11 @@ std::pair<float,float> process_volume(const Signal& data)
     for (auto& sample : data)
     {
         rms += sample * sample;
-        pk = std::max(pk, std::abs(sample));
+        pk = max(pk, abs(sample));
     }
 
     rms = sqrtf(rms / static_cast<float>(data.size()));
-    return std::make_pair(20 * std::log10(rms + LOGMIN), 20 * std::log10(pk + LOGMIN));
+    return make_pair(20 * log10(rms + LOGMIN), 20 * log10(pk + LOGMIN));
 }
 
 
@@ -37,13 +39,13 @@ AudioProcessor::~AudioProcessor()
 }
 
 
-SpectralHistory transpose(const boost::circular_buffer<Spectrum>& history) 
+SpectralHistory transpose(const boost::circular_buffer<Spectrum>& history)
 {
     if (history.empty()) return {};
 
     size_t bins = history[0].size();
     size_t slices = history.size();
-    SpectralHistory transposed(bins, std::vector<float>(slices));
+    SpectralHistory transposed(bins, vector<float>(slices));
     for (size_t i = 0; i < bins; ++i)
     {
         for (size_t j = 0; j < slices; ++j)
@@ -60,6 +62,8 @@ Spectrum AudioProcessor::calculate_decay_rates()
     Spectrum decay_rates;
     for (auto& bin : transposed)
     {
+        if (bin.size() > 0)
+        {;} // just a placeholder
     }
     return decay_rates;
 }
@@ -72,7 +76,11 @@ void AudioProcessor::process(const Signal& data)
     auto [vrms_val, vpk_val] = process_volume(data);
     vrms = vrms_val;
     vpk = vpk_val;
-    history.push_front(spectrum(data));
-    calculate_decay_rates();
+    vector<Spectrum> ffts = spectrum(data);
+    {
+        lock_guard<mutex> lock(historyMutex);
+        history.insert(history.end(), ffts.begin(), ffts.end());
+        calculate_decay_rates();
+    }
 }
 
