@@ -15,7 +15,7 @@ struct Spectrum {
     // Constructors for convenience
     Spectrum() = default;
     virtual ~Spectrum() = default;
-    Spectrum(size_t size) : data(size) {}
+    Spectrum(size_t size) : data(size, 0.0f) {}
     Spectrum(const std::vector<float>& vec) : data(vec) {}
     Spectrum(std::vector<float>&& vec) : data(std::move(vec)) {}
 

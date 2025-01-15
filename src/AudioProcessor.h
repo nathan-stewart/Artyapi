@@ -19,9 +19,6 @@
 //      Calculates the  FFT
 //      Calculates the decay rates from the FFT data.
 //      Displays the results using a Plotter object.
-//
-// The FFT can run on a separate thread to improve performance, testing indicates it can
-// run around 36kfps on a 1.4Ghz AMD Ryzen 5 5500U
 
 std::pair<float,float>  process_volume(const Signal& data);
 using SpectralHistory = std::vector<std::vector<float>>;

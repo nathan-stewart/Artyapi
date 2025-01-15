@@ -4,6 +4,7 @@
 #include <numeric>
 #include <complex>
 #include <iostream>
+#include <future>
 
 
 const float LOGMIN = 1e-10f;
@@ -45,28 +46,75 @@ SpectralHistory transpose(const boost::circular_buffer<Spectrum>& history)
 
     size_t bins = history[0].size();
     size_t slices = history.size();
-    SpectralHistory transposed(bins, vector<float>(slices));
-    for (size_t i = 0; i < bins; ++i)
-    {
-        for (size_t j = 0; j < slices; ++j)
+    size_t pool = std::thread::hardware_concurrency(); // Use the number of available hardware threads
+    size_t chunk_size = bins / pool;
+    SpectralHistory transposed(bins, std::vector<float>(slices));
+
+    auto transpose_chunk = [&](size_t start, size_t end) {
+        for (size_t i = start; i < end; ++i)
         {
-            transposed[i][j] = history[j][i];
+            for (size_t j = 0; j < slices; ++j)
+            {
+                transposed[i][j] = history[j][i];
+            }
         }
+    };
+
+    std::vector<std::future<void>> futures;
+    for (size_t p = 0; p < pool; ++p)
+    {
+        size_t start = p * chunk_size;
+        size_t end = (p == pool - 1) ? bins : start + chunk_size;
+        futures.push_back(std::async(std::launch::async, transpose_chunk, start, end));
     }
+
+    for (auto& future : futures)
+    {
+        future.get();
+    }
+
     return transposed;
 }
+
 
 Spectrum AudioProcessor::calculate_decay_rates()
 {
     SpectralHistory transposed = transpose(history);
-    Spectrum decay_rates;
-    for (auto& bin : transposed)
+    Spectrum decay_rates(transposed.size());
+    static Spectrum ema_decay_rates(transposed.size());
+    const float alpha = 0.1f; // Smoothing factor for EMA
+
+    size_t pool = std::thread::hardware_concurrency(); // Use the number of available hardware threads
+    size_t chunk_size = transposed.size() / pool;
+
+    auto calculate_chunk = [&](size_t start, size_t end) {
+        for (size_t i = start; i < end; ++i)
+        {
+            if (transposed[i].size() > 1)
+            {
+                float decay_rate = transposed[i][0] - transposed[i][1];
+                ema_decay_rates[i] = alpha * decay_rate + (1 - alpha) * ema_decay_rates[i];
+                decay_rates[i] = ema_decay_rates[i];
+            }
+        }
+    };
+
+    std::vector<std::future<void>> futures;
+    for (size_t p = 0; p < pool; ++p)
     {
-        if (bin.size() > 0)
-        {;} // just a placeholder
+        size_t start = p * chunk_size;
+        size_t end = (p == pool - 1) ? transposed.size() : start + chunk_size;
+        futures.push_back(std::async(std::launch::async, calculate_chunk, start, end));
     }
+
+    for (auto& future : futures)
+    {
+        future.get();
+    }
+
     return decay_rates;
 }
+
 
 void AudioProcessor::process(const Signal& data)
 {
