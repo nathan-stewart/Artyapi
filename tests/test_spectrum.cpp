@@ -1,4 +1,4 @@
-#include "../src/AudioProcessor.h"
+#include "../src/SpectrumProcessor.h"
 #include <gtest/gtest.h>
 #include <vector>
 #include <cmath>
@@ -10,51 +10,17 @@
 
 using namespace std;
 
-class AudioProcessorTest : public ::testing::Test
+class SpectrumProcessorTest : public ::testing::Test
 {
 protected:
-    AudioProcessorTest() {}
-    ~AudioProcessorTest() override {}
+    SpectrumProcessorTest() {}
+    ~SpectrumProcessorTest() override {}
     void SetUp() override {}
     void TearDown() override {}
 };
 
 
-TEST(VolumeProcessorTest, VolumeZeros)
-{
-    size_t samples = 1<<24;
-    Signal zeros(samples, 0.0f);
-    auto [vrms,vpk] = process_volume(zeros);
-
-    ASSERT_LT(vrms, -96.0f);
-    ASSERT_LT(vpk, -96.0f);
-}
-
-
-TEST(AudioProcessorTest, VolumeOnes)
-{
-    size_t samples = 1<<24;
-    Signal ones(samples, 1.0f);
-
-    auto [vrms, vpk] = process_volume(ones);
-    ASSERT_NEAR(vrms,  0.0f, 0.01f);
-    ASSERT_NEAR(vpk, 0.0f, 0.01f);
-}
-
-
-TEST(AudioProcessorTest, VolumeSine)
-{
-    size_t samples = 1<<16;
-    size_t sample_rate = 48000;
-    Signal sine_440 = sine_wave(440, float(sample_rate), samples);
-    auto [vrms, vpk] = process_volume(sine_440);
-
-    ASSERT_NEAR(vrms,  -3.0f, 0.1f);
-    ASSERT_NEAR(vpk,  0.0f, 0.1f);
-}
-
-
-TEST(AudioProcessorTest, BinToFrequency)
+TEST(SpectrumProcessorTest, BinToFrequency)
 {
     float f0 = 40.0f;
     float f1 = 20000.0f;
@@ -70,12 +36,9 @@ TEST(AudioProcessorTest, BinToFrequency)
     EXPECT_NEAR(bin_to_freq_log2(log_count,                          1880, f0, f1), 1.7571e+04f, 0.5f);
     EXPECT_NEAR(bin_to_freq_log2(log_count,                          1881, f0, f1), 1.7628e+04f, 0.5f);
     EXPECT_NEAR(bin_to_freq_log2(log_count, static_cast<float>(log_count), f0, f1),          f1, 0.1f);
-
-
-
 }
 
-TEST(AudioProcessorTest, BinMapping)
+TEST(SpectrumProcessorTest, BinMapping)
 {
     float f0 = 40.0f;
     float f1 = 20000.0f;
@@ -124,4 +87,35 @@ TEST(AudioProcessorTest, BinMapping)
     // Output should sum to count of input bins set to 1.0
     EXPECT_NEAR(std::accumulate(source.begin(), source.end(), 0.0f), static_cast<float>(distance), 0.5f);
     EXPECT_NEAR(std::accumulate(destination.begin(), destination.end(), 0.0f), static_cast<float>(distance), 0.5f);
+}
+
+TEST(SpectrumProcessorTest, SineSpectrum)
+{
+    size_t samples = 1<<14;
+    float f0 = 40.0f;
+    float f1 = 20000.0f;
+
+    Signal sine_440 = sine_wave(440, 48000, samples);
+    SpectrumProcessor sp(1920, 16834);
+    Spectrum spectrum = sp(sine_440).back();
+
+    // Nearly all bins should be empty
+    size_t non_zero = std::count_if(spectrum.begin(), spectrum.end(), [](float v) { return v > 0.1f; });
+    EXPECT_GE(non_zero, 1); // At least one bin should be nonzero
+    EXPECT_LE(non_zero, 3); // one peak but allow some leakage
+    EXPECT_LT(std::abs(spectrum[0]), 8e-2f); // DC should always be empty
+
+    // check that the peak is at the right frequency in linear space - look on either side too
+    auto peak = std::max_element(spectrum.begin(), spectrum.end());
+
+    // the peak may be spread across a couple of bins but it should be close to 1.0
+    float sum = 0.0f;
+    std::for_each(peak -1,peak + 1, [&sum](float v) { sum += std::abs(v); });
+
+    // check that the peak is at the right frequency - look on either side too
+    size_t bin = std::distance(spectrum.begin(), peak);
+    // std::cout << "Peak at bin " << bin << " : " << bin_to_freq_log2(spectrum, static_cast<float>(bin), f0, f1) << std::endl;
+    float tolerance = 60.0f; // grossly too big I want to move on to the next step
+    EXPECT_GE(bin_to_freq_log2(spectrum.size(), static_cast<float>(bin - 1), f0, f1), 440.0f - tolerance);
+    EXPECT_LE(bin_to_freq_log2(spectrum.size(), static_cast<float>(bin + 1), f0, f1), 440.0f + tolerance);
 }

@@ -100,13 +100,13 @@ SpectrumProcessor::SpectrumProcessor(size_t window_size, size_t log_bin_count)
 
 SpectrumProcessor::~SpectrumProcessor()
 {
-    fftwf_cleanup_threads();
     fftwf_destroy_plan(plan);
     fftwf_free(fftw_in);
     fftwf_free(fftw_out);
     fftw_in = nullptr;
     fftw_out = nullptr;
     plan = nullptr;
+    fftwf_cleanup_threads();
 }
 
 void nan_check(const Signal& data, string message)

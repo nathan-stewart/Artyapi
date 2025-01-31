@@ -110,6 +110,20 @@ add_executable(TestMain
   src/Plotter.cpp
 )
 
+# Add the test executable
+add_executable(TestSpectrum
+  tests/test_util.cpp
+  tests/test_spectrum.cpp
+  tests/test_filters.cpp
+  tests/test_circularbuffer.cpp
+  tests/test_audiosource.cpp
+  src/AudioProcessor.cpp
+  src/Filters.cpp
+  src/SpectrumProcessor.cpp
+  src/AudioSource.cpp
+  src/Plotter.cpp
+)
+
 # Link the FFTW3 and Google Test libraries to the test executable
 target_link_libraries(TestMain
   ${Boost_IOSTREAMS_LIBRARY}
@@ -117,10 +131,25 @@ target_link_libraries(TestMain
   ${Boost_FILESYSTEM_LIBRARY}
   ${PORTAUDIO_LIBRARY}
   ${SNDFILE_LIBRARIES}
-  ${FFTW3_LIBRARIES}
-  ${FFTW3F_THREADS_LIBRARY}
+  gtest
+  gtest_main
+  fftw3f
+  fftw3f_threads
   SDL2::SDL2
-  gtest_main)
+)
+
+target_link_libraries(TestSpectrum
+  ${Boost_IOSTREAMS_LIBRARY}
+  ${Boost_SYSTEM_LIBRARY}
+  ${Boost_FILESYSTEM_LIBRARY}
+  ${PORTAUDIO_LIBRARY}
+  ${SNDFILE_LIBRARIES}
+  gtest
+  gtest_main
+  fftw3f
+  fftw3f_threads
+  SDL2::SDL2
+)
 
 # Add the test to CTest
 add_test(NAME TestMain COMMAND TestMain)
