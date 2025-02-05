@@ -149,8 +149,8 @@ vector<Spectrum> SpectrumProcessor::operator()(const Signal& data)
         }
 
         apply_window(window, slice);
-        slice = filter(hpf, raw);
-        slice = filter(lpf, raw);
+        slice = filter(hpf, slice);
+        slice = filter(lpf, slice);
         nan_check(raw, "NaN after LPF");
 
         std::copy(slice.begin(), slice.end(), fftw_in);
