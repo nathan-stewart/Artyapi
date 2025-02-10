@@ -27,7 +27,7 @@ pair<float,float> process_volume(const Signal& data)
 }
 
 MultiSpectra::MultiSpectra(const Spectrum& s)
-: spectrum(s.size()) 
+: spectrum(s.size())
 {
     for (const float& v : s)
     {
@@ -42,7 +42,7 @@ AudioProcessor::AudioProcessor(size_t fft_bins, size_t fft_history, size_t windo
 , vrms(-96.0f)
 , vpk(-96.0f)
 , plot_history(fft_history)
-, ema(Spectrum(fft_bins, 0.0f))
+, ema(Spectrum(fft_bins))
 {
 }
 
