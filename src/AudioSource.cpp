@@ -100,7 +100,7 @@ AudioCapture::AudioCapture(std::string device_name)
     err = Pa_OpenStream(&stream,
                         &input_params,
                         nullptr, // no output parameters
-                        sample_rate,
+                        static_cast<double>(sample_rate),
                         buffer.size(), // frames per buffer
                         paClipOff, // no clipping
                         paCallback, // callback function
@@ -163,7 +163,8 @@ AudioFileHandler::AudioFileHandler(std::string name)
     {
         throw std::runtime_error("Invalid file or directory: " + path.string());
     }
-    last_read = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+    last_read = std::chrono::duration_cast<std::chrono::microseconds>(
+                    std::chrono::steady_clock::now().time_since_epoch());
 }
 
 
@@ -190,9 +191,10 @@ std::vector<Filepath> AudioFileHandler::get_wav_in_dir() const
 
 Signal AudioFileHandler::read()
 {
-    auto now = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
-    auto elapsed = now - last_read;
-    sf_count_t frames_to_read = static_cast<sf_count_t>(max(static_cast<sf_count_t>(sample_rate) * elapsed / 1000000, 500UL));
+    std::chrono::microseconds now = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch());
+    float elapsed = static_cast<float>((now - last_read).count()) / 1e6f;
+    size_t frames = static_cast<size_t>(sample_rate * elapsed);
+    size_t frames_to_read = max(frames, 500UL);
     Signal signal(frames_to_read);
 
     last_read = now;
@@ -262,7 +264,7 @@ WavFile::WavFile(const Filepath& path)
     {
         throw std::runtime_error("Error opening file: " + filepath.string());
     }
-    total_frames = info.frames;
+    total_frames = static_cast<size_t>(info.frames);
     current_position = 0;
 }
 
@@ -275,12 +277,12 @@ WavFile::~WavFile()
 
 Signal WavFile::read(size_t frames_to_read)
 {
-    sf_count_t frames_remaining = total_frames - current_position;
-    frames_to_read = min(frames_remaining, static_cast<sf_count_t>(frames_to_read));
+    size_t frames_remaining = total_frames - current_position;
+    frames_to_read = min(frames_remaining, frames_to_read);
     Signal signal(frames_to_read);
 
-    sf_seek(infile, current_position, SEEK_SET);
-    auto frames_read = static_cast<size_t>(sf_readf_float(infile, signal, frames_to_read));
+    sf_seek(infile, static_cast<sf_count_t>(current_position), SEEK_SET);
+    size_t frames_read = static_cast<size_t>(sf_readf_float(infile, signal, static_cast<sf_count_t>(frames_to_read)));
     current_position += frames_read;
     if (frames_read < frames_to_read)
     {

@@ -14,12 +14,12 @@ class AudioSource
 {
 public:
     AudioSource(std::string) : sample_rate(48000) {}
-    ~AudioSource() = default;
+    virtual ~AudioSource() = default;
     virtual Signal read() = 0;
 
 protected:
     float  sample_rate;
-    size_t last_read;
+    std::chrono::microseconds last_read;
 };
 
 
@@ -53,11 +53,11 @@ public:
     void rewind() { current_position = 0; }
 
 private:
-    Filepath    filepath;
-    SNDFILE    *infile;
-    sf_count_t  sample_rate;
-    sf_count_t  total_frames;
-    sf_count_t  current_position;
+    Filepath filepath;
+    SNDFILE *infile;
+    float    sample_rate;
+    size_t   total_frames;
+    size_t   current_position;
 };
 
 

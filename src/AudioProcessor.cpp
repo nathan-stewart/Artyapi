@@ -26,12 +26,12 @@ pair<float,float> process_volume(const Signal& data)
     return make_pair(20 * log10(rms + LOGMIN), 20 * log10(pk + LOGMIN));
 }
 
-MultiSpectra::MultiSpectra(const Spectrum& s);
-: spectrum(.size()) 
+MultiSpectra::MultiSpectra(const Spectrum& s)
+: spectrum(s.size()) 
 {
-    for (const float& bin_value : spectrum)
+    for (const float& v : s)
     {
-        spectrum.push_back(Bin(bin_value));
+        spectrum.push_back(Bin(v));
     }
 }
 
