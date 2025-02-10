@@ -21,8 +21,20 @@
 //      Displays the results using a Plotter object.
 
 std::pair<float,float>  process_volume(const Signal& data);
-using SpectralHistory = std::vector<std::vector<float>>;
-SpectralHistory transpose(const std::vector<std::vector<float>>& history);
+
+struct Bin
+{
+    Bin(float i = 0.0f) : intensity(i), decay(0.0f) {}
+    float intensity;
+    float decay;
+};
+
+struct MultiSpectra
+{
+    MultiSpectra(const Spectrum& s);
+    std::vector<Bin> spectrum;
+};
+using SpectralHistory = boost::circular_buffer<MultiSpectra>;
 
 class AudioProcessor
 {
@@ -32,14 +44,14 @@ public:
     ~AudioProcessor();
 
     void process(const Signal& data);
-    Spectrum calculate_decay_rates();
 
 private:
-    mutable std::mutex               historyMutex;
-    SpectrumProcessor                spectrum;
-    Plotter                          plotter;
-
-    float                            vrms;
-    float                            vpk;
-    boost::circular_buffer<Spectrum> history;
+    mutable std::mutex historyMutex;
+    SpectrumProcessor  spectrum_processor;
+    Plotter            plotter;
+    float              vrms = -96.0f;
+    float              vpk  = -96.0f;
+    SpectralHistory    plot_history;
+    float              alpha = 0.9f;
+    Spectrum           ema;
 };

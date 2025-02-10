@@ -125,3 +125,34 @@ TEST(AudioProcessorTest, BinMapping)
     EXPECT_NEAR(std::accumulate(source.begin(), source.end(), 0.0f), static_cast<float>(distance), 0.5f);
     EXPECT_NEAR(std::accumulate(destination.begin(), destination.end(), 0.0f), static_cast<float>(distance), 0.5f);
 }
+
+TEST(AudioProcessorTest, Decay)
+{
+    // Test calculate_decay_rates - takes a spectral history and calculates decay rates
+
+    boost::circular_buffer<Spectrum> history;
+     calculate decay rates
+Spectrum calculate_decay_rates(const SpectralHistory& spectral_history, size_t fft_bins, size_t fft_history) {
+    Spectrum decay_rates(fft_bins, 0.0f);
+
+    for (size_t bin = 0; bin < fft_bins; ++bin) {
+        float sum = 0.0f;
+        for (size_t history = 0; history < fft_history; ++history) {
+            sum += spectral_history[history][bin];
+        }
+        decay_rates[bin] = sum / static_cast<float>(fft_history);
+    }
+
+    return decay_rates;
+}
+
+void AudioProcessor::process(const Signal& data)
+{
+    SpectralHistory hist_copy;
+    vector<Spectrum> ffts = spectrum(data);
+    {
+        lock_guard<mutex> lock(historyMutex);
+        history.insert(history.end(), ffts.begin(), ffts.end());
+        current_rates = calculate_decay_rates(hist_copy, Spectrum& decay);
+    }
+}
