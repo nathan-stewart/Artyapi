@@ -119,15 +119,15 @@ void Plotter::plotVolume(float rms, float pk)
     SDL_RenderPresent(renderer);
 }
 
-void Plotter::plotSpectrum(const vector<pair<float,float>>& spectrum)
+void Plotter::plotSpectrum(const SpectralHistory& spectral_history)
 {
     // enforce width and range constraints
-    if (spectrum.size() != width || 
-        any_of(spectrum.begin(), spectrum.end(), [](const auto& p) { return p.first < 0.0f || p.first > 1.0f || p.second < 0.0f || p.second > 1.0f; }))
+    if (spectral_history.size() != width ||
+        any_of(spectral_history.begin(), spectral_history.end(), [](const auto& p) { return p.first < 0.0f || p.first > 1.0f || p.second < 0.0f || p.second > 1.0f; }))
     {
         throw invalid_argument("Invalid spectrum");
     }
-     
+
     // transform vector of pair<float,float> to vector of SDL_Color
     vector<SDL_Color> colorized;
     for (const auto& [bin, decay] : spectrum)

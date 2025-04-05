@@ -1,4 +1,3 @@
-
 #include "AudioProcessor.h"
 #include <cmath>
 #include <algorithm>
@@ -6,7 +5,8 @@
 #include <complex>
 #include <iostream>
 #include <future>
-
+#include <vector>
+#include <mutex>
 
 const float LOGMIN = 1e-10f;
 using namespace std;
@@ -42,7 +42,8 @@ AudioProcessor::AudioProcessor(size_t fft_bins, size_t fft_history, size_t windo
 , vrms(-96.0f)
 , vpk(-96.0f)
 , plot_history(fft_history)
-, ema(Spectrum(fft_bins))
+, decay_rate(Spectrum(fft_bins))
+, previous_fft(fft_bins, 0.0f)
 {
 }
 
@@ -62,13 +63,24 @@ void AudioProcessor::process(const Signal& data)
     vector<Spectrum> ffts = spectrum_processor(data);
     for (auto& fft : ffts)
     {
+        const MultiSpectra& previous_fft = plot_history.back().spectrum;
         MultiSpectra spectra(fft);
         for (size_t i = 0; i < fft.size(); ++i)
         {
-            ema[i] = alpha * ema[i] + (1.0f - alpha) * fft[i];
-            spectra.spectrum[i].decay = ema[i];
+            if (previous_fft[i].intensity > 0.0f && fft[i] < previous_fft[i])
+            {
+                float decay = (previous_fft[i] - fft[i]) / previous_fft[i];
+                float time_constant = -frame_duration_ms / std::log(1.0f - decay);
+                decay_rate[i] = time_constant;
+            }
+            spectra.spectrum[i].decay = decay_rate[i];
         }
     }
     lock_guard<mutex> lock(historyMutex);
     plot_history.insert(plot_history.end(), ffts.begin(), ffts.end());
+    if (plotter)
+    {
+        plotter.plotVolume(vrms, vpk);
+        plotter.plotSpectrum(plot_history);
+    }
 }

@@ -53,5 +53,6 @@ private:
     float              vpk  = -96.0f;
     SpectralHistory    plot_history;
     float              alpha = 0.9f;
-    Spectrum           ema;
+    Spectrum           decay_rate;
+    float              frame_duration_ms = 1.33f; // Frame duration in milliseconds
 };
