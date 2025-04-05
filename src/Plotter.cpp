@@ -163,20 +163,12 @@ void Plotter::plotSpectrum(const vector<pair<float,float>>& spectrum)
         }
     }
 
-    // Unlock the texture
     SDL_UnlockTexture(texture);
-
-    // Clear the renderer
-    clear();
-
-    // Copy the texture to the renderer
+    clear(); // Clear the renderer
     SDL_RenderCopy(renderer, texture, nullptr, nullptr);
-
-    // Present the renderer
     SDL_RenderPresent(renderer);
-
-    // Destroy the texture
-    SDL_DestroyTexture(texture);}
+    SDL_DestroyTexture(texture);
+}
 
 void Plotter::clear()
 {

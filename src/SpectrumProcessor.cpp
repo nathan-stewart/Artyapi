@@ -69,6 +69,10 @@ SpectrumProcessor::SpectrumProcessor(size_t window_size, size_t log_bin_count)
 , lin_fft_bins(static_cast<size_t>(window_size / 2 + 1))
 , log_fft_bins(log_bin_count)
 {
+    if (sample_rate != 48000.0f) {
+        throw std::runtime_error("Filter coefficients are designed for a 48 kHz sample rate.");
+    }
+
     std::lock_guard<std::mutex> lock(buffer_mutex);
     bin_mapping = precompute_bin_mapping(lin_fft_bins, log_fft_bins, f0, f1);
 
@@ -126,13 +130,14 @@ vector<Spectrum> SpectrumProcessor::operator()(const Signal& data)
     {
         std::lock_guard<std::mutex> lock(buffer_mutex);
         // Append data to the circular buffer
-        raw.insert(raw.end(), data.begin(), data.end());
+        raw.insert(raw.end(), data.begin(), data.begin() + static_cast<std::vector<float>::difference_type>(data.size()));
 
         // first time through if buffer isn't full
         // fill it up with copies of what we have
         while (raw.size() < raw.capacity())
-        {
-            raw.insert(raw.end(), data.begin(), data.begin() + data.size());
+        {        
+            raw.insert(raw.end(), data.begin(), 
+                data.begin() + static_cast<std::vector<float>::difference_type>(data.size()));
         }
     }
 
@@ -145,7 +150,7 @@ vector<Spectrum> SpectrumProcessor::operator()(const Signal& data)
         // get a copy of the circular buffer for the window
         {
             std::lock_guard<std::mutex> lock(buffer_mutex);
-            copy(raw.begin(), raw.begin() + window.size(), slice.begin());
+            copy(raw.begin(), raw.begin() + static_cast<std::vector<float>::difference_type>(window.size()), slice.begin());
         }
 
         apply_window(window, slice);
